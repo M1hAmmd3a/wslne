@@ -1,4 +1,43 @@
+/* ══════════════════════════════════════════════════
+   منصة التاكسي — طولكرم | app.js
+   Firebase Auth + Realtime Database
+   ══════════════════════════════════════════════════ */
 
+import { initializeApp }          from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getDatabase, ref, set, get, push, onValue, update, remove, off }
+                                   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+                                   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
+/* ══════════════════════════════════════════════════
+   TENANT MAP  — uid → tenantId
+   ضع هنا الـ UID من Firebase Console
+   ══════════════════════════════════════════════════ */
+const UID_TO_TENANT = {
+  'Xk9mQ3rT7vL2pN8wY5cF1bH6eJ4aD0s': 'tk1',
+  'Rn5wK8jP2mG7fC4tA1xV9hE3bL6qZ0y': 'tk2',
+  'Wm4bH7nQ1sJ9kR3eX6vT2cF8pL5yA0d': 'tk3',
+  'Yz6tN2wB8cK4mJ1rG9xP5hD3vL7qF0e': 'tk4',
+  'Jc3rP7mX1nB9kW4eT6vH2fQ8yL5sA0g': 'tk5',
+  'Lq8vF4tK2xM6pN1bG9wR3hC7eJ5yD0a': 'tk6',
+  'Bt5nW9yJ3mL7rK1pX4cG8vH2fQ6eA0s': 'tk7',
+  'Hd2mC6xR4wN8yP1bJ9kT5vF3eG7qL0z': 'tk8',
+  'Pf7kT3bW9nJ2mR6xC1yG4vH8eL5qA0w': 'tk9',
+  'Gv1xB8pK5mN3rW7yJ4cT9hF2eQ6bL0d': 'tk10',
+  'Ns4yM7wC2bR9kP6xJ1tH5vG3fL8eA0q': 'tk11',
+  'Qe9bL5xN1mK4wR7yT2cP8hJ6vF3gA0d': 'tk12',
+  'Cv3wH8mJ6xB2yN5rT9kG1pF4eL7qA0s': 'tk13',
+  'Fx6pT2yW9mK1bR4nJ7cH3vG8eQ5aL0z': 'tk14',
+  'Mp1nG7xB4yR8kW2cJ6tH9vF5eL3qA0w': 'tk15',
+  'Ek8yJ3mP5xN1bW6rT2cG9hF4vL7qA0d': 'tk16',
+  'Vb2rC9wM4kJ7xP1yN8tH5vG3fL6eA0q': 'tk17',
+  'Tw7mF1xH6yK3bN9rJ4cP2vG8eL5qA0s': 'tk18',
+  'Ah5kW4mJ8xN2yR6bT1cH9vF7eG3qL0z': 'tk19',
+  'Dq3xP9bK7mW1yJ5rT8cN2hG6vF4eL0a': 'tk20',
+  'Yr8cN5wT3mK9xB1yJ6rH4vP2fG7eL0q': 'tk21',
+  'Sk2mH7xR4yW6bN1cJ9tG3vP8fL5eA0d': 'tk22',
+  'Gb6yJ1mP8xK3wN5rT2cH9vF7eG4qL0s': 'tk23',
+  'Nw4rT8bW2mJ5xY1cK9hP6vG3fL7eA0q': 'tk24',
   'Lm9xB3yK7wN4rJ1cT8hG5vP2fE6qA0d': 'tk25',
 };
 
