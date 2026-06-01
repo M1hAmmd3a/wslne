@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>منصة التاكسي — طولكرم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ════════ TENANT GATE ════════ -->
+<div id="PTenantGate" style="display:none;position:fixed;inset:0;z-index:9000;overflow-y:auto">
+  <div style="position:absolute;inset:0;background:linear-gradient(145deg,#0F172A 0%,#1E3A5F 40%,#1D4ED8 100%)"></div>
+  <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px);background-size:32px 32px;pointer-events:none"></div>
+  <div style="position:absolute;top:-180px;right:-100px;width:500px;height:500px;background:radial-gradient(circle,rgba(29,78,216,.3),transparent 70%);pointer-events:none"></div>
+
+  <div style="position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+    <div style="width:100%;max-width:420px">
+
+      <!-- Logo -->
+      <div style="text-align:center;margin-bottom:32px">
+        <div style="width:90px;height:90px;background:linear-gradient(135deg,#D97706,#B45309);border-radius:26px;display:flex;align-items:center;justify-content:center;font-size:44px;margin:0 auto 18px;box-shadow:0 12px 32px rgba(217,119,6,.4)">🚕</div>
+        <div style="font-family:'Tajawal',sans-serif;font-size:28px;font-weight:900;color:#fff">منصة التاكسي</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.55);margin-top:6px;font-weight:600">طولكرم — نظام إدارة مكاتب التاكسي</div>
+      </div>
+
+      <!-- Card -->
+      <div style="background:rgba(255,255,255,.07);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:32px;box-shadow:0 24px 48px rgba(0,0,0,.3)">
+
+        <div id="tg-role-screen">
+
+          <div style="text-align:center;margin-bottom:20px">
+            <div style="font-family:'Tajawal',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">اختر طريقة دخولك</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.45)">أدخل رمز مكتبك أولاً</div>
+          </div>
+
+          <!-- ── حقل رمز المكتب ── -->
+          <div style="margin-bottom:18px">
+            <label style="display:block;font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px;text-align:right">
+              <i class="fas fa-building" style="margin-left:5px"></i> رمز المكتب
+            </label>
+            <div style="display:flex;gap:8px">
+              <input id="gate-office-code" type="text" maxlength="6"
+                placeholder="مثال: tk1"
+                style="flex:1;padding:13px 16px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);border-radius:12px;color:#fff;font-size:16px;font-weight:800;text-align:center;letter-spacing:3px;outline:none;font-family:'Cairo',sans-serif;transition:border-color .2s"
+                oninput="this.value=this.value.toLowerCase().trim();gateClearErr()"
+                onkeydown="if(event.key==='Enter')gateCheckCode()">
+              <button onclick="gateCheckCode()" id="gate-check-btn"
+                style="padding:13px 18px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);border-radius:12px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;white-space:nowrap;flex-shrink:0;transition:all .2s">
+                تحقق
+              </button>
+            </div>
+
+            <!-- بطاقة التحقق الناجح -->
+            <div id="gate-verified"
+              style="display:none;margin-top:10px;padding:10px 14px;background:rgba(5,150,105,.2);border:1.5px solid rgba(52,211,153,.4);border-radius:10px;align-items:center;gap:8px">
+              <div style="width:32px;height:32px;background:rgba(52,211,153,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🏢</div>
+              <div style="flex:1">
+                <div id="gate-office-name-label" style="font-size:14px;font-weight:800;color:#34D399">مكتب التكسي</div>
+                <div style="font-size:11px;color:rgba(52,211,153,.7);margin-top:1px">✅ تم التحقق — اختر طريقة دخولك</div>
+              </div>
+              <i class="fas fa-check-circle" style="color:#34D399;font-size:18px;flex-shrink:0"></i>
+            </div>
+
+            <!-- رسالة الخطأ -->
+            <div id="gate-err" style="text-align:center;font-size:12px;color:#FCA5A5;font-weight:700;margin-top:8px;min-height:18px"></div>
+          </div>
+
+          <!-- ── أزرار الدخول (مخفية حتى التحقق) ── -->
+          <div id="gate-btns" style="display:none;flex-direction:column;gap:10px">
+
+            <button onclick="gateEnter('driver')"
+              style="width:100%;padding:14px 18px;background:linear-gradient(135deg,#1D4ED8,#1E40AF);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:12px;font-family:'Cairo',sans-serif;transition:all .2s">
+              <div style="width:38px;height:38px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🚕</div>
+              <div style="text-align:right">
+                <div style="font-size:14px;font-weight:800">دخول كسائق</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.6)">استقبال الطلبات وتتبع الشيفت</div>
+              </div>
+            </button>
+
+            <button onclick="gateEnter('receiver')"
+              style="width:100%;padding:14px 18px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:12px;font-family:'Cairo',sans-serif;transition:all .2s">
+              <div style="width:38px;height:38px;background:rgba(255,255,255,.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">📥</div>
+              <div style="text-align:right">
+                <div style="font-size:14px;font-weight:800">دخول كمستقبل</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.5)">استقبال الطلبات وإرسالها</div>
+              </div>
+            </button>
+
+            <button onclick="gateEnter('supervisor')"
+              style="width:100%;padding:14px 18px;background:linear-gradient(135deg,#D97706,#B45309);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:12px;font-family:'Cairo',sans-serif;transition:all .2s">
+              <div style="width:38px;height:38px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">👨‍💼</div>
+              <div style="text-align:right">
+                <div style="font-size:14px;font-weight:800">دخول كمشرف</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.7)">إدارة الطلبات والسائقين</div>
+              </div>
+            </button>
+
+            <!-- زر تغيير الرمز -->
+            <button onclick="gateReset()"
+              style="width:100%;padding:9px;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:10px;color:rgba(255,255,255,.4);font-size:11px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif;margin-top:2px">
+              <i class="fas fa-arrow-right"></i> تغيير رمز المكتب
+            </button>
+
+          </div>
+
+          <!-- ── زر الخريطة العامة ── -->
+          <div style="margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,.1)">
+            <button onclick="openPubPageDirect()"
+              style="width:100%;padding:14px;background:rgba(5,150,105,.25);border:1.5px solid rgba(5,150,105,.4);border-radius:14px;color:#34D399;font-size:14px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;display:flex;align-items:center;justify-content:center;gap:9px;transition:all .2s">
+              <i class="fas fa-map-location-dot"></i> اطلب تكسي — خريطة المكاتب
+            </button>
+            <div style="text-align:center;font-size:11px;color:rgba(255,255,255,.3);margin-top:10px">لا تحتاج حساباً • للمستخدمين العامة</div>
+          </div>
+
+        </div><!-- /tg-role-screen -->
+
+      </div><!-- /card -->
+      <div style="text-align:center;margin-top:20px;font-size:11px;color:rgba(255,255,255,.2)">منصة التاكسي © 2025 — طولكرم</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ LANDING ════════ -->
+<div id="PL">
+  <div class="land-bg"></div>
+  <div class="land-grid"></div>
+  <nav class="lnav">
+    <div class="logo">
+      <div class="lgic">🚕</div>
+      <div><div class="lgn1">منصة التاكسي</div><div class="lgn2">منصة الطلبات</div></div>
+    </div>
+    <div class="lnav-btns">
+      <button class="btn-outline" onclick="IS_RECV=true;OM('Msup')"><i class="fas fa-inbox"></i> المستقبل</button>
+      <button class="btn-primary" onclick="IS_RECV=false;OM('Msup')"><i class="fas fa-shield-halved"></i> المشرف</button>
+    </div>
+  </nav>
+  <div class="hero">
+    <div class="hero-pill"><i class="fas fa-taxi"></i> نظام إدارة مكاتب التاكسي — طولكرم</div>
+    <h1 class="hero-title"><span class="hl">منصة الطلبات</span><br>منصة التاكسي</h1>
+    <p class="hero-sub">نظام إدارة متكامل لمكاتب التاكسي • تتبع مباشر • إشعارات فورية • كل مكتب بمساحته الخاصة</p>
+    <div class="hero-cards">
+      <div class="hcard hd" onclick="OM('Mdriver')">
+        <div class="hcic">🚕</div>
+        <div class="hctitle">سائق التكسي</div>
+        <div class="hcdesc">استقبل الطلبات وتابع حالتك وابدأ شيفتك</div>
+        <button class="hcbtn">دخول السائق</button>
+      </div>
+      <div class="hcard hs" onclick="IS_RECV=false;OM('Msup')">
+        <div class="hcic">👨‍💼</div>
+        <div class="hctitle">مشرف المكتب</div>
+        <div class="hcdesc">أدر الطلبات وتابع السائقين على الخريطة المباشرة</div>
+        <button class="hcbtn">دخول المشرف</button>
+      </div>
+      <div class="hcard" style="border-color:var(--green-m);background:linear-gradient(145deg,var(--green-l),#fff);cursor:pointer" onclick="openPubPage()">
+        <div class="hcic" style="background:linear-gradient(145deg,#ECFDF5,#D1FAE5);box-shadow:0 6px 18px rgba(5,150,105,.18)">🗺️</div>
+        <div class="hctitle" style="color:var(--green)">اطلب تكسي</div>
+        <div class="hcdesc">تصفّح مكاتب التاكسي على الخريطة وأرسل طلبك مباشرةً بدون تسجيل</div>
+        <button class="hcbtn" style="background:var(--green);color:#fff">فتح الخريطة</button>
+      </div>
+    </div>
+    <div class="hero-feats">
+      <div class="hfeat"><i class="fas fa-check-circle"></i> خريطة مباشرة</div>
+      <div class="hfeat"><i class="fas fa-check-circle"></i> تحديث GPS كل 90 ثانية</div>
+      <div class="hfeat"><i class="fas fa-check-circle"></i> إشعارات فورية</div>
+      <div class="hfeat"><i class="fas fa-check-circle"></i> استهلاك منخفض</div>
+      <div class="hfeat"><i class="fas fa-check-circle"></i> تقارير يومية</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ PUBLIC USER PAGE ════════ -->
+<div id="PU" style="display:none;flex-direction:column;min-height:100vh;padding-top:58px">
+  <nav class="pub-nav">
+    <div class="logo">
+      <div class="lgic">🚕</div>
+      <div><div class="lgn1">منصة التاكسي</div><div class="lgn2">اطلب تكسي الآن</div></div>
+    </div>
+    <button class="btn-outline" onclick="closePubPage()" style="margin-right:auto;padding:7px 14px;font-size:12px">
+      <i class="fas fa-arrow-right"></i> رجوع
+    </button>
+  </nav>
+  <div class="pub-info-bar">
+    <i class="fas fa-info-circle"></i>
+    اضغط على مكتب التاكسي على الخريطة لإرسال طلبك مباشرةً
+  </div>
+  <div style="flex:1;position:relative;min-height:0">
+    <div id="publicMap" style="width:100%;height:calc(100vh - 58px - 40px)"></div>
+    <div style="position:absolute;bottom:16px;right:16px;z-index:400;background:rgba(255,255,255,.95);border:1px solid #E2E8F0;border-radius:12px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:11px;box-shadow:0 4px 14px rgba(0,0,0,.1)">
+      <div style="font-weight:800;font-size:12px;color:#0F172A;margin-bottom:6px;display:flex;align-items:center;gap:5px"><span>🚕</span> مكاتب التاكسي</div>
+      <div style="font-size:10px;color:#64748B;line-height:1.8">• اضغط على أيقونة المكتب<br>• اضغط «اطلب تكسي»<br>• أدخل بياناتك وأرسل</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ USER REQUEST MODAL ════════ -->
+<div class="ov" id="MuserReq" style="z-index:6000">
+  <div class="mdl" style="max-width:440px">
+    <button class="mclose" onclick="CM('MuserReq')"><i class="fas fa-times"></i></button>
+    <div class="mhd">
+      <div class="mic" style="background:var(--amber-l);border:1px solid var(--amber-m)"><i class="fas fa-taxi" style="color:var(--amber)"></i></div>
+      <div>
+        <div class="mtitle" id="userReqOfficeName">طلب تكسي</div>
+        <div class="msub" id="userReqOfficeAddr">أدخل بياناتك لإرسال الطلب</div>
+      </div>
+    </div>
+    <div class="al" id="al-userreq"></div>
+    <div style="background:var(--green-l);border:1px solid var(--green-m);border-radius:var(--r);padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--green);font-weight:700;display:flex;align-items:center;gap:7px">
+      <i class="fas fa-shield-halved"></i> طلبك يصل مباشرة للمكتب ويُرسل لأقرب سائق
+    </div>
+    <div class="fg"><label class="fl"><i class="fas fa-phone"></i> رقم هاتفك</label><input type="tel" class="fi" id="ur-phone" placeholder="05xxxxxxxx" style="font-size:15px;letter-spacing:1px"></div>
+    <div class="fg"><label class="fl"><i class="fas fa-map-marker-alt"></i> موقعك الحالي</label><input type="text" class="fi" id="ur-from" placeholder="مثال: شارع فلسطين، بجانب البنك"></div>
+    <div class="fg"><label class="fl"><i class="fas fa-flag-checkered"></i> وجهتك</label><input type="text" class="fi" id="ur-to" placeholder="مثال: مستشفى طولكرم"></div>
+    <input type="hidden" id="ur-office-id">
+    <input type="hidden" id="ur-office-tenant">
+    <button class="bp" style="background:var(--green);font-size:15px;padding:13px" onclick="submitUserReq()"><i class="fas fa-paper-plane"></i> إرسال الطلب</button>
+    <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:10px"><i class="fas fa-clock" style="margin-left:3px"></i> يصلك تحديث فوري بحالة طلبك</div>
+  </div>
+</div>
+
+<!-- ════════ USER TRACKING SCREEN ════════ -->
+<div class="user-track-screen" id="UserTrackScreen">
+  <div class="track-header">
+    <div>
+      <div style="font-family:'Tajawal',sans-serif;font-size:18px;font-weight:900;color:var(--text)">تتبع طلبك 🚕</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px" id="trackOfficeLabel">جاري التحميل...</div>
+    </div>
+    <button id="trackCancelBtn" onclick="userCancelReq()"
+      style="padding:9px 16px;background:var(--red-l);border:1.5px solid var(--red-m);border-radius:10px;color:var(--red);font-size:12px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif;display:flex;align-items:center;gap:6px">
+      <i class="fas fa-times"></i> تراجع عن الطلب
+    </button>
+  </div>
+  <div class="track-steps">
+    <div class="track-step"><div class="track-step-icon" id="ts-icon-0"><i class="fas fa-paper-plane"></i></div><div class="track-step-label">تم الإرسال</div></div>
+    <div class="track-step"><div class="track-step-line" id="ts-line-1"></div><div class="track-step-icon" id="ts-icon-1"><i class="fas fa-check"></i></div><div class="track-step-label">قُبل الطلب</div></div>
+    <div class="track-step"><div class="track-step-line" id="ts-line-2"></div><div class="track-step-icon" id="ts-icon-2"><i class="fas fa-map-pin"></i></div><div class="track-step-label">التكسي قريب</div></div>
+    <div class="track-step"><div class="track-step-line" id="ts-line-3"></div><div class="track-step-icon" id="ts-icon-3"><i class="fas fa-taxi"></i></div><div class="track-step-label">وصل التكسي</div></div>
+  </div>
+  <div class="track-status-banner tsb-waiting" id="trackStatusBanner">⏳ في انتظار قبول الطلب...</div>
+  <div class="track-info-box">
+    <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;font-family:'Tajawal',sans-serif">تفاصيل طلبك</div>
+    <div style="font-size:12px;color:var(--text2);display:flex;flex-direction:column;gap:7px">
+      <div style="display:flex;gap:8px;align-items:center"><i class="fas fa-phone" style="color:var(--primary);width:16px;text-align:center"></i><span id="trackPhone">-</span></div>
+      <div style="display:flex;gap:8px;align-items:flex-start"><i class="fas fa-map-marker-alt" style="color:var(--amber);width:16px;text-align:center;margin-top:2px"></i><span id="trackDetails">-</span></div>
+    </div>
+  </div>
+  <div id="trackArrivedSection" style="display:none;padding:0 20px 16px">
+    <div style="background:var(--amber-l);border:1px solid var(--amber-m);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--amber);font-weight:700;margin-bottom:10px;text-align:center">
+      <i class="fas fa-exclamation-circle"></i> اضغط فقط عند وصول التاكسي إليك فعلياً
+    </div>
+    <button onclick="confirmTaxiArrived()"
+      style="width:100%;padding:16px;background:var(--green);border:none;border-radius:var(--rl);color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:'Cairo',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 14px rgba(5,150,105,.3)">
+      <i class="fas fa-check-circle"></i> ✅ وصل التاكسي — تم!
+    </button>
+  </div>
+  <div id="trackRatingSection" style="display:none;padding:0 20px 24px">
+    <div style="text-align:center;margin-bottom:12px">
+      <div style="font-family:'Tajawal',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:4px">🎉 شكراً لاستخدامك خدمتنا!</div>
+      <div style="font-size:13px;color:var(--text3)">كيف كانت تجربتك مع هذا المكتب؟</div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;margin:16px 0;direction:ltr">
+      <span class="rating-star" onclick="setRating(1)">⭐</span>
+      <span class="rating-star" onclick="setRating(2)">⭐</span>
+      <span class="rating-star" onclick="setRating(3)">⭐</span>
+      <span class="rating-star" onclick="setRating(4)">⭐</span>
+      <span class="rating-star" onclick="setRating(5)">⭐</span>
+    </div>
+    <div id="ratingLabel" style="text-align:center;font-size:13px;font-weight:700;color:var(--amber);min-height:22px;margin-bottom:10px"></div>
+    <div class="fg"><textarea class="fi" id="ratingComment" rows="2" placeholder="تعليق اختياري..."></textarea></div>
+    <button onclick="submitRating()"
+      style="width:100%;padding:13px;background:var(--amber);border:none;border-radius:var(--r);color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;margin-bottom:8px">
+      <i class="fas fa-star"></i> إرسال التقييم
+    </button>
+    <button onclick="closeTrackScreen()"
+      style="width:100%;padding:10px;background:transparent;border:none;color:var(--text4);font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif">تخطي</button>
+  </div>
+</div>
+
+<!-- ════════ MODAL: SUPERVISOR / RECEIVER LOGIN ════════ -->
+<div class="ov" id="Msup">
+  <div class="mdl">
+    <button class="mclose" onclick="CM('Msup')"><i class="fas fa-times"></i></button>
+    <div class="mhd">
+      <div class="mic" style="background:var(--amber-l);border:1px solid var(--amber-m)"><i class="fas fa-user-tie" style="color:var(--amber)"></i></div>
+      <div>
+        <div class="mtitle" id="supModalTitle">بوابة المشرف</div>
+        <div class="msub" id="supModalOfficeName">سجّل الدخول بحساب مكتبك</div>
+      </div>
+    </div>
+    <div class="al" id="al-sup"></div>
+    <div style="text-align:center;margin-bottom:16px;padding:14px;background:var(--amber-l);border:1px solid var(--amber-m);border-radius:var(--r)">
+      <i class="fas fa-shield-halved" style="font-size:24px;color:var(--amber);display:block;margin-bottom:6px"></i>
+      <div style="font-size:12px;color:var(--text3);line-height:1.6">الدخول محمي بـ Firebase Authentication<br>كل مكتب = حساب واحد فقط</div>
+    </div>
+    <div class="fg">
+      <label class="fl"><i class="fas fa-envelope"></i> البريد الإلكتروني</label>
+      <input type="email" class="fi" id="sl-email" placeholder="tk1@taxi.ps"
+        style="direction:ltr;text-align:left;font-size:14px;letter-spacing:.5px"
+        onkeydown="if(event.key==='Enter')document.getElementById('sl-pw').focus()">
+    </div>
+    <div class="fg">
+      <label class="fl"><i class="fas fa-lock"></i> كلمة المرور</label>
+      <div style="position:relative">
+        <input type="password" class="fi" id="sl-pw" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')sLogin()"
+          style="font-size:20px;letter-spacing:4px;text-align:center;padding:14px;padding-left:44px">
+        <button type="button" onclick="toggleSupPw()"
+          style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:4px">
+          <i class="fas fa-eye" id="togglePwIcon"></i>
+        </button>
+      </div>
+    </div>
+    <button class="ba" onclick="sLogin()"><i class="fas fa-right-to-bracket"></i> دخول</button>
+    <div id="recvLoginNote" style="display:none;margin-top:12px;padding:10px 13px;background:var(--primary-l);border:1px solid var(--primary-m);border-radius:var(--r);font-size:12px;color:var(--primary);font-weight:700">
+      <i class="fas fa-info-circle"></i> ادخل بنفس بيانات حساب المشرف — المستقبل والمشرف حساب واحد
+    </div>
+  </div>
+</div>
+
+<!-- ════════ MODAL: DRIVER ════════ -->
+<div class="ov" id="Mdriver">
+  <div class="mdl">
+    <button class="mclose" onclick="CM('Mdriver')"><i class="fas fa-times"></i></button>
+    <div class="mhd">
+      <div class="mic" style="background:var(--primary-l);border:1px solid var(--primary-m)"><i class="fas fa-car" style="color:var(--primary)"></i></div>
+      <div><div class="mtitle">بوابة السائق</div><div class="msub">سجل الدخول أو أنشئ حساباً</div></div>
+    </div>
+    <div class="tabs">
+      <button class="tab on" id="dt1" onclick="dtab('li')">تسجيل الدخول</button>
+      <button class="tab" id="dt2" onclick="dtab('rg')">حساب جديد</button>
+    </div>
+    <div class="al" id="al-drv"></div>
+    <div id="dli">
+      <div class="fg"><label class="fl"><i class="fas fa-phone"></i> رقم الهاتف</label><input type="tel" class="fi" id="dl-ph" placeholder="05xxxxxxxx"></div>
+      <div class="fg"><label class="fl"><i class="fas fa-lock"></i> كلمة المرور</label><input type="password" class="fi" id="dl-pw" placeholder="••••••••"></div>
+      <div class="fg"><label class="fl"><i class="fas fa-car"></i> رقم السيارة</label><input type="text" class="fi" id="dl-car" placeholder="123-45-678" onkeydown="if(event.key==='Enter')dLogin()"></div>
+      <button class="bp" onclick="dLogin()"><i class="fas fa-right-to-bracket"></i> دخول</button>
+    </div>
+    <div id="drg" class="h">
+      <div class="fg"><label class="fl"><i class="fas fa-user"></i> الاسم الكامل</label><input type="text" class="fi" id="dr-nm" placeholder="محمد علي"></div>
+      <div class="fg"><label class="fl"><i class="fas fa-phone"></i> رقم الهاتف</label><input type="tel" class="fi" id="dr-ph" placeholder="05xxxxxxxx"></div>
+      <div class="fg"><label class="fl"><i class="fas fa-car"></i> رقم السيارة</label><input type="text" class="fi" id="dr-car" placeholder="123-45-678"></div>
+      <div class="fg"><label class="fl"><i class="fas fa-lock"></i> كلمة المرور</label><input type="password" class="fi" id="dr-pw" placeholder="••••••••"></div>
+      <div class="fg"><label class="fl"><i class="fas fa-lock"></i> تأكيد كلمة المرور</label><input type="password" class="fi" id="dr-pw2" placeholder="••••••••"></div>
+      <div class="fg">
+        <label class="fl"><i class="fas fa-ticket"></i> كود الدعوة <span style="color:var(--red)">*</span></label>
+        <input type="text" class="fi" id="dr-invite" placeholder="INV-TLK1-XXXXX" style="letter-spacing:2px;text-transform:uppercase" onkeydown="if(event.key==='Enter')dReg()">
+      </div>
+      <div style="background:var(--amber-l);border:1px solid var(--amber-m);border-radius:var(--r);padding:9px 12px;font-size:11px;color:var(--amber);font-weight:700;margin-bottom:12px">
+        <i class="fas fa-info-circle"></i> كود الدعوة يُعطيك إياه مشرف المكتب
+      </div>
+      <button class="bp" onclick="dReg()"><i class="fas fa-user-plus"></i> إنشاء الحساب</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ MODAL: ADD REQUEST ════════ -->
+<div class="ov" id="MaddReq">
+  <div class="mdl">
+    <button class="mclose" onclick="CM('MaddReq')"><i class="fas fa-times"></i></button>
+    <div class="mhd">
+      <div class="mic" style="background:var(--primary-l);border:1px solid var(--primary-m)"><i class="fas fa-plus-circle" style="color:var(--primary)"></i></div>
+      <div><div class="mtitle">طلب جديد</div><div class="msub">أدخل بيانات الطلب</div></div>
+    </div>
+    <div class="al" id="al-req"></div>
+    <div class="fg"><label class="fl"><i class="fas fa-phone"></i> رقم هاتف الزبون</label><input type="tel" class="fi" id="req-phone" placeholder="05xxxxxxxx"></div>
+    <div class="fg"><label class="fl"><i class="fas fa-map-marker-alt"></i> التفاصيل والموقع</label><textarea class="fi" id="req-details" rows="3" placeholder="من شارع فلسطين إلى مستشفى طولكرم..."></textarea></div>
+    <button class="bp" onclick="addReqItem()"><i class="fas fa-paper-plane"></i> حفظ الطلب</button>
+  </div>
+</div>
+
+<!-- ════════ MODAL: EDIT REQUEST ════════ -->
+<div class="ov" id="MeditReq">
+  <div class="mdl">
+    <button class="mclose" onclick="CM('MeditReq')"><i class="fas fa-times"></i></button>
+    <div class="mhd">
+      <div class="mic" style="background:var(--amber-l);border:1px solid var(--amber-m)"><i class="fas fa-pen-to-square" style="color:var(--amber)"></i></div>
+      <div><div class="mtitle">تعديل الطلب</div><div class="msub">سيصل السائق إشعار بالتعديل</div></div>
+    </div>
+    <div class="al" id="al-editreq"></div>
+    <div id="editReqOldData" style="margin-bottom:12px"></div>
+    <div class="fg"><label class="fl"><i class="fas fa-phone"></i> رقم الهاتف الجديد</label><input type="tel" class="fi" id="editreq-phone" placeholder="05xxxxxxxx"></div>
+    <div class="fg"><label class="fl"><i class="fas fa-map-marker-alt"></i> التفاصيل الجديدة</label><textarea class="fi" id="editreq-details" rows="3"></textarea></div>
+    <input type="hidden" id="editreq-id">
+    <button class="ba" onclick="saveReqEdit()"><i class="fas fa-save"></i> حفظ التعديل</button>
+  </div>
+</div>
+
+<!-- ════════ MODAL: EDIT ACCOUNT ════════ -->
+<div class="ov" id="Meditacc">
+  <div class="mdl">
+    <button class="mclose" onclick="CM('Meditacc')"><i class="fas fa-times"></i></button>
+    <div class="mhd">
+      <div class="mic" style="background:var(--amber-l);border:1px solid var(--amber-m)"><i class="fas fa-user-pen" style="color:var(--amber)"></i></div>
+      <div><div class="mtitle">تعديل الحساب</div><div class="msub" id="eacsub"></div></div>
+    </div>
+    <div class="al" id="al-eac"></div>
+    <div class="fg"><label class="fl"><i class="fas fa-user"></i> الاسم</label><input type="text" class="fi" id="eac-nm"></div>
+    <div class="fg"><label class="fl"><i class="fas fa-lock"></i> كلمة مرور جديدة (فارغة = لا تغيير)</label><input type="password" class="fi" id="eac-pw" placeholder="••••••••"></div>
+    <input type="hidden" id="eac-id">
+    <button class="ba" onclick="saveEac()"><i class="fas fa-save"></i> حفظ</button>
+  </div>
+</div>
+
+<!-- ════════ SELECT TAXI MODAL ════════ -->
+<div class="sel-taxi-modal" id="SelTaxiModal">
+  <div class="sel-taxi-box">
+    <div class="mhd" style="margin-bottom:12px">
+      <div class="mic" style="background:var(--primary-l);border:1px solid var(--primary-m)"><i class="fas fa-car-side" style="color:var(--primary)"></i></div>
+      <div><div class="mtitle">اختر سائقاً</div><div class="msub">اختر السائق المناسب للطلب</div></div>
+    </div>
+    <div class="al" id="al-seltaxi"></div>
+    <div id="sel-taxi-list" class="sel-taxi-list"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="bp" id="confirmSelBtn" onclick="confirmTaxiSel()" disabled style="opacity:.5"><i class="fas fa-paper-plane"></i> إرسال</button>
+      <button style="flex:1;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;color:var(--text2);font-family:'Cairo',sans-serif" onclick="closeTaxiSel()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SOS SUPERVISOR MODAL ════════ -->
+<div class="sos-sup-modal" id="SosSupModal">
+  <div class="sos-sup-box">
+    <div class="mhd" style="margin-bottom:16px">
+      <div class="mic" style="background:var(--red-l);border:1px solid var(--red-m)"><i class="fas fa-triangle-exclamation" style="color:var(--red)"></i></div>
+      <div><div class="mtitle" style="color:var(--red)">إرسال SOS</div><div class="msub">لجميع السائقين المتصلين</div></div>
+    </div>
+    <div class="fg"><label class="fl"><i class="fas fa-comment"></i> رسالة الطوارئ</label><textarea class="fi" id="sos-sup-msg" rows="3" placeholder="مثال: انتبهوا، حادثة عند دوار المنارة..."></textarea></div>
+    <button style="width:100%;padding:13px;background:var(--red);border:none;border-radius:var(--r);color:#fff;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:'Cairo',sans-serif" onclick="sendSosBroadcast()"><i class="fas fa-triangle-exclamation"></i> إرسال SOS</button>
+    <button style="width:100%;margin-top:8px;padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif" onclick="document.getElementById('SosSupModal').classList.remove('on')">إلغاء</button>
+  </div>
+</div>
+
+<!-- ════════ DRIVER REQUEST NOTIFICATION ════════ -->
+<div class="req-notif" id="ReqNotif">
+  <div class="req-card">
+    <div class="req-icon">📦</div>
+    <div class="req-title" id="reqTitle">طلب جديد من المشرف</div>
+    <div class="req-sub" id="reqSub">لديك طلب توصيل جديد — يرجى الرد سريعاً</div>
+    <div class="req-countdown"><i class="fas fa-clock"></i> الوقت المتبقي: <span class="req-countdown-num" id="reqCountNum">60</span> ثانية</div>
+    <div class="req-details-box">
+      <div class="req-detail-row"><i class="fas fa-phone"></i><span id="reqPhone">-</span></div>
+      <div class="req-detail-row"><i class="fas fa-map-marker-alt"></i><span id="reqLocation">-</span></div>
+      <div class="req-detail-row"><i class="fas fa-clock"></i><span id="reqTime">-</span></div>
+    </div>
+    <div id="reqMsgBox" class="req-msg-box" style="display:none">
+      <div class="req-msg-from"><i class="fas fa-user-tie" style="margin-left:4px"></i> رسالة من المشرف</div>
+      <div class="req-msg-text" id="reqMsgText"></div>
+    </div>
+    <div id="reqModNotice" style="display:none;background:var(--cyan-l);border:1px solid var(--cyan-m);border-radius:var(--r);padding:9px 12px;margin-bottom:12px;font-size:12px;color:var(--cyan);font-weight:700;text-align:right">
+      <i class="fas fa-edit" style="margin-left:5px"></i><span id="reqModText"></span>
+    </div>
+    <div class="req-btns">
+      <button class="req-accept" onclick="acceptReq()"><i class="fas fa-check"></i> قبول</button>
+      <button class="req-reject-btn" onclick="showRejectInput()"><i class="fas fa-times"></i> رفض</button>
+    </div>
+    <div class="req-reject-area" id="reqRejectArea">
+      <textarea class="fi" id="reqRejectReason" rows="2" placeholder="اكتب سبب الرفض..." style="margin-top:10px"></textarea>
+      <button class="bdng" style="margin-top:8px" onclick="submitReject()"><i class="fas fa-times"></i> تأكيد الرفض</button>
+    </div>
+    <input type="hidden" id="currentReqId">
+  </div>
+</div>
+
+<!-- ════════ SOS BROADCAST NOTIFICATION ════════ -->
+<div class="sos-broadcast-notif" id="SosBroadcastNotif">
+  <div class="sos-broadcast-card">
+    <div class="sos-bc-icon">🆘</div>
+    <div class="sos-bc-title">تنبيه طوارئ من المشرف</div>
+    <div class="sos-bc-from" id="sosBcFrom">من: منصة التاكسي</div>
+    <div class="sos-bc-msg" id="sosBcMsg">-</div>
+    <button class="sos-bc-ack" onclick="ackSosBroadcast()"><i class="fas fa-check"></i> استلمت — شكراً</button>
+  </div>
+</div>
+
+<!-- ════════ DRIVER DASHBOARD ════════ -->
+<div id="PD">
+  <nav class="dnav">
+    <div class="logo"><div class="lgic">🚕</div><div><div class="lgn1">منصة الطلبات</div><div class="lgn2">منصة التكسي</div></div></div>
+    <div class="ntabs" id="ntabs"></div>
+    <div class="navr" id="navr"><div id="navav" class="navav">🚕</div><button class="bout" onclick="logout()"><i class="fas fa-right-from-bracket"></i> خروج</button></div>
+  </nav>
+  <div class="dbody" id="dbody"></div>
+</div>
+
+<!-- ════════ RECEIVER DASHBOARD ════════ -->
+<div id="PR">
+  <nav class="dnav">
+    <div class="logo"><div class="lgic">🚕</div><div><div class="lgn1">منصة الطلبات</div><div class="lgn2">منصة التكسي</div></div></div>
+    <div class="ntabs" id="recv-ntabs"></div>
+    <div class="navr" id="recv-navr"><div id="recv-navav" class="navav sup-av">📥</div><button class="bout" onclick="logoutRecv()"><i class="fas fa-right-from-bracket"></i> خروج</button></div>
+  </nav>
+  <div class="dbody" id="recv-dbody"></div>
+</div>
+
+<!-- ════════ MONITORING SCREEN ════════ -->
+<div class="monitor-screen" id="MonitorScreen">
+  <div class="monitor-hd">
+    <div class="monitor-title"><span style="font-size:22px">🚕</span> شاشة المراقبة المباشرة</div>
+    <button class="monitor-close" onclick="closeMonitor()"><i class="fas fa-times"></i> إغلاق</button>
+  </div>
+  <div class="monitor-stats" id="monStats">
+    <div class="monitor-stat ms-green"><span class="monitor-status-dot msd-green"></span><span style="color:var(--green);font-weight:800;font-size:16px" id="mon-online">0</span><span style="color:var(--text3);font-size:12px;margin-right:6px;font-weight:700"> متاح 🟢</span></div>
+    <div class="monitor-stat ms-red"><span class="monitor-status-dot msd-red"></span><span style="color:var(--red);font-weight:800;font-size:16px" id="mon-busy">0</span><span style="color:var(--text3);font-size:12px;margin-right:6px;font-weight:700"> مشغول 🔴</span></div>
+    <div class="monitor-stat ms-orange"><span class="monitor-status-dot msd-orange"></span><span style="color:var(--orange);font-weight:800;font-size:16px" id="mon-break">0</span><span style="color:var(--text3);font-size:12px;margin-right:6px;font-weight:700"> استراحة 🟠</span></div>
+    <div class="monitor-stat ms-gray"><span class="monitor-status-dot msd-gray"></span><span style="color:var(--text3);font-weight:800;font-size:16px" id="mon-offline">0</span><span style="color:var(--text4);font-size:12px;margin-right:6px;font-weight:700"> غير متصل ⚫</span></div>
+    <div class="monitor-stat" style="background:var(--primary-l);border:1.5px solid var(--primary-m)"><i class="fas fa-box" style="color:var(--primary);font-size:13px"></i><span style="color:var(--primary);font-weight:800;font-size:16px" id="mon-total-del">0</span><span style="color:var(--text3);font-size:12px;margin-right:6px;font-weight:700"> توصيلة كلية</span></div>
+  </div>
+  <div class="monitor-grid" id="monGrid">
+    <div style="text-align:center;padding:60px;color:var(--text4);grid-column:1/-1">
+      <div class="spin dark" style="width:32px;height:32px;margin:0 auto 12px"></div>
+      <div style="font-size:13px">جار تحميل البيانات...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ TOASTS ════════ -->
+<div class="toasts" id="toasts"></div>
+
+<!-- ════════ MOBILE NAV ════════ -->
+<div class="mobile-nav" id="mobileNav" style="display:none">
+  <div class="mob-tabs" id="mobTabs"></div>
+</div>
+
+<!-- ════════ SCRIPTS ════════ -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="app.js"></script>
+
+<script>
+/* ── إظهار/إخفاء كلمة المرور ── */
+window.toggleSupPw = function() {
+  var inp = document.getElementById('sl-pw');
+  var ico = document.getElementById('togglePwIcon');
+  if (!inp || !ico) return;
+  if (inp.type === 'password') { inp.type = 'text'; ico.className = 'fas fa-eye-slash'; }
+  else { inp.type = 'password'; ico.className = 'fas fa-eye'; }
+};
+
+/* ── فتح الخريطة مباشرة من Gate ── */
+window.openPubPageDirect = function() {
+  document.getElementById('PTenantGate').style.display = 'none';
+  document.getElementById('PL').style.display = 'block';
+  var tries = 0;
+  var interval = setInterval(function() {
+    tries++;
+    if (typeof window.openPubPage === 'function') { clearInterval(interval); window.openPubPage(); }
+    else if (tries > 30) clearInterval(interval);
+  }, 150);
+};
+
+/* ── تقييم النجوم ── */
+window.setRating = window.setRating || function(n) {
+  window._userRating = n;
+  document.querySelectorAll('.rating-star').forEach(function(s, i) { s.classList.toggle('on', i < n); });
+  var labels = ['', 'سيء جداً 😞', 'سيء 😐', 'مقبول 🙂', 'جيد 😊', 'ممتاز 🌟'];
+  var label = document.getElementById('ratingLabel');
+  if (label) label.textContent = labels[n] || '';
+};
+</script>
+
+</body>
+</html>
+
