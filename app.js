@@ -6,41 +6,39 @@
 import { initializeApp }          from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { getDatabase, ref, set, get, push, onValue, update, remove, off }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-
 /* ══════════════════════════════════════════════════
    TENANT MAP  — uid → tenantId
    ضع هنا الـ UID من Firebase Console
    ══════════════════════════════════════════════════ */
-const UID_TO_TENANT = {
-  'Xk9mQ3rT7vL2pN8wY5cF1bH6eJ4aD0s': 'tk1',
-  'Rn5wK8jP2mG7fC4tA1xV9hE3bL6qZ0y': 'tk2',
-  'Wm4bH7nQ1sJ9kR3eX6vT2cF8pL5yA0d': 'tk3',
-  'Yz6tN2wB8cK4mJ1rG9xP5hD3vL7qF0e': 'tk4',
-  'Jc3rP7mX1nB9kW4eT6vH2fQ8yL5sA0g': 'tk5',
-  'Lq8vF4tK2xM6pN1bG9wR3hC7eJ5yD0a': 'tk6',
-  'Bt5nW9yJ3mL7rK1pX4cG8vH2fQ6eA0s': 'tk7',
-  'Hd2mC6xR4wN8yP1bJ9kT5vF3eG7qL0z': 'tk8',
-  'Pf7kT3bW9nJ2mR6xC1yG4vH8eL5qA0w': 'tk9',
-  'Gv1xB8pK5mN3rW7yJ4cT9hF2eQ6bL0d': 'tk10',
-  'Ns4yM7wC2bR9kP6xJ1tH5vG3fL8eA0q': 'tk11',
-  'Qe9bL5xN1mK4wR7yT2cP8hJ6vF3gA0d': 'tk12',
-  'Cv3wH8mJ6xB2yN5rT9kG1pF4eL7qA0s': 'tk13',
-  'Fx6pT2yW9mK1bR4nJ7cH3vG8eQ5aL0z': 'tk14',
-  'Mp1nG7xB4yR8kW2cJ6tH9vF5eL3qA0w': 'tk15',
-  'Ek8yJ3mP5xN1bW6rT2cG9hF4vL7qA0d': 'tk16',
-  'Vb2rC9wM4kJ7xP1yN8tH5vG3fL6eA0q': 'tk17',
-  'Tw7mF1xH6yK3bN9rJ4cP2vG8eL5qA0s': 'tk18',
-  'Ah5kW4mJ8xN2yR6bT1cH9vF7eG3qL0z': 'tk19',
-  'Dq3xP9bK7mW1yJ5rT8cN2hG6vF4eL0a': 'tk20',
-  'Yr8cN5wT3mK9xB1yJ6rH4vP2fG7eL0q': 'tk21',
-  'Sk2mH7xR4yW6bN1cJ9tG3vP8fL5eA0d': 'tk22',
-  'Gb6yJ1mP8xK3wN5rT2cH9vF7eG4qL0s': 'tk23',
-  'Nw4rT8bW2mJ5xY1cK9hP6vG3fL7eA0q': 'tk24',
-  'Lm9xB3yK7wN4rJ1cT8hG5vP2fE6qA0d': 'tk25',
+const EMAIL_TO_TENANT = {
+  'tk1@taxi.ps':  'tk1',
+  'tk2@taxi.ps':  'tk2',
+  'tk3@taxi.ps':  'tk3',
+  'tk4@taxi.ps':  'tk4',
+  'tk5@taxi.ps':  'tk5',
+  'tk6@taxi.ps':  'tk6',
+  'tk7@taxi.ps':  'tk7',
+  'tk8@taxi.ps':  'tk8',
+  'tk9@taxi.ps':  'tk9',
+  'tk10@taxi.ps': 'tk10',
+  'tk11@taxi.ps': 'tk11',
+  'tk12@taxi.ps': 'tk12',
+  'tk13@taxi.ps': 'tk13',
+  'tk14@taxi.ps': 'tk14',
+  'tk15@taxi.ps': 'tk15',
+  'tk16@taxi.ps': 'tk16',
+  'tk17@taxi.ps': 'tk17',
+  'tk18@taxi.ps': 'tk18',
+  'tk19@taxi.ps': 'tk19',
+  'tk20@taxi.ps': 'tk20',
+  'tk21@taxi.ps': 'tk21',
+  'tk22@taxi.ps': 'tk22',
+  'tk23@taxi.ps': 'tk23',
+  'tk24@taxi.ps': 'tk24',
+  'tk25@taxi.ps': 'tk25',
 };
-
 const TENANT_NAMES = {
   'tk1':'مكتب طولكرم 1',
   'tk2':'مكتب طولكرم 2',
@@ -92,12 +90,24 @@ const _h = async s => {
 /* ══════════════════════════════════════════════════
    FIREBASE INIT
    ══════════════════════════════════════════════════ */
-const _DB_URL = 'https://hamode-a2ac1-default-rtdb.firebaseio.com/';
-const _app    = initializeApp({ databaseURL: _DB_URL }, 'main');
-const _db     = getDatabase(_app);
+const _DB_URL = "https://hamode-a2ac1-default-rtdb.firebaseio.com/";
 
-// ❌ احذف هذا السطر
-// const _auth   = getAuth(_app);
+const firebaseConfig = {
+  apiKey: "AIzaSyBefjpLw7ju5z7Pc7UZFGpOPJcKCHGD9f4",
+  authDomain: "hamode-a2ac1.firebaseapp.com",
+  databaseURL: _DB_URL,
+  projectId: "hamode-a2ac1",
+  storageBucket: "hamode-a2ac1.firebasestorage.app",
+  messagingSenderId: "1005224583727",
+  appId: "1:1005224583727:web:ea0befa1db595ab48adcda"
+};
+
+const _app = initializeApp(firebaseConfig, "main");
+
+const _db = getDatabase(_app);
+const _auth = getAuth(_app);
+
+
 
 let TENANT_ID   = '';
 let TENANT_INFO = null;
@@ -481,10 +491,8 @@ window.sLogin = async () => {
   btn.disabled  = true;
 
   try {
-    /* 1. تسجيل الدخول عبر Firebase Auth */
-    const cred     = await signInWithEmailAndPassword(_auth, email, pw);
-    const uid      = cred.user.uid;
-    const tenantId = UID_TO_TENANT[uid];
+    const cred = await signInWithEmailAndPassword(_auth, email, pw);
+    const tenantId = EMAIL_TO_TENANT[email.toLowerCase()];
 
     if (!tenantId) {
       await signOut(_auth);
@@ -492,6 +500,16 @@ window.sLogin = async () => {
       btn.innerHTML = orig; btn.disabled = false;
       return;
     }
+
+    // ✅ التحقق الجديد: الإيميل يجب أن يطابق رمز المكتب المدخل في Gate
+    if (TENANT_ID && tenantId !== TENANT_ID) {
+      await signOut(_auth);
+      shAl('al-sup', 'err', `❌ هذا الحساب خاص بمكتب آخر (${tenantId}) — أنت في مكتب (${TENANT_ID})`);
+      btn.innerHTML = orig; btn.disabled = false;
+      return;
+    }
+
+    // باقي الكود كما هو...
 
     /* 2. تعيين الـ Tenant */
     TENANT_ID   = tenantId;
