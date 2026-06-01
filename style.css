@@ -1,4 +1,20 @@
+* ══════════════════════════════════════════════════
+   منصة التاكسي — طولكرم | style.css
+   ══════════════════════════════════════════════════ */
 
+/* ── Fonts ── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Cairo',sans-serif;direction:rtl;text-align:right;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+textarea,input,button,select{font-family:'Cairo',sans-serif}
+.h{display:none!important}
+
+/* ── Spinner ── */
+.spin{
+  width:18px;height:18px;
+  border:2.5px solid rgba(255,255,255,.3);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:spin .7s linear infinite;
   display:inline-block
 }
 .spin.dark{border-color:rgba(0,0,0,.15);border-top-color:#1D4ED8}
