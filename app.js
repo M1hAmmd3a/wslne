@@ -118,38 +118,112 @@ const tRef = path => ref(_db, T(path));
 /* ══════════════════════════════════════════════════
    GPS
    ══════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════
+   GPS
+   ══════════════════════════════════════════════════ */
 const GPS_INTERVAL = 90000;
 const GPS_MIN_DIST = 20;
-let _gpsWatcher   = null;
-let _gpsLastSent  = 0;
-let _gpsLastLat   = null;
-let _gpsLastLng   = null;
-let _gpsSendTimer = null;
+let _gpsWatcher    = null;
+let _gpsLastSent   = 0;
+let _gpsLastLat    = null;
+let _gpsLastLng    = null;
+let _gpsSendTimer  = null;
+let _gpsFailCount  = 0;
+let _gpsRetryTimer = null;
+let _gpsWatchFail  = 0;
+const GPS_MAX_FAIL = 3;
+
+const _gpsOnError = (err, source) => {
+  _gpsFailCount++;
+  _gpsWatchFail++;
+
+  const reasons = {
+    1: 'رفضت الإذن بالوصول للموقع',
+    2: 'تعذّر تحديد الموقع',
+    3: 'انتهت مهلة تحديد الموقع',
+  };
+  const msg = reasons[err?.code] || 'خطأ غير معروف في GPS';
+
+  if (_gpsFailCount === 1) {
+    toast('warn', '⚠️ تحذير GPS', msg);
+    const el = $('gpsStatus');
+    if (el) el.innerHTML = `<i class="fas fa-location-dot" style="color:var(--amber);margin-left:3px"></i>GPS: ⚠️ ${msg}`;
+  }
+
+  if (_gpsFailCount >= GPS_MAX_FAIL) {
+    toast('err', '❌ GPS متوقف', 'تعذّر تحديد موقعك — يرى المشرف موقعك القديم');
+    vibrate([300, 100, 300]);
+    const el = $('gpsStatus');
+    if (el) el.innerHTML = `<i class="fas fa-location-dot" style="color:var(--red);margin-left:3px"></i>GPS: ❌ متوقف — ${msg}`;
+    _gpsFailCount = 0;
+  }
+
+  if (_gpsWatchFail >= 2 && source === 'watch') {
+    _gpsWatchFail = 0;
+    if (_gpsWatcher !== null) {
+      try { navigator.geolocation.clearWatch(_gpsWatcher); } catch (e) {}
+      _gpsWatcher = null;
+    }
+    if (_gpsRetryTimer) clearTimeout(_gpsRetryTimer);
+    _gpsRetryTimer = setTimeout(() => {
+      if (!CU || CR !== 'driver') return;
+      toast('info', '🔄 إعادة تشغيل GPS', '');
+      _startWatchPosition(CU.id);
+    }, 5000);
+  }
+};
+
+const _startWatchPosition = drvId => {
+  if (_gpsWatcher !== null) {
+    try { navigator.geolocation.clearWatch(_gpsWatcher); } catch (e) {}
+    _gpsWatcher = null;
+  }
+  _gpsWatcher = navigator.geolocation.watchPosition(
+    pos => {
+      _gpsWatchFail = 0;
+      _gpsFailCount = 0;
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const now = Date.now();
+      if (_gpsLastLat !== null) {
+        const dist = Math.sqrt((_gpsLastLat - lat) ** 2 + (_gpsLastLng - lng) ** 2) * 111320;
+        if (dist < GPS_MIN_DIST && now - _gpsLastSent < GPS_INTERVAL) return;
+      }
+      if (now - _gpsLastSent < GPS_INTERVAL) return;
+      sendGPS(drvId, lat, lng, false);
+    },
+    err => _gpsOnError(err, 'watch'),
+    { enableHighAccuracy: false, timeout: 20000, maximumAge: 30000 }
+  );
+};
 
 const startGPS = drvId => {
   stopGPS();
-  if (!navigator.geolocation) return;
+  if (!navigator.geolocation) {
+    toast('err', '❌ GPS غير مدعوم', 'متصفحك لا يدعم تحديد الموقع');
+    const el = $('gpsStatus');
+    if (el) el.innerHTML = `<i class="fas fa-location-dot" style="color:var(--red);margin-left:3px"></i>GPS: ❌ غير مدعوم`;
+    return;
+  }
   navigator.geolocation.getCurrentPosition(
-    pos => sendGPS(drvId, pos.coords.latitude, pos.coords.longitude, true),
-    () => {}, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    pos => {
+      _gpsFailCount = 0;
+      sendGPS(drvId, pos.coords.latitude, pos.coords.longitude, true);
+    },
+    err => _gpsOnError(err, 'initial'),
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
   );
-  _gpsWatcher = navigator.geolocation.watchPosition(pos => {
-    const { latitude: lat, longitude: lng } = pos.coords;
-    const now = Date.now();
-    if (_gpsLastLat !== null) {
-      const dist = Math.sqrt((_gpsLastLat - lat) ** 2 + (_gpsLastLng - lng) ** 2) * 111320;
-      if (dist < GPS_MIN_DIST && now - _gpsLastSent < GPS_INTERVAL) return;
-    }
-    if (now - _gpsLastSent < GPS_INTERVAL) return;
-    sendGPS(drvId, lat, lng, false);
-  }, () => {}, { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 });
-
+  _startWatchPosition(drvId);
   _gpsSendTimer = setInterval(() => {
-    if (Date.now() - _gpsLastSent >= GPS_INTERVAL)
-      navigator.geolocation.getCurrentPosition(
-        pos => sendGPS(drvId, pos.coords.latitude, pos.coords.longitude, false),
-        () => {}, { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-      );
+    if (Date.now() - _gpsLastSent < GPS_INTERVAL) return;
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        _gpsFailCount = 0;
+        _gpsWatchFail = 0;
+        sendGPS(drvId, pos.coords.latitude, pos.coords.longitude, false);
+      },
+      err => _gpsOnError(err, 'timer'),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+    );
   }, GPS_INTERVAL);
 };
 
@@ -160,10 +234,35 @@ const sendGPS = async (drvId, lat, lng, isFirst) => {
 };
 
 const stopGPS = () => {
-  if (_gpsWatcher !== null) { try { navigator.geolocation.clearWatch(_gpsWatcher); } catch(e) {} _gpsWatcher = null; }
-  if (_gpsSendTimer)         { clearInterval(_gpsSendTimer); _gpsSendTimer = null; }
-  _gpsLastSent = 0; _gpsLastLat = null; _gpsLastLng = null;
+  if (_gpsWatcher !== null) {
+    try { navigator.geolocation.clearWatch(_gpsWatcher); } catch (e) {}
+    _gpsWatcher = null;
+  }
+  if (_gpsSendTimer)  { clearInterval(_gpsSendTimer);  _gpsSendTimer  = null; }
+  if (_gpsRetryTimer) { clearTimeout(_gpsRetryTimer);  _gpsRetryTimer = null; }
+  _gpsLastSent  = 0;
+  _gpsLastLat   = null;
+  _gpsLastLng   = null;
+  _gpsFailCount = 0;
+  _gpsWatchFail = 0;
 };
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (_gpsSendTimer) { clearInterval(_gpsSendTimer); _gpsSendTimer = null; }
+  } else if (CU && CR === 'driver' && CU.status !== 'offline' && !_gpsSendTimer) {
+    _gpsSendTimer = setInterval(() => {
+      if (Date.now() - _gpsLastSent >= GPS_INTERVAL)
+        navigator.geolocation.getCurrentPosition(
+          pos => sendGPS(CU.id, pos.coords.latitude, pos.coords.longitude, false),
+          err => _gpsOnError(err, 'timer'),
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+        );
+    }, GPS_INTERVAL);
+  }
+});
+window.addEventListener('pagehide',     stopGPS);
+window.addEventListener('beforeunload', stopGPS);
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
