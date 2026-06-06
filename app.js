@@ -1995,7 +1995,7 @@ const renderSProfile = () => {
       </div>
     </div>
   </div>`;
-  setTimeout(() => initOfficeLocMap(), 300);
+    setTimeout(() => initOfficeLocMap(), 600);
 };
 window.copyInviteCode = code => { navigator.clipboard.writeText(code).catch(() => {}); toast('ok','✅ تم نسخ الكود','شاركه مع السائقين الجدد'); };
 window.saveSProf = async () => {
