@@ -1127,7 +1127,7 @@ textarea,input,button,select{font-family:'Cairo',sans-serif}
 
   .dbody{padding-top:60px;padding-bottom:70px}
 .panel{height:calc(100vh - 60px - 70px);padding:12px;overflow-y:auto}
-.ptab{height:auto;min-height:calc(100vh - 60px - 70px);padding:12px;overflow-y:auto}
+.ptab{height:calc(100vh - 60px - 70px);padding:12px;overflow-y:scroll;-webkit-overflow-scrolling:touch}
 #officeLocMap{height:220px!important;position:relative;z-index:1}  .dreq-wrap{height:calc(100vh - 60px - 70px)}
 
   .acc-grid,.support-grid{grid-template-columns:1fr}
