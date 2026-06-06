@@ -1097,6 +1097,7 @@ textarea,input,button,select{font-family:'Cairo',sans-serif}
     flex-direction:column;height:auto;
     min-height:calc(100vh - 60px - 70px)
   }
+  .dbody{overflow-y:auto}
   .dside{
     width:100%;flex:0 0 auto;max-height:none;
     border-left:none;border-bottom:1px solid var(--border);overflow-y:auto
