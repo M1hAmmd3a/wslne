@@ -378,7 +378,8 @@ textarea,input,button,select{font-family:'Cairo',sans-serif}
   box-shadow:0 -4px 16px rgba(0,0,0,.08);
   padding:6px 8px calc(6px + env(safe-area-inset-bottom));
 }
-.mobile-nav .mob-tabs{display:flex;justify-content:space-around;align-items:stretch;gap:2px}
+.mobile-nav .mob-tabs{display:flex;justify-content:flex-start;align-items:stretch;gap:2px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.mobile-nav .mob-tabs::-webkit-scrollbar{display:none}
 .mob-tab{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:4px;padding:6px 8px;border-radius:12px;cursor:pointer;
@@ -1120,9 +1121,9 @@ textarea,input,button,select{font-family:'Cairo',sans-serif}
   #reqMapInline{height:160px!important}
   .map-legend{bottom:5px;right:5px;padding:5px 8px;font-size:9px}
 
-  .ntabs{display:none}
-  .bout{display:none}
-  .mobile-nav{display:block}
+.ntabs{display:none}
+.bout{display:none}
+.mobile-nav{display:block}
 
   .dbody{padding-top:60px;padding-bottom:70px}
 .panel{height:calc(100vh - 60px - 70px);padding:12px;overflow-y:auto}
