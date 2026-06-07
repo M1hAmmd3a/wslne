@@ -32,7 +32,7 @@
       <!-- Logo -->
       <div style="text-align:center;margin-bottom:32px">
         <div style="width:90px;height:90px;background:linear-gradient(135deg,#D97706,#B45309);border-radius:26px;display:flex;align-items:center;justify-content:center;font-size:44px;margin:0 auto 18px;box-shadow:0 12px 32px rgba(217,119,6,.4)">🚕</div>
-        <div style="font-family:'Tajawal',sans-serif;font-size:28px;font-weight:900;color:#fff">منصة التكسي</div>
+        <div style="font-family:'Tajawal',sans-serif;font-size:28px;font-weight:900;color:#fff">منصة الركاب</div>
         <div style="font-size:13px;color:rgba(255,255,255,.55);margin-top:6px;font-weight:600">طولكرم — نظام إدارة مكاتب التكسي</div>
       </div>
 
@@ -53,7 +53,7 @@
             </label>
             <div style="display:flex;gap:8px">
               <input id="gate-office-code" type="text" maxlength="6"
-                placeholder="مثال: tk1"
+                placeholder="مثال: "
                 style="flex:1;padding:13px 16px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);border-radius:12px;color:#fff;font-size:16px;font-weight:800;text-align:center;letter-spacing:3px;outline:none;font-family:'Cairo',sans-serif;transition:border-color .2s"
                 oninput="this.value=this.value.toLowerCase().trim();gateClearErr()"
                 onkeydown="if(event.key==='Enter')gateCheckCode()">
@@ -572,4 +572,3 @@ window.setRating = window.setRating || function(n) {
 
 </body>
 </html>
-
