@@ -178,6 +178,7 @@ const _startWatchPosition = drvId => {
     try { navigator.geolocation.clearWatch(_gpsWatcher); } catch (e) {}
     _gpsWatcher = null;
   }
+  /* iOS: enableHighAccuracy false وtimeout طويل */
   _gpsWatcher = navigator.geolocation.watchPosition(
     pos => {
       _gpsWatchFail = 0;
@@ -192,7 +193,7 @@ const _startWatchPosition = drvId => {
       sendGPS(drvId, lat, lng, false);
     },
     err => _gpsOnError(err, 'watch'),
-    { enableHighAccuracy: false, timeout: 20000, maximumAge: 30000 }
+    { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
   );
 };
 
@@ -204,15 +205,34 @@ const startGPS = drvId => {
     if (el) el.innerHTML = `<i class="fas fa-location-dot" style="color:var(--red);margin-left:3px"></i>GPS: ❌ غير مدعوم`;
     return;
   }
+
+  /* iOS يحتاج أول طلب بـ enableHighAccuracy: false وtimeout طويل */
   navigator.geolocation.getCurrentPosition(
     pos => {
       _gpsFailCount = 0;
       sendGPS(drvId, pos.coords.latitude, pos.coords.longitude, true);
+      _startWatchPosition(drvId);
     },
-    err => _gpsOnError(err, 'initial'),
-    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    err => {
+      /* إذا فشل الأول حاول مرة ثانية بإعدادات أخف */
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          _gpsFailCount = 0;
+          sendGPS(drvId, pos.coords.latitude, pos.coords.longitude, true);
+          _startWatchPosition(drvId);
+        },
+        err2 => {
+          _gpsOnError(err2, 'initial');
+          /* حتى لو فشل GPS ابدأ الـ watch عشان يحاول لاحقاً */
+          _startWatchPosition(drvId);
+        },
+        { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
+      );
+    },
+    { enableHighAccuracy: false, timeout: 30000, maximumAge: 0 }
   );
-  _startWatchPosition(drvId);
+
+  /* Timer للإرسال كل 90 ثانية */
   _gpsSendTimer = setInterval(() => {
     if (Date.now() - _gpsLastSent < GPS_INTERVAL) return;
     navigator.geolocation.getCurrentPosition(
@@ -222,7 +242,7 @@ const startGPS = drvId => {
         sendGPS(drvId, pos.coords.latitude, pos.coords.longitude, false);
       },
       err => _gpsOnError(err, 'timer'),
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+      { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
     );
   }, GPS_INTERVAL);
 };
