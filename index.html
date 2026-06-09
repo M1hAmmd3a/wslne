@@ -25,6 +25,90 @@
 </head>
 <body>
 
+  <!-- ════════ EMAIL VERIFICATION ════════ -->
+<div id="PEmailVerif" style="display:none;position:fixed;inset:0;z-index:9100;overflow-y:auto">
+  <div style="position:absolute;inset:0;background:linear-gradient(145deg,#0F172A 0%,#1E3A5F 40%,#1D4ED8 100%)"></div>
+  <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px);background-size:32px 32px;pointer-events:none"></div>
+
+  <div style="position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+    <div style="width:100%;max-width:400px">
+
+      <!-- Logo -->
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="width:80px;height:80px;background:linear-gradient(135deg,#D97706,#B45309);border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:38px;margin:0 auto 14px;box-shadow:0 12px 32px rgba(217,119,6,.4)">🚕</div>
+        <div style="font-family:'Tajawal',sans-serif;font-size:26px;font-weight:900;color:#fff">منصة الركاب</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:5px;font-weight:600">تحقق من بريدك الإلكتروني للمتابعة</div>
+      </div>
+
+      <!-- Card -->
+      <div style="background:rgba(255,255,255,.07);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.12);border-radius:22px;padding:28px 24px;box-shadow:0 24px 48px rgba(0,0,0,.3)">
+
+        <!-- ── مرحلة البريد ── -->
+        <div id="pv-stage-email">
+          <div style="text-align:center;margin-bottom:18px">
+            <div style="font-family:'Tajawal',sans-serif;font-size:19px;font-weight:900;color:#fff;margin-bottom:5px">أدخل بريدك الإلكتروني</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.4)">سيصلك رمز تحقق إلى البريد</div>
+          </div>
+
+          <input id="pv-email" type="email"
+            placeholder="example@gmail.com"
+            style="width:100%;padding:12px 14px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);border-radius:11px;color:#fff;font-size:16px;font-weight:800;outline:none;font-family:'Cairo',sans-serif;transition:border-color .2s;text-align:center;direction:ltr"
+            oninput="pvClearErr()"
+            onkeydown="if(event.key==='Enter')pvSendCode()">
+
+          <div id="pv-email-err" style="text-align:center;font-size:12px;color:#FCA5A5;font-weight:700;margin:10px 0 0;min-height:18px"></div>
+
+          <button onclick="pvSendCode()" id="pv-send-btn"
+            style="width:100%;padding:13px;background:linear-gradient(135deg,#D97706,#B45309);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;margin-top:14px">
+            <i class="fas fa-paper-plane"></i> إرسال رمز التحقق
+          </button>
+        </div>
+
+        <!-- ── مرحلة رمز التحقق ── -->
+        <div id="pv-stage-otp" style="display:none">
+          <div style="text-align:center;margin-bottom:18px">
+            <div style="font-size:40px;margin-bottom:8px">📩</div>
+            <div style="font-family:'Tajawal',sans-serif;font-size:19px;font-weight:900;color:#fff;margin-bottom:5px">رمز التحقق</div>
+            <div id="pv-otp-label" style="font-size:12px;color:rgba(255,255,255,.5)">أُرسل رمز إلى بريدك</div>
+          </div>
+
+          <input id="pv-otp" type="text" maxlength="6"
+            placeholder="------"
+            style="width:100%;padding:18px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);border-radius:12px;color:#fff;font-size:32px;font-weight:900;text-align:center;letter-spacing:10px;outline:none;font-family:monospace;margin-bottom:10px;transition:border-color .2s;direction:ltr"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6);pvClearErr();if(this.value.length===6)pvVerify()"
+            onkeydown="if(event.key==='Enter')pvVerify()">
+
+          <div id="pv-otp-err" style="text-align:center;font-size:12px;color:#FCA5A5;font-weight:700;margin-bottom:10px;min-height:18px"></div>
+
+          <button onclick="pvVerify()" id="pv-verify-btn"
+            style="width:100%;padding:13px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;transition:all .2s">
+            <i class="fas fa-check-circle"></i> تحقق
+          </button>
+
+          <!-- إعادة إرسال + تغيير البريد -->
+          <div style="display:flex;gap:8px">
+            <button id="pv-resend-btn" onclick="pvResend()" disabled
+              style="flex:1;padding:9px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.4);font-size:11px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif;transition:all .2s">
+              <i class="fas fa-redo"></i> إعادة إرسال (<span id="pv-timer">60</span>s)
+            </button>
+            <button onclick="pvBack()"
+              style="flex:1;padding:9px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.5);font-size:11px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif">
+              <i class="fas fa-arrow-right"></i> تغيير البريد
+            </button>
+          </div>
+
+          <div style="text-align:center;margin-top:12px;font-size:11px;color:rgba(255,255,255,.25)">
+            ⏱ الرمز صالح لمدة 5 دقائق
+          </div>
+        </div>
+
+      </div>
+
+      <div style="text-align:center;margin-top:16px;font-size:11px;color:rgba(255,255,255,.2)">منصة التكسي © 2026 — طولكرم</div>
+    </div>
+  </div>
+</div>
+
 <!-- ════════ TENANT GATE ════════ -->
 <div id="PTenantGate" style="display:none;position:fixed;inset:0;z-index:9000;overflow-y:auto">
   <div style="position:absolute;inset:0;background:linear-gradient(145deg,#0F172A 0%,#1E3A5F 40%,#1D4ED8 100%)"></div>
