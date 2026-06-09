@@ -2,12 +2,9 @@
    منصة التاكسي — طولكرم | app.js
    Firebase Auth + Realtime Database
    ══════════════════════════════════════════════════ */
-
-import { initializeApp }          from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getDatabase, ref, set, get, push, onValue, update, remove, off }
-                                   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
-                                   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getDatabase, ref, set, get, push, onValue, update, remove, off } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInWithPhoneNumber, RecaptchaVerifier } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 /* ══════════════════════════════════════════════════
    TENANT MAP  — uid → tenantId
    ضع هنا الـ UID من Firebase Console
@@ -107,7 +104,264 @@ const _app = initializeApp(firebaseConfig, "main");
 const _db = getDatabase(_app);
 const _auth = getAuth(_app);
 
+/* ══════════════════════════════════════════════════
+   PHONE VERIFICATION — Firebase SMS
+   ══════════════════════════════════════════════════ */
 
+const PV_STORAGE_KEY = 'txPhoneVerified_v1';
+let _pvConfirmResult = null;
+let _pvTimerInterval = null;
+let _pvRecaptchaVerifier = null;
+
+/* ── تحقق من وجود رقم محفوظ ── */
+const pvIsVerified = () => {
+  try {
+    const raw = localStorage.getItem(PV_STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    return data && data.phone && data.verified && (Date.now() - data.ts) < THIRTY_DAYS;
+  } catch (e) { return false; }
+};
+
+/* ── حفظ الرقم بعد التحقق ── */
+const pvSaveVerified = phone => {
+  localStorage.setItem(PV_STORAGE_KEY, JSON.stringify({
+    phone, verified: true, ts: Date.now()
+  }));
+};
+
+/* ── تنسيق الرقم الدولي ── */
+const pvFormatPhone = () => {
+  const raw    = ($('pv-phone').value || '').trim();
+  const country = ($('pv-country').value || '970');
+
+  let local = raw.replace(/\s/g, '');
+
+  // إذا بدأ بـ 0 نزيله لأن الكود الدولي يغني عنه
+  if (local.startsWith('0')) local = local.slice(1);
+
+  return `+${country}${local}`;
+};
+
+/* ── التحقق من صحة الرقم ── */
+const pvValidatePhone = () => {
+  const raw = ($('pv-phone').value || '').trim().replace(/\s/g, '');
+
+  if (!raw) return '❌ يرجى إدخال رقم الهاتف';
+
+  // يجب أن يكون 9 أو 10 أرقام
+  const digits = raw.replace(/^0/, '');
+  if (digits.length < 8 || digits.length > 10 || !/^[0-9]+$/.test(raw)) {
+    return '❌ رقم غير صحيح — تأكد من الرقم';
+  }
+  return null;
+};
+
+/* ── تحديث placeholder حسب الدولة ── */
+window.pvUpdatePlaceholder = () => {
+  const c = $('pv-country').value;
+  const inp = $('pv-phone');
+  if (!inp) return;
+  inp.placeholder = c === '972' ? '0512345678' : '0599123456';
+};
+
+/* ── مسح الأخطاء ── */
+window.pvClearErr = () => {
+  const e1 = $('pv-phone-err'); if (e1) e1.textContent = '';
+  const e2 = $('pv-otp-err');   if (e2) e2.textContent = '';
+  const inp1 = $('pv-phone');   if (inp1) inp1.style.borderColor = 'rgba(255,255,255,.2)';
+  const inp2 = $('pv-otp');     if (inp2) inp2.style.borderColor = 'rgba(255,255,255,.2)';
+};
+
+/* ── إرسال الرمز ── */
+window.pvSendCode = async () => {
+  const validErr = pvValidatePhone();
+  if (validErr) {
+    $('pv-phone-err').textContent = validErr;
+    $('pv-phone').style.borderColor = 'rgba(248,113,113,.7)';
+    $('pv-phone').style.animation = 'shake .4s';
+    setTimeout(() => { const el = $('pv-phone'); if (el) el.style.animation = ''; }, 400);
+    return;
+  }
+
+  const phoneE164 = pvFormatPhone();
+  const btn = $('pv-send-btn');
+  btn.innerHTML = '<span class="spin"></span> جاري الإرسال...';
+  btn.disabled = true;
+
+  try {
+    // إنشاء reCAPTCHA إذا لم يكن موجوداً
+    if (!_pvRecaptchaVerifier) {
+      _pvRecaptchaVerifier = new RecaptchaVerifier(_auth, 'pv-recaptcha', {
+        size: 'normal',
+        callback: () => {}, // تم حل reCAPTCHA
+        'expired-callback': () => {
+          _pvRecaptchaVerifier = null;
+          $('pv-phone-err').textContent = '⚠️ انتهت صلاحية reCAPTCHA — حاول مجدداً';
+        }
+      });
+      await _pvRecaptchaVerifier.render();
+    }
+
+    // إرسال SMS عبر Firebase
+    _pvConfirmResult = await signInWithPhoneNumber(_auth, phoneE164, _pvRecaptchaVerifier);
+
+    // انتقل لمرحلة OTP
+    $('pv-stage-phone').style.display = 'none';
+    $('pv-stage-otp').style.display   = 'block';
+    $('pv-otp-label').textContent      = `📞 أُرسل رمز إلى ${phoneE164}`;
+    $('pv-otp').focus();
+
+    pvStartTimer();
+    toast('ok', '✅ تم الإرسال', `تحقق من رسائلك — ${phoneE164}`);
+
+  } catch (err) {
+    console.error('pvSendCode error:', err);
+
+    const msgs = {
+      'auth/invalid-phone-number':       '❌ رقم الهاتف غير صحيح',
+      'auth/too-many-requests':          '⚠️ طلبات كثيرة — انتظر قليلاً',
+      'auth/captcha-check-failed':       '⚠️ فشل التحقق من reCAPTCHA',
+      'auth/quota-exceeded':             '⚠️ تجاوزت الحد اليومي لـ SMS',
+      'auth/network-request-failed':     '❌ تحقق من الاتصال بالإنترنت',
+      'auth/missing-phone-number':       '❌ يرجى إدخال رقم الهاتف',
+    };
+
+    $('pv-phone-err').textContent = msgs[err.code] || ('❌ ' + (err.message || 'خطأ غير معروف'));
+    $('pv-phone').style.borderColor = 'rgba(248,113,113,.7)';
+
+    // إعادة تهيئة reCAPTCHA عند الخطأ
+    if (_pvRecaptchaVerifier) {
+      try { _pvRecaptchaVerifier.clear(); } catch (e) {}
+      _pvRecaptchaVerifier = null;
+    }
+
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال رمز التحقق';
+    btn.disabled = false;
+  }
+};
+
+/* ── التحقق من الرمز ── */
+window.pvVerify = async () => {
+  const code = ($('pv-otp').value || '').trim();
+
+  if (code.length !== 6) {
+    $('pv-otp-err').textContent = '❌ الرمز يجب أن يكون 6 أرقام';
+    $('pv-otp').style.borderColor = 'rgba(248,113,113,.7)';
+    return;
+  }
+
+  if (!_pvConfirmResult) {
+    $('pv-otp-err').textContent = '⚠️ انتهت الجلسة — أعد إرسال الرمز';
+    return;
+  }
+
+  const btn = $('pv-verify-btn');
+  btn.innerHTML = '<span class="spin"></span> جاري التحقق...';
+  btn.disabled = true;
+
+  try {
+    // التحقق عبر Firebase
+    const result = await _pvConfirmResult.confirm(code);
+    const phone  = result.user.phoneNumber;
+
+    // حفظ الرقم
+    pvSaveVerified(phone);
+
+    // إيقاف التايمر
+    if (_pvTimerInterval) { clearInterval(_pvTimerInterval); _pvTimerInterval = null; }
+
+    // إخفاء شاشة التحقق والانتقال للتطبيق
+    $('PPhoneVerif').style.display = 'none';
+
+    toast('ok', '✅ تم التحقق!', 'مرحباً بك 👋');
+    playSound('accept');
+    vibrate([200, 100, 200]);
+
+    // تشغيل بوابة المكتب
+    initTenantGate();
+
+  } catch (err) {
+    console.error('pvVerify error:', err);
+
+    const msgs = {
+      'auth/invalid-verification-code': '❌ الرمز غير صحيح — تحقق وأعد المحاولة',
+      'auth/code-expired':              '⏰ انتهت صلاحية الرمز — أعد الإرسال',
+      'auth/session-expired':           '⏰ انتهت الجلسة — أعد إرسال الرمز',
+    };
+
+    $('pv-otp-err').textContent = msgs[err.code] || '❌ رمز خاطئ';
+    $('pv-otp').style.borderColor = 'rgba(248,113,113,.7)';
+    $('pv-otp').style.animation = 'shake .4s';
+    setTimeout(() => { const el = $('pv-otp'); if (el) el.style.animation = ''; }, 400);
+    $('pv-otp').value = '';
+    $('pv-otp').focus();
+  }
+
+  btn.innerHTML = '<i class="fas fa-check-circle"></i> تحقق';
+  btn.disabled = false;
+};
+
+/* ── إعادة إرسال ── */
+window.pvResend = async () => {
+  $('pv-stage-otp').style.display   = 'none';
+  $('pv-stage-phone').style.display = 'block';
+  $('pv-otp').value = '';
+  pvClearErr();
+  _pvConfirmResult = null;
+  if (_pvTimerInterval) { clearInterval(_pvTimerInterval); _pvTimerInterval = null; }
+  if (_pvRecaptchaVerifier) {
+    try { _pvRecaptchaVerifier.clear(); } catch (e) {}
+    _pvRecaptchaVerifier = null;
+  }
+  // إعادة render للـ recaptcha
+  $('pv-recaptcha').innerHTML = '';
+  await pvSendCode();
+};
+
+/* ── رجوع لتغيير الرقم ── */
+window.pvBack = () => {
+  $('pv-stage-otp').style.display   = 'none';
+  $('pv-stage-phone').style.display = 'block';
+  $('pv-otp').value = '';
+  pvClearErr();
+  _pvConfirmResult = null;
+  if (_pvTimerInterval) { clearInterval(_pvTimerInterval); _pvTimerInterval = null; }
+};
+
+/* ── تايمر إعادة الإرسال ── */
+const pvStartTimer = () => {
+  let sec = 60;
+  const timerEl  = $('pv-timer');
+  const resendBtn = $('pv-resend-btn');
+  if (resendBtn) { resendBtn.disabled = true; resendBtn.style.opacity = '.4'; resendBtn.style.cursor = 'not-allowed'; }
+
+  if (_pvTimerInterval) clearInterval(_pvTimerInterval);
+  _pvTimerInterval = setInterval(() => {
+    sec--;
+    if (timerEl) timerEl.textContent = sec;
+    if (sec <= 0) {
+      clearInterval(_pvTimerInterval);
+      _pvTimerInterval = null;
+      if (resendBtn) { resendBtn.disabled = false; resendBtn.style.opacity = '1'; resendBtn.style.cursor = 'pointer'; resendBtn.innerHTML = '<i class="fas fa-redo"></i> إعادة إرسال'; }
+    }
+  }, 1000);
+};
+
+/* ── الدالة الرئيسية للتحقق ── */
+const pvInit = () => {
+  if (pvIsVerified()) {
+    // الرقم محفوظ → اذهب مباشرة للتطبيق
+    initTenantGate();
+  } else {
+    // لا يوجد رقم → اعرض شاشة التحقق
+    $('PPhoneVerif').style.display = 'block';
+    $('PL').style.display          = 'none';
+    $('PTenantGate').style.display = 'none';
+    setTimeout(() => { const el = $('pv-phone'); if (el) el.focus(); }, 300);
+  }
+};
 
 let TENANT_ID   = '';
 let TENANT_INFO = null;
@@ -548,7 +802,7 @@ window.gateEnter = role => {
   tenantEnter(role);
 };
 
-document.addEventListener('DOMContentLoaded', initTenantGate);
+document.addEventListener('DOMContentLoaded', pvInit);
 
 /* من أي زر دخل المستخدم (مشرف / مستقبل / سائق) */
 window.tenantEnter = role => {
