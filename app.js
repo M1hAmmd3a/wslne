@@ -470,6 +470,24 @@ let _userReqId = null, _userReqTenantId = null, _userRating = 0, _pubReqListener
 let _officeLocMap = null, _officeLocMarker = null, _officeLocLat = null, _officeLocLng = null;
 let _lastTrackStatus = '';
 
+/* ══════════════════════════════════════════════════
+   USER GPS — تحديد موقع الزبون مرة واحدة فقط
+   ══════════════════════════════════════════════════ */
+let _userGpsLat = null, _userGpsLng = null, _userGpsReady = false;
+
+const getUserGPS = () => new Promise((resolve, reject) => {
+  if (!navigator.geolocation) { reject('no_geo'); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      _userGpsLat  = pos.coords.latitude;
+      _userGpsLng  = pos.coords.longitude;
+      _userGpsReady = true;
+      resolve({ lat: _userGpsLat, lng: _userGpsLng });
+    },
+    err => reject(err),
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+});
 
 /* ══════════════════════════════════════════════════
    TENANT GATE — بوابة الدخول
@@ -1056,9 +1074,10 @@ const initDash = () => {
     }
     renderDriverReqs();
   } else {
-    const cfg = [
+const cfg = [
       {id:'reqs',      icon:'fas fa-inbox',           label:'الطلبات'},
       {id:'map',       icon:'fas fa-map-location-dot', label:'الخريطة'},
+      {id:'reqmap',    icon:'fas fa-map-pin',          label:'خارطة الطلبات'},
       {id:'notifs',    icon:'fas fa-bell',             label:'التنبيهات',  badge:true},
       {id:'approvals', icon:'fas fa-user-check',       label:'الموافقات',  badge2:true},
       {id:'reports',   icon:'fas fa-chart-bar',        label:'التقارير'},
@@ -1066,6 +1085,7 @@ const initDash = () => {
       {id:'support',   icon:'fas fa-headset',          label:'دعم فني'},
       {id:'profile',   icon:'fas fa-user-cog',         label:'حسابي'},
     ];
+
     tabs.innerHTML = cfg.map((t,i) =>
       `<button class="ntab${i===0?' sup-on':''}" id="nt-${t.id}" onclick="nTab('${t.id}')">
         <i class="${t.icon}"></i> ${t.label}
@@ -1111,6 +1131,7 @@ window.nTab = t => {
   } else {
     if      (t==='reqs')      renderSupReqs();
     else if (t==='map')       renderMapSup();
+    else if (t==='reqmap')    renderReqMap();
     else if (t==='notifs')    renderNotifs();
     else if (t==='approvals') renderApprovals();
     else if (t==='reports')   renderSupReports();
@@ -1573,6 +1594,170 @@ window.confirmTaxiSel = async () => {
   } catch(err) { toast('err','خطأ',err.message||''); }
   btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال'; btn.disabled = false; btn.style.opacity = '1';
   setTimeout(() => { _sendBusy = false; }, 1500);
+};
+
+/* ══════════════════════════════════════════════════
+   REQUEST MAP — خارطة الطلبات (مواقع الزبائن)
+   ══════════════════════════════════════════════════ */
+const renderReqMap = () => {
+  $('dbody').innerHTML = `
+  <div style="height:calc(100vh - 60px);display:flex;flex-direction:column;position:relative;overflow:hidden">
+    <div class="ststrip" style="flex-shrink:0">
+      <div class="st">
+        <div class="stic" style="background:var(--primary-l)"><i class="fas fa-map-pin" style="color:var(--primary)"></i></div>
+        <div><div class="stv" id="reqMapCount">0</div><div class="stl">طلبات نشطة</div></div>
+      </div>
+      <div class="st">
+        <div class="stic" style="background:var(--green-l)"><i class="fas fa-location-dot" style="color:var(--green)"></i></div>
+        <div><div class="stv" id="reqMapGpsCount">0</div><div class="stl">مع GPS</div></div>
+      </div>
+      <div class="st">
+        <div class="stic" style="background:var(--red-l)"><i class="fas fa-exclamation-triangle" style="color:var(--red)"></i></div>
+        <div><div class="stv" id="reqMapNoGps">0</div><div class="stl">بدون GPS</div></div>
+      </div>
+    </div>
+    <div id="reqLocMap" style="flex:1;min-height:0;position:relative;z-index:1"></div>
+    <div class="map-legend" style="bottom:14px;right:14px">
+      <div style="font-size:11px;font-weight:800;color:var(--text);margin-bottom:6px">📍 مواقع الزبائن</div>
+      <div class="map-legend-item"><div class="leg-dot" style="background:#1D4ED8"></div>طلب نشط 📍</div>
+      <div class="map-legend-item"><div class="leg-dot" style="background:#059669"></div>تم القبول ✅</div>
+      <div class="map-legend-item"><div class="leg-dot" style="background:#DC2626"></div>بدون موقع ⚠️</div>
+      <div style="margin-top:6px;font-size:10px;color:var(--text4)">اضغط على الدبوس لتفاصيل الطلب</div>
+    </div>
+  </div>`;
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const el = $('reqLocMap'); if (!el) return;
+    let reqMap = null, reqMarkers = {};
+
+    try {
+      reqMap = L.map('reqLocMap', { zoomControl: true }).setView([32.31, 35.03], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap', maxZoom: 19
+      }).addTo(reqMap);
+    } catch(e) { return; }
+
+    const r = tRef('recvRequests');
+    onValue(r, snap => {
+      if (!reqMap) return;
+
+      /* حذف الماركرز القديمة */
+      Object.values(reqMarkers).forEach(m => { try { reqMap.removeLayer(m); } catch(e) {} });
+      reqMarkers = {};
+
+      let total = 0, withGps = 0, noGps = 0;
+
+      if (!snap.exists()) {
+        const upd = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+        upd('reqMapCount', 0); upd('reqMapGpsCount', 0); upd('reqMapNoGps', 0);
+        return;
+      }
+
+      const items = Object.entries(snap.val());
+      total = items.length;
+
+      items.forEach(([id, d]) => {
+        /* تحديد لون الدبوس حسب الحالة */
+        const statusColor = d.driverStatus === 'accepted' ? '#059669'
+                          : d.driverStatus === 'done'     ? '#94A3B8'
+                          : '#1D4ED8';
+
+        if (d.userLat && d.userLng) {
+          withGps++;
+
+          /* أيقونة الدبوس */
+          const icon = L.divIcon({
+            html: `<div style="
+              display:flex;flex-direction:column;align-items:center;gap:2px;
+              font-family:'Cairo',sans-serif
+            ">
+              <div style="
+                width:38px;height:38px;border-radius:50%;
+                background:${statusColor};
+                border:3px solid #fff;
+                box-shadow:0 2px 8px rgba(0,0,0,.25);
+                display:flex;align-items:center;justify-content:center;
+                font-size:18px
+              ">📍</div>
+              <div style="
+                background:rgba(15,23,42,.85);color:#fff;
+                font-size:9px;font-weight:800;padding:2px 6px;
+                border-radius:5px;white-space:nowrap;max-width:110px;
+                overflow:hidden;text-overflow:ellipsis
+              ">${d.phone || '?'}</div>
+            </div>`,
+            className: '',
+            iconSize:  [50, 56],
+            iconAnchor:[25, 56],
+          });
+
+          const gpsAge   = d.gpsTime ? Math.floor((Date.now() - d.gpsTime) / 60000) : '?';
+          const statusLbl = d.driverStatus === 'accepted' ? '✅ مقبول'
+                          : d.driverStatus === 'done'     ? '🏁 منتهي'
+                          : '⏳ ينتظر';
+
+          const googleLink = `https://www.google.com/maps?q=${d.userLat},${d.userLng}`;
+
+          const popupHtml = `
+            <div style="font-family:'Cairo',sans-serif;direction:rtl;text-align:right;min-width:200px;padding:4px">
+              <div style="font-weight:800;font-size:14px;margin-bottom:6px;color:#0F172A">
+                📞 ${d.phone || '-'}
+              </div>
+              <div style="font-size:11px;color:#64748B;margin-bottom:8px;line-height:1.6">
+                <i class="fas fa-map-marker-alt" style="color:#D97706;margin-left:3px"></i>
+                ${d.details || '-'}
+              </div>
+              <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px;margin-bottom:8px;font-size:11px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="color:#64748B">الحالة</span>
+                  <span style="font-weight:700">${statusLbl}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="color:#64748B">GPS قبل</span>
+                  <span style="font-weight:700;color:#059669">${gpsAge} دقيقة</span>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                  <span style="color:#64748B">أضافه</span>
+                  <span style="font-weight:700">${d.addedBy || '-'}</span>
+                </div>
+              </div>
+              <a href="${googleLink}" target="_blank"
+                style="display:block;text-align:center;padding:7px;background:#1D4ED8;color:#fff;
+                border-radius:8px;font-size:12px;font-weight:700;text-decoration:none">
+                <i class="fas fa-map"></i> فتح في Google Maps
+              </a>
+            </div>`;
+
+          reqMarkers[id] = L.marker([d.userLat, d.userLng], { icon })
+            .addTo(reqMap)
+            .bindPopup(popupHtml, { maxWidth: 240 });
+
+        } else {
+          noGps++;
+        }
+      });
+
+      /* تحديث الإحصائيات */
+      const upd = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+      upd('reqMapCount',   total);
+      upd('reqMapGpsCount', withGps);
+      upd('reqMapNoGps',   noGps);
+
+      /* تمركز على الماركرز إذا وجدت */
+      if (withGps > 0) {
+        const latlngs = items
+          .filter(([, d]) => d.userLat && d.userLng)
+          .map(([, d]) => [d.userLat, d.userLng]);
+        if (latlngs.length === 1) {
+          reqMap.setView(latlngs[0], 15);
+        } else if (latlngs.length > 1) {
+          reqMap.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: 16 });
+        }
+      }
+    });
+
+    addL(r);
+  }));
 };
 
 
@@ -2210,20 +2395,68 @@ window.submitUserReq = async () => {
   const from     = ($('ur-from').value  || '').trim();
   const to       = ($('ur-to').value    || '').trim();
   const tenantId =  $('ur-office-tenant').value;
+
   if (!phone || !from || !to) return shAl('al-userreq','err','يرجى ملء جميع الحقول');
   if (!/^[0-9+]{7,15}$/.test(phone.replace(/\s/g,''))) return shAl('al-userreq','err','رقم الهاتف غير صحيح');
+
   const btn = $('MuserReq').querySelector('.bp'), orig = btn.innerHTML;
-  btn.innerHTML = '<span class="spin"></span> جار الإرسال...'; btn.disabled = true;
+
+  /* ── خطوة 1: تفعيل GPS إذا لم يتم بعد ── */
+  if (!_userGpsReady) {
+    btn.innerHTML = '<span class="spin"></span> جار تحديد موقعك...';
+    btn.disabled  = true;
+    shAl('al-userreq', 'ok', '📍 جار تحديد موقعك تلقائياً...');
+    try {
+      await getUserGPS();
+      shAl('al-userreq', 'ok', '✅ تم تحديد موقعك — جار إرسال الطلب...');
+    } catch(gpsErr) {
+      btn.innerHTML = orig; btn.disabled = false;
+      const msgs = {
+        1: '❌ يرجى السماح بالوصول للموقع لإرسال الطلب',
+        2: '❌ تعذّر تحديد موقعك — تأكد من تشغيل GPS',
+        3: '❌ انتهت مهلة تحديد الموقع — حاول مجدداً',
+      };
+      shAl('al-userreq','err', msgs[gpsErr?.code] || '❌ فعّل GPS وحاول مجدداً');
+      return;
+    }
+  }
+
+  btn.innerHTML = '<span class="spin"></span> جار الإرسال...';
+  btn.disabled  = true;
+
   try {
     const details = `من: ${from} ← إلى: ${to}`;
-    const reqRef  = await push(ref(_db, `tenants/${tenantId}/recvRequests`), { phone, details, ts:Date.now(), addedBy:'مستخدم عام 🌐', fromUser:true, userFrom:from, userTo:to, userReqRef:null });
+    const reqRef  = await push(ref(_db, `tenants/${tenantId}/recvRequests`), {
+      phone, details, ts: Date.now(),
+      addedBy: 'مستخدم عام 🌐',
+      fromUser: true,
+      userFrom: from,
+      userTo: to,
+      userReqRef: null,
+      /* ── إحداثيات GPS الزبون ── */
+      userLat: _userGpsLat,
+      userLng: _userGpsLng,
+      gpsTime: Date.now(),
+    });
+
     const userReqRefPath = `tenants/${tenantId}/recvRequests/${reqRef.key}`;
     await update(reqRef, { userReqRef: userReqRefPath });
-    _userReqId = reqRef.key; _userReqTenantId = tenantId;
+
+    _userReqId = reqRef.key;
+    _userReqTenantId = tenantId;
+
+    /* إعادة تعيين GPS لاستخدام المرة القادمة */
+    _userGpsReady = false;
+    _userGpsLat   = null;
+    _userGpsLng   = null;
+
     CM('MuserReq');
     openTrackScreen(phone, details, $('userReqOfficeName').textContent);
     listenUserReqStatus(tenantId, reqRef.key);
-  } catch(err) { shAl('al-userreq','err','خطأ: '+(err.message||'')); }
+  } catch(err) {
+    shAl('al-userreq','err','خطأ: '+(err.message||''));
+  }
+
   btn.innerHTML = orig; btn.disabled = false;
 };
 
