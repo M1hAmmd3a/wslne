@@ -1721,11 +1721,17 @@ const renderReqMap = () => {
                   <span style="font-weight:700">${d.addedBy || '-'}</span>
                 </div>
               </div>
-              <a href="${googleLink}" target="_blank"
-                style="display:block;text-align:center;padding:7px;background:#1D4ED8;color:#fff;
-                border-radius:8px;font-size:12px;font-weight:700;text-decoration:none">
-                <i class="fas fa-map"></i> فتح في Google Maps
-              </a>
+<a href="${googleLink}" target="_blank"
+  style="display:block;text-align:center;padding:7px;background:#1D4ED8;color:#fff;
+  border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:6px">
+  <i class="fas fa-map"></i> فتح في Google Maps
+</a>
+<button onclick="deleteReqLocation('${id}')"
+  style="width:100%;padding:7px;background:#FEF2F2;border:1px solid #FECACA;
+  border-radius:8px;font-size:12px;font-weight:700;color:#DC2626;cursor:pointer;
+  font-family:'Cairo',sans-serif">
+  <i class="fas fa-trash"></i> حذف الموقع
+</button>
             </div>`;
 
           reqMarkers[id] = L.marker([d.userLat, d.userLng], { icon })
