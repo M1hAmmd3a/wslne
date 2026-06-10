@@ -107,7 +107,15 @@ const _app = initializeApp(firebaseConfig, "main");
 const _db = getDatabase(_app);
 const _auth = getAuth(_app);
 
-
+window.deleteReqLocation = async id => {
+  if (!confirm('حذف موقع هذا الطلب من الخريطة؟')) return;
+  await update(tRef(`recvRequests/${id}`), {
+    userLat: null,
+    userLng: null,
+    gpsTime: null,
+  }).catch(() => {});
+  toast('ok', '🗑️ تم حذف الموقع', 'لن يظهر على الخريطة');
+};
 
 let TENANT_ID   = '';
 let TENANT_INFO = null;
