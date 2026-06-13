@@ -1199,24 +1199,133 @@ html, body {
 </div>
 
 <!-- ════════ USER VERIFY SCREEN ════════ -->
+<!-- ════════ USER VERIFY SCREEN — نظام التحقق الكامل ════════ -->
+<!-- استبدل كل ما بين تعليق USER VERIFY SCREEN في index.html بهذا الكود -->
+
 <div class="user-verify-screen" id="UserVerifyScreen">
   <div class="verify-card">
-    <!-- الخطوة 1: رقم الهاتف -->
+
+    <!-- ── الخطوة 1: رقم الهاتف ── -->
     <div class="verify-step on" id="vstep1">
       <div class="verify-icon" style="background:linear-gradient(135deg,#10B981,#059669)">📱</div>
       <div class="verify-title">أدخل رقم هاتفك</div>
-      <div class="verify-sub">يُحفظ رقمك على هاتفك فقط<br>ولن تحتاج لإدخاله مرة أخرى</div>
+      <div class="verify-sub">
+        سيُرسَل كود التحقق إلى واتساب هذا الرقم<br>
+        <span style="color:rgba(255,255,255,.35);font-size:11px">لن تحتاج لإدخاله مرة أخرى</span>
+      </div>
       <input class="verify-input-wa" id="v-phone" type="tel" placeholder="05XXXXXXXX" maxlength="12"
         oninput="this.value=this.value.replace(/[^0-9+]/g,'');document.getElementById('v-phone-btn').disabled=this.value.length<9"
-        onkeydown="if(event.key==='Enter')startOtp()">
+        onkeydown="if(event.key==='Enter'&&this.value.length>=9)startOtp()">
       <button class="verify-btn-wa" id="v-phone-btn" onclick="startOtp()" disabled
         style="background:linear-gradient(135deg,#10B981,#059669);box-shadow:0 8px 20px rgba(16,185,129,.3)">
-        <i class="fas fa-arrow-left"></i> التالي
+        <i class="fas fa-paper-plane"></i> إرسال كود التحقق
       </button>
-      <button onclick="skipToGps()" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif;text-align:center">
-        لديّ رقم محفوظ مسبقاً
+      <button onclick="skipToGps()"
+        style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif;text-align:center;padding:4px">
+        <i class="fas fa-history" style="margin-left:4px"></i> لديّ رقم محفوظ مسبقاً
       </button>
     </div>
+
+    <!-- ── الخطوة 2: OTP واتساب ── -->
+    <div class="verify-step" id="vstep2">
+      <div class="verify-icon" style="background:linear-gradient(135deg,#25D366,#128C7E)">💬</div>
+      <div class="verify-title">تحقق عبر واتساب</div>
+
+      <!-- معلومات الإرسال — بدون عرض الكود -->
+      <div style="background:rgba(37,211,102,.1);border:1.5px solid rgba(37,211,102,.3);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:12px;color:rgba(255,255,255,.6);margin-bottom:6px">📨 تم إرسال الكود إلى واتساب:</div>
+        <div id="otp-phone-display" style="font-size:20px;font-weight:900;color:#25D366;letter-spacing:2px;direction:ltr">-</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:8px;line-height:1.6">
+          افتح واتساب واستلم الكود<br>ثم أدخله في الخانات أدناه
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,.5)">
+          صالح لمدة: <span id="otp-timer" style="color:#F59E0B;font-weight:800;font-size:14px">5:00</span>
+        </div>
+      </div>
+
+      <!-- زر فتح واتساب -->
+      <button class="verify-btn-wa" onclick="openWaOtp()"
+        style="background:linear-gradient(135deg,#25D366,#128C7E);box-shadow:0 8px 20px rgba(37,211,102,.3)">
+        <i class="fab fa-whatsapp"></i> فتح واتساب لاستلام الكود
+      </button>
+
+      <!-- خانات OTP -->
+      <div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center">أدخل الكود المكوّن من 6 أرقام</div>
+      <div class="otp-boxes-row" id="otp-boxes">
+        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
+          oninput="otpBoxInput(this,0)" onkeydown="otpBoxKey(event,0)">
+        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
+          oninput="otpBoxInput(this,1)" onkeydown="otpBoxKey(event,1)">
+        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
+          oninput="otpBoxInput(this,2)" onkeydown="otpBoxKey(event,2)">
+        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
+          oninput="otpBoxInput(this,3)" onkeydown="otpBoxKey(event,3)">
+        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
+          oninput="otpBoxInput(this,4)" onkeydown="otpBoxKey(event,4)">
+        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
+          oninput="otpBoxInput(this,5)" onkeydown="otpBoxKey(event,5)">
+      </div>
+      <div id="otp-err" style="color:#FCA5A5;font-size:12px;font-weight:700;text-align:center;min-height:18px"></div>
+
+      <button class="verify-btn-wa" id="v-otp-btn" onclick="checkOtp()" disabled
+        style="background:linear-gradient(135deg,#10B981,#059669)">
+        <i class="fas fa-check-circle"></i> تأكيد الكود
+      </button>
+
+      <div style="display:flex;justify-content:space-between;gap:8px">
+        <button onclick="showVStep(1)"
+          style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
+          <i class="fas fa-arrow-right"></i> تعديل الرقم
+        </button>
+        <button onclick="resendOtp()" id="resend-btn"
+          style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
+          🔄 إعادة الإرسال
+        </button>
+      </div>
+    </div>
+
+    <!-- ── الخطوة 3: GPS — إلزامية بدون تخطي ── -->
+    <div class="verify-step" id="vstep3">
+      <div class="verify-icon" style="background:linear-gradient(135deg,#0EA5E9,#0284C7)">📍</div>
+      <div class="verify-title">تفعيل موقعك الجغرافي</div>
+      <div class="verify-sub">
+        موقعك مطلوب لإرسال التاكسي إليك بدقة<br>
+        <span style="color:rgba(239,68,68,.8);font-size:11px;font-weight:700">⚠️ لا يمكن إرسال الطلب بدون تفعيل الموقع</span>
+      </div>
+
+      <div style="background:rgba(14,165,233,.1);border:1.5px solid rgba(14,165,233,.3);border-radius:14px;padding:16px;text-align:center">
+        <div style="font-size:38px;margin-bottom:8px">🛰️</div>
+        <div id="gps-status-title" style="font-size:13px;font-weight:800;color:#0EA5E9;margin-bottom:4px">في انتظار إذن الموقع...</div>
+        <div id="gps-status-sub" style="font-size:11px;color:rgba(255,255,255,.4)">اضغط الزر أدناه وامنح الإذن</div>
+      </div>
+
+      <button class="verify-btn-wa" id="v-gps-btn" onclick="askGps()"
+        style="background:linear-gradient(135deg,#0EA5E9,#0284C7);box-shadow:0 8px 20px rgba(14,165,233,.3)">
+        <i class="fas fa-map-location-dot"></i> تفعيل الموقع الجغرافي
+      </button>
+
+      <!-- تحذير عند رفض GPS — بدون زر تخطي -->
+      <div id="gps-denied-box"
+        style="display:none;background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.3);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:13px;font-weight:800;color:#FCA5A5;margin-bottom:6px">❌ تم رفض إذن الموقع</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.7">
+          يجب السماح بالموقع الجغرافي لإرسال الطلب<br>
+          افتح إعدادات المتصفح وامنح الإذن ثم أعد المحاولة
+        </div>
+        <button onclick="askGps()"
+          style="margin-top:10px;padding:8px 16px;background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);border-radius:8px;color:#FCA5A5;font-size:12px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif">
+          <i class="fas fa-redo"></i> حاول مرة أخرى
+        </button>
+      </div>
+
+      <button onclick="document.getElementById('UserVerifyScreen').classList.remove('on')"
+        style="background:none;border:none;color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif;text-align:center;padding:4px">
+        إلغاء
+      </button>
+    </div>
+
+  </div>
+</div>
     <!-- الخطوة 2: OTP واتساب -->
 <div class="otp-display-box">
   <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:8px">
