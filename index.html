@@ -3,1024 +3,355 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-
 <title>الركاب | منصة الركاب لطلب سيارات الأجرة في طولكرم</title>
-
 <meta name="description" content="الركاب - منصة الركاب الذكية لطلب سيارات الأجرة في طولكرم بسهولة وسرعة ومتابعة الرحلات بشكل مباشر.">
-
 <meta name="keywords" content="الركاب, منصة الركاب, موقع الركاب, الركاب طولكرم, منصة الركاب طولكرم, تكسي طولكرم, سيارات أجرة طولكرم, حجز تكسي, طلب سيارة أجرة">
-
 <meta name="robots" content="index, follow">
-
 <meta property="og:title" content="الركاب | منصة الركاب لطلب سيارات الأجرة في طولكرم">
 <meta property="og:description" content="الركاب - منصة الركاب الذكية لطلب سيارات الأجرة في طولكرم بسهولة وسرعة ومتابعة الرحلات بشكل مباشر.">
 <meta property="og:image" content="https://i.ibb.co/WvDX4gW4/Screenshot-88.png">
 <meta property="og:type" content="website">
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <style>
-/* ════════════════════════════════════════════════════════════════════════════════ */
-/* ROOT VARIABLES */
-/* ════════════════════════════════════════════════════════════════════════════════ */
-
 :root {
   --primary: #0EA5E9;
   --primary-dark: #0284C7;
   --primary-l: #E0F2FE;
   --primary-m: #06B6D4;
-  
   --secondary: #8B5CF6;
   --accent: #EC4899;
   --success: #10B981;
   --success-l: #D1FAE5;
   --success-m: #6EE7B7;
-  
   --warning: #F59E0B;
   --warning-l: #FEF3C7;
   --warning-m: #FCD34D;
-  
   --error: #EF4444;
   --error-l: #FEE2E2;
   --error-m: #FECACA;
-  
   --info: #06B6D4;
   --cyan-l: #CFFAFE;
   --cyan-m: #22D3EE;
-  
   --amber-l: #FEF3C7;
   --amber-m: #FCD34D;
   --amber: #F59E0B;
-  
   --red-l: #FEE2E2;
   --red-m: #FECACA;
   --red: #EF4444;
-  
   --green: #10B981;
   --green-l: #D1FAE5;
   --green-m: #6EE7B7;
-  
   --bg-dark: #0F172A;
   --bg-darker: #020617;
   --bg-light: #F8FAFC;
   --bg-card: #1E293B;
   --bg2: #334155;
-  
   --text: #F1F5F9;
   --text2: #E2E8F0;
   --text3: #CBD5E1;
   --text4: #94A3B8;
   --text-dark: #64748B;
-  
   --border: #475569;
   --border-subtle: #334155;
   --border-light: #475569;
-  
   --r: 12px;
   --rl: 16px;
-  
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.2);
-  --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,.1);
+  --shadow-md: 0 8px 24px rgba(0,0,0,.15);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,.2);
+  --shadow-xl: 0 20px 48px rgba(0,0,0,.3);
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+* { margin:0; padding:0; box-sizing:border-box; }
 
 html, body {
-  width: 100%;
-  height: 100%;
+  width:100%; height:100%;
   background: linear-gradient(135deg, var(--bg-darker) 0%, var(--bg-dark) 100%);
   color: var(--text);
   font-family: 'Cairo', 'Tajawal', sans-serif;
   overflow-x: hidden;
 }
 
-/* ════════════════════════════════════════════════════════════════════════════════ */
-/* TENANT GATE - PREMIUM DESIGN */
-/* ════════════════════════════════════════════════════════════════════════════════ */
-
+/* ══ TENANT GATE ══ */
 #PTenantGate {
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-  overflow-y: auto;
+  position:fixed; inset:0; z-index:9000; overflow-y:auto;
   background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #1E3A5F 100%);
 }
-
 #PTenantGate::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: 
-    radial-gradient(circle at 20% 50%, rgba(14, 165, 233, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 1;
+  content:''; position:fixed; inset:0;
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(14,165,233,.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(139,92,246,.1) 0%, transparent 50%);
+  pointer-events:none; z-index:1;
 }
-
-#PTenantGate > div:first-child {
-  position: relative;
-  z-index: 2;
-}
+#PTenantGate > div:first-child { position:relative; z-index:2; }
 
 .gate-container {
-  position: relative;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  animation: fadeIn 0.5s ease-out;
+  position:relative; min-height:100vh;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:20px; animation:fadeIn .5s ease-out;
 }
 
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-12px); } }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+@keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
 
 .gate-logo-box {
-  width: 100px;
-  height: 100px;
-  background: linear-gradient(135deg, #D97706 0%, #F59E0B 100%);
-  border-radius: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 50px;
-  margin: 0 auto 20px;
-  box-shadow: 0 20px 50px rgba(217, 119, 6, 0.4), inset 0 2px 8px rgba(255, 255, 255, 0.1);
-  animation: float 3s ease-in-out infinite;
+  width:100px; height:100px;
+  background:linear-gradient(135deg,#D97706,#F59E0B);
+  border-radius:24px; display:flex; align-items:center; justify-content:center;
+  font-size:50px; margin:0 auto 20px;
+  box-shadow:0 20px 50px rgba(217,119,6,.4),inset 0 2px 8px rgba(255,255,255,.1);
+  animation:float 3s ease-in-out infinite;
 }
-
 .gate-card {
-  width: 100%;
-  max-width: 440px;
-  background: rgba(30, 41, 59, 0.85);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  padding: 40px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05);
-  animation: slideUp 0.6s ease-out;
+  width:100%; max-width:440px;
+  background:rgba(30,41,59,.85);
+  backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:24px; padding:40px;
+  box-shadow:0 25px 50px rgba(0,0,0,.4),inset 0 1px 1px rgba(255,255,255,.05);
+  animation:slideUp .6s ease-out;
 }
-
-.gate-title {
-  font-size: 28px;
-  font-weight: 900;
-  color: #fff;
-  text-align: center;
-  margin-bottom: 6px;
-  letter-spacing: -0.5px;
-}
-
-.gate-subtitle {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
-  text-align: center;
-  font-weight: 600;
-  margin-bottom: 28px;
-}
-
-.gate-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 10px;
-  text-align: right;
-}
-
-.gate-input-group {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
+.gate-title { font-size:28px; font-weight:900; color:#fff; text-align:center; margin-bottom:6px; letter-spacing:-.5px; }
+.gate-subtitle { font-size:13px; color:rgba(255,255,255,.55); text-align:center; font-weight:600; margin-bottom:28px; }
+.gate-label { display:block; font-size:12px; font-weight:700; color:rgba(255,255,255,.6); margin-bottom:10px; text-align:right; }
+.gate-input-group { display:flex; gap:10px; margin-bottom:20px; }
 .gate-input {
-  flex: 1;
-  padding: 14px 16px;
-  background: rgba(15, 23, 42, 0.7);
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  color: #fff;
-  font-size: 16px;
-  font-weight: 800;
-  text-align: center;
-  letter-spacing: 3px;
-  outline: none;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: 'Cairo', monospace;
+  flex:1; padding:14px 16px;
+  background:rgba(15,23,42,.7);
+  border:1.5px solid rgba(255,255,255,.15);
+  border-radius:12px; color:#fff; font-size:16px; font-weight:800;
+  text-align:center; letter-spacing:3px; outline:none;
+  transition:all .3s cubic-bezier(.4,0,.2,1);
+  font-family:'Cairo',monospace;
 }
-
-.gate-input:hover {
-  border-color: rgba(14, 165, 233, 0.6);
-  background: rgba(15, 23, 42, 0.9);
-}
-
-.gate-input:focus {
-  border-color: #0EA5E9;
-  background: rgba(15, 23, 42, 0.95);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
-}
-
+.gate-input:hover { border-color:rgba(14,165,233,.6); background:rgba(15,23,42,.9); }
+.gate-input:focus { border-color:#0EA5E9; background:rgba(15,23,42,.95); box-shadow:0 0 0 3px rgba(14,165,233,.15); }
 #gate-check-btn {
-  padding: 14px 22px;
-  background: linear-gradient(135deg, #0EA5E9 0%, #06B6D4 100%);
-  border: none;
-  border-radius: 12px;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.3s;
-  font-family: 'Cairo', sans-serif;
-  box-shadow: 0 10px 25px rgba(14, 165, 233, 0.3);
+  padding:14px 22px;
+  background:linear-gradient(135deg,#0EA5E9,#06B6D4);
+  border:none; border-radius:12px; color:#fff; font-size:13px; font-weight:800;
+  cursor:pointer; flex-shrink:0; transition:all .3s;
+  font-family:'Cairo',sans-serif;
+  box-shadow:0 10px 25px rgba(14,165,233,.3);
 }
-
-#gate-check-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 15px 35px rgba(14, 165, 233, 0.4);
-}
-
-#gate-check-btn:active {
-  transform: translateY(0);
-}
-
+#gate-check-btn:hover { transform:translateY(-2px); box-shadow:0 15px 35px rgba(14,165,233,.4); }
 #gate-verified {
-  background: rgba(16, 185, 129, 0.15);
-  border: 1.5px solid rgba(16, 185, 129, 0.4);
-  border-radius: 12px;
-  padding: 14px;
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  animation: slideUp 0.3s ease-out;
+  background:rgba(16,185,129,.15);
+  border:1.5px solid rgba(16,185,129,.4);
+  border-radius:12px; padding:14px; margin-top:12px;
+  display:flex; align-items:center; gap:12px;
+  animation:slideUp .3s ease-out;
 }
-
 #gate-verified > div:first-child {
-  width: 40px;
-  height: 40px;
-  background: rgba(16, 185, 129, 0.25);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
+  width:40px; height:40px; background:rgba(16,185,129,.25); border-radius:10px;
+  display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
 }
-
-#gate-office-name-label {
-  font-size: 14px;
-  font-weight: 800;
-  color: #34D399;
-}
-
-#gate-err {
-  text-align: center;
-  font-size: 12px;
-  color: #FCA5A5;
-  font-weight: 700;
-  margin-top: 10px;
-  min-height: 18px;
-}
-
-#gate-btns {
-  display: none;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 24px;
-}
-
+#gate-office-name-label { font-size:14px; font-weight:800; color:#34D399; }
+#gate-err { text-align:center; font-size:12px; color:#FCA5A5; font-weight:700; margin-top:10px; min-height:18px; }
+#gate-btns { display:none; flex-direction:column; gap:12px; margin-top:24px; }
 #gate-btns button {
-  width: 100%;
-  padding: 16px 18px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
-  border-radius: 14px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-family: 'Cairo', sans-serif;
-  transition: all 0.3s;
+  width:100%; padding:16px 18px;
+  background:rgba(255,255,255,.08);
+  border:1.5px solid rgba(255,255,255,.15);
+  border-radius:14px; color:#fff; font-size:14px; font-weight:800;
+  cursor:pointer; display:flex; align-items:center; gap:14px;
+  font-family:'Cairo',sans-serif; transition:all .3s;
 }
-
-#gate-btns button:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
-  transform: translateX(-3px);
-}
-
+#gate-btns button:hover { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.25); transform:translateX(-3px); }
 #gate-btns button:first-child {
-  background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);
-  border: none;
-  box-shadow: 0 12px 30px rgba(14, 165, 233, 0.35);
+  background:linear-gradient(135deg,#0EA5E9,#0284C7);
+  border:none; box-shadow:0 12px 30px rgba(14,165,233,.35);
 }
-
-#gate-btns button:first-child:hover {
-  box-shadow: 0 16px 40px rgba(14, 165, 233, 0.45);
-}
-
+#gate-btns button:first-child:hover { box-shadow:0 16px 40px rgba(14,165,233,.45); }
 #gate-btns button:nth-child(3) {
-  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-  border: none;
-  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.35);
+  background:linear-gradient(135deg,#F59E0B,#D97706);
+  border:none; box-shadow:0 12px 30px rgba(245,158,11,.35);
 }
-
-#gate-btns button:nth-child(3):hover {
-  box-shadow: 0 16px 40px rgba(245, 158, 11, 0.45);
-}
-
+#gate-btns button:nth-child(3):hover { box-shadow:0 16px 40px rgba(245,158,11,.45); }
 #gate-btns button > div:first-child {
-  width: 44px;
-  height: 44px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  flex-shrink: 0;
+  width:44px; height:44px; background:rgba(255,255,255,.15); border-radius:10px;
+  display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;
 }
-
-#gate-btns button:nth-child(3) > div:first-child {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-#gate-btns button > div:last-child {
-  text-align: right;
-}
-
-#gate-btns button > div:last-child > div:first-child {
-  font-size: 15px;
-  font-weight: 800;
-}
-
-#gate-btns button > div:last-child > div:last-child {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  margin-top: 2px;
-}
-
-#gate-btns button:nth-child(4) {
-  margin-top: 6px;
-  font-size: 11px;
-  padding: 10px;
-}
-
-#gate-btns button:nth-child(4):hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.gate-divider {
-  margin: 24px 0;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
+#gate-btns button:nth-child(3) > div:first-child { background:rgba(255,255,255,.2); }
+#gate-btns button > div:last-child { text-align:right; }
+#gate-btns button > div:last-child > div:first-child { font-size:15px; font-weight:800; }
+#gate-btns button > div:last-child > div:last-child { font-size:12px; color:rgba(255,255,255,.6); margin-top:2px; }
+#gate-btns button:nth-child(4) { margin-top:6px; font-size:11px; padding:10px; }
+#gate-btns button:nth-child(4):hover { background:rgba(255,255,255,.1); }
+.gate-divider { margin:24px 0; padding-top:20px; border-top:1px solid rgba(255,255,255,.1); }
 .gate-public-btn {
-  width: 100%;
-  padding: 16px;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1.5px solid rgba(16, 185, 129, 0.4);
-  border-radius: 14px;
-  color: #34D399;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  font-family: 'Cairo', sans-serif;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: all 0.3s;
+  width:100%; padding:16px;
+  background:rgba(16,185,129,.15);
+  border:1.5px solid rgba(16,185,129,.4);
+  border-radius:14px; color:#34D399; font-size:14px; font-weight:800;
+  cursor:pointer; font-family:'Cairo',sans-serif;
+  display:flex; align-items:center; justify-content:center; gap:10px; transition:all .3s;
 }
+.gate-public-btn:hover { background:#10B981; color:white; border-color:#10B981; transform:translateY(-2px); box-shadow:0 12px 30px rgba(16,185,129,.3); }
+.gate-footer { text-align:center; margin-top:24px; font-size:11px; color:rgba(255,255,255,.2); }
 
-.gate-public-btn:hover {
-  background: #10B981;
-  color: white;
-  border-color: #10B981;
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.3);
-}
-
-.gate-footer {
-  text-align: center;
-  margin-top: 24px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.2);
-}
-
-/* ════════════════════════════════════════════════════════════════════════════════ */
-/* LANDING PAGE */
-/* ════════════════════════════════════════════════════════════════════════════════ */
-
-#PL {
-  background: linear-gradient(135deg, var(--bg-darker) 0%, var(--bg-dark) 100%);
-}
-
-.land-bg {
-  position: fixed;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
-  z-index: 0;
-}
-
+/* ══ LANDING ══ */
+#PL { background:linear-gradient(135deg,var(--bg-darker),var(--bg-dark)); }
+.land-bg { position:fixed; inset:0; background:linear-gradient(135deg,rgba(14,165,233,.05),rgba(139,92,246,.05)); z-index:0; }
 .land-grid {
-  position: fixed;
-  inset: 0;
-  background-image: 
-    radial-gradient(circle at 20% 50%, rgba(14, 165, 233, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
-  z-index: 1;
+  position:fixed; inset:0;
+  background-image:
+    radial-gradient(circle at 20% 50%,rgba(14,165,233,.08) 0%,transparent 50%),
+    radial-gradient(circle at 80% 80%,rgba(139,92,246,.08) 0%,transparent 50%);
+  z-index:1;
 }
-
 .lnav {
-  position: relative;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 48px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
+  position:relative; z-index:100;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:20px 48px; border-bottom:1px solid rgba(255,255,255,.08);
+  backdrop-filter:blur(8px);
 }
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
+.logo { display:flex; align-items:center; gap:14px; }
 .lgic {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.3);
+  width:48px; height:48px;
+  background:linear-gradient(135deg,#0EA5E9,#0284C7);
+  border-radius:12px; display:flex; align-items:center; justify-content:center;
+  font-size:24px; box-shadow:0 8px 20px rgba(14,165,233,.3);
 }
-
-.lgn1 {
-  font-size: 16px;
-  font-weight: 900;
-  color: var(--text);
-}
-
-.lgn2 {
-  font-size: 11px;
-  color: var(--text4);
-  font-weight: 600;
-}
-
-.lnav-btns {
-  display: flex;
-  gap: 12px;
-}
-
+.lgn1 { font-size:16px; font-weight:900; color:var(--text); }
+.lgn2 { font-size:11px; color:var(--text4); font-weight:600; }
+.lnav-btns { display:flex; gap:12px; }
 .btn-outline, .btn-primary {
-  padding: 11px 20px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-family: 'Cairo', sans-serif;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  padding:11px 20px; border-radius:10px; font-size:13px; font-weight:700;
+  cursor:pointer; transition:all .3s; font-family:'Cairo',sans-serif;
+  display:flex; align-items:center; gap:8px;
 }
-
-.btn-outline {
-  background: transparent;
-  border: 1.5px solid var(--border-subtle);
-  color: var(--text3);
-}
-
-.btn-outline:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: rgba(14, 165, 233, 0.1);
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  border: none;
-  color: white;
-  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.3);
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(14, 165, 233, 0.4);
-}
-
+.btn-outline { background:transparent; border:1.5px solid var(--border-subtle); color:var(--text3); }
+.btn-outline:hover { border-color:var(--primary); color:var(--primary); background:rgba(14,165,233,.1); }
+.btn-primary { background:linear-gradient(135deg,var(--primary),var(--secondary)); border:none; color:white; box-shadow:0 8px 20px rgba(14,165,233,.3); }
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 12px 30px rgba(14,165,233,.4); }
 .hero {
-  position: relative;
-  z-index: 10;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 48px;
-  text-align: center;
-  min-height: calc(100vh - 100px);
+  position:relative; z-index:10; flex:1;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:80px 48px; text-align:center; min-height:calc(100vh - 100px);
 }
-
 .hero-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: rgba(14, 165, 233, 0.15);
-  border: 1px solid rgba(14, 165, 233, 0.3);
-  border-radius: 50px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--primary);
-  margin-bottom: 28px;
-  animation: slideUp 0.6s ease-out;
+  display:inline-flex; align-items:center; gap:8px;
+  padding:12px 20px; background:rgba(14,165,233,.15);
+  border:1px solid rgba(14,165,233,.3); border-radius:50px;
+  font-size:12px; font-weight:700; color:var(--primary); margin-bottom:28px;
+  animation:slideUp .6s ease-out;
 }
-
-.hero-title {
-  font-size: 56px;
-  font-weight: 900;
-  color: var(--text);
-  margin-bottom: 16px;
-  line-height: 1.2;
-  letter-spacing: -1px;
-  animation: slideUp 0.6s ease-out 0.1s both;
-}
-
-.hl {
-  background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.hero-sub {
-  font-size: 18px;
-  color: var(--text3);
-  max-width: 700px;
-  margin: 0 auto 48px;
-  line-height: 1.6;
-  animation: slideUp 0.6s ease-out 0.2s both;
-}
-
-.hero-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-  max-width: 1100px;
-  width: 100%;
-  margin-bottom: 48px;
-  animation: slideUp 0.6s ease-out 0.3s both;
-}
-
+.hero-title { font-size:56px; font-weight:900; color:var(--text); margin-bottom:16px; line-height:1.2; letter-spacing:-1px; animation:slideUp .6s ease-out .1s both; }
+.hl { background:linear-gradient(135deg,#0EA5E9,#0284C7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.hero-sub { font-size:18px; color:var(--text3); max-width:700px; margin:0 auto 48px; line-height:1.6; animation:slideUp .6s ease-out .2s both; }
+.hero-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:20px; max-width:1100px; width:100%; margin-bottom:48px; animation:slideUp .6s ease-out .3s both; }
 .hcard {
-  background: rgba(30, 41, 59, 0.6);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 28px 24px;
-  cursor: pointer;
-  transition: all 0.3s;
-  position: relative;
-  overflow: hidden;
+  background:rgba(30,41,59,.6); backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:28px 24px;
+  cursor:pointer; transition:all .3s; position:relative; overflow:hidden;
+}
+.hcard::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(14,165,233,.1),transparent); opacity:0; transition:all .3s; }
+.hcard:hover { background:rgba(30,41,59,.8); border-color:rgba(14,165,233,.4); transform:translateY(-8px); box-shadow:0 20px 40px rgba(14,165,233,.2); }
+.hcard:hover::before { opacity:1; }
+.hcic { font-size:48px; margin-bottom:16px; display:block; }
+.hctitle { font-size:18px; font-weight:800; color:var(--text); margin-bottom:8px; }
+.hcdesc { font-size:13px; color:var(--text3); line-height:1.6; margin-bottom:16px; }
+.hcbtn { padding:10px 16px; background:var(--primary); border:none; border-radius:10px; color:white; font-size:12px; font-weight:800; cursor:pointer; transition:all .3s; font-family:'Cairo',sans-serif; }
+.hcbtn:hover { transform:translateX(-2px); box-shadow:0 8px 20px rgba(14,165,233,.3); }
+.hero-feats { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:28px; animation:slideUp .6s ease-out .4s both; }
+.hfeat { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--text3); font-weight:600; }
+.hfeat i { color:var(--success); font-size:16px; }
+
+/* ══ PUBLIC PAGE ══ */
+#PU { display:none; flex-direction:column; min-height:100vh; padding-top:58px; }
+.pub-nav { display:flex; align-items:center; justify-content:space-between; padding:16px 24px; border-bottom:1px solid rgba(255,255,255,.08); backdrop-filter:blur(8px); z-index:100; }
+.pub-info-bar { padding:12px 24px; background:rgba(14,165,233,.1); border-bottom:1px solid rgba(14,165,233,.2); font-size:12px; color:var(--primary); font-weight:700; display:flex; align-items:center; gap:8px; z-index:50; }
+
+/* ══ MODALS ══ */
+.ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(4px); z-index:5000; align-items:center; justify-content:center; padding:20px; animation:fadeIn .2s ease-out; }
+.ov.on { display:flex; }
+.mdl { background:rgba(30,41,59,.95); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,.1); border-radius:20px; padding:32px; box-shadow:0 25px 50px rgba(0,0,0,.5); max-width:500px; width:100%; position:relative; animation:slideUp .3s ease-out; }
+.mclose { position:absolute; top:16px; right:16px; width:40px; height:40px; background:rgba(255,255,255,.1); border:none; border-radius:10px; color:var(--text3); cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; font-size:18px; z-index:1; }
+.mclose:hover { background:rgba(255,255,255,.15); color:var(--text); }
+.mhd { display:flex; gap:14px; margin-bottom:24px; }
+.mic { width:48px; height:48px; background:rgba(14,165,233,.15); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+.mtitle { font-size:20px; font-weight:800; color:var(--text); }
+.msub { font-size:12px; color:var(--text3); margin-top:4px; }
+.al { margin-bottom:14px; font-size:12px; color:var(--error); font-weight:700; }
+.fg { margin-bottom:16px; }
+.fl { display:block; font-size:12px; font-weight:700; color:var(--text3); margin-bottom:8px; text-align:right; }
+.fi { width:100%; padding:12px 14px; background:rgba(15,23,42,.7); border:1.5px solid rgba(255,255,255,.1); border-radius:10px; color:var(--text); font-size:14px; font-family:'Cairo',sans-serif; outline:none; transition:all .2s; resize:vertical; }
+.fi:hover { border-color:rgba(255,255,255,.2); background:rgba(15,23,42,.8); }
+.fi:focus { border-color:var(--primary); background:rgba(15,23,42,.9); box-shadow:0 0 0 3px rgba(14,165,233,.1); }
+.tabs { display:flex; gap:8px; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,.08); }
+.tab { flex:1; padding:12px; background:transparent; border:none; color:var(--text3); font-size:13px; font-weight:700; cursor:pointer; border-bottom:2px solid transparent; transition:all .2s; }
+.tab.on { color:var(--primary); border-bottom-color:var(--primary); }
+.ba, .bp { width:100%; padding:13px 16px; background:linear-gradient(135deg,var(--primary),var(--secondary)); border:none; border-radius:12px; color:white; font-size:14px; font-weight:800; cursor:pointer; font-family:'Cairo',sans-serif; transition:all .3s; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 10px 25px rgba(14,165,233,.3); }
+.ba:hover, .bp:hover { transform:translateY(-2px); box-shadow:0 15px 35px rgba(14,165,233,.4); }
+.h { display:none; }
+.user-track-screen { display:none; position:fixed; inset:0; background:linear-gradient(135deg,var(--bg-darker),var(--bg-dark)); z-index:4000; padding:24px; overflow-y:auto; flex-direction:column; }
+.rating-star { font-size:32px; cursor:pointer; opacity:.3; transition:all .2s; }
+.rating-star.on { opacity:1; }
+.rating-star:hover { transform:scale(1.1); }
+
+/* ══ RESPONSIVE ══ */
+@media (max-width:768px) {
+  .lnav { padding:14px 20px; flex-wrap:wrap; }
+  .lnav-btns { flex:1; margin-top:10px; }
+  .hero { padding:40px 20px; min-height:auto; }
+  .hero-title { font-size:36px; }
+  .hero-sub { font-size:16px; }
+  .hero-cards { grid-template-columns:1fr; }
+  .gate-card { padding:28px; }
+  .gate-title { font-size:24px; }
+  .mdl { padding:24px; }
 }
 
-.hcard::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, transparent 100%);
-  opacity: 0;
-  transition: all 0.3s;
-}
-
-.hcard:hover {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(14, 165, 233, 0.4);
-  transform: translateY(-8px);
-  box-shadow: 0 20px 40px rgba(14, 165, 233, 0.2);
-}
-
-.hcard:hover::before {
-  opacity: 1;
-}
-
-.hcic {
-  font-size: 48px;
-  margin-bottom: 16px;
-  display: block;
-}
-
-.hctitle {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--text);
-  margin-bottom: 8px;
-}
-
-.hcdesc {
-  font-size: 13px;
-  color: var(--text3);
-  line-height: 1.6;
-  margin-bottom: 16px;
-}
-
-.hcbtn {
-  padding: 10px 16px;
-  background: var(--primary);
-  border: none;
-  border-radius: 10px;
-  color: white;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-family: 'Cairo', sans-serif;
-}
-
-.hcbtn:hover {
-  transform: translateX(-2px);
-  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.3);
-}
-
-.hero-feats {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 28px;
-  animation: slideUp 0.6s ease-out 0.4s both;
-}
-
-.hfeat {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--text3);
-  font-weight: 600;
-}
-
-.hfeat i {
-  color: var(--success);
-  font-size: 16px;
-}
-
-/* ════════════════════════════════════════════════════════════════════════════════ */
-/* PUBLIC PAGE & OTHER STYLES */
-/* ════════════════════════════════════════════════════════════════════════════════ */
-
-#PU {
-  display: none;
-  flex-direction: column;
-  min-height: 100vh;
-  padding-top: 58px;
-}
-
-.pub-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
-  z-index: 100;
-}
-
-.pub-info-bar {
-  padding: 12px 24px;
-  background: rgba(14, 165, 233, 0.1);
-  border-bottom: 1px solid rgba(14, 165, 233, 0.2);
-  font-size: 12px;
-  color: var(--primary);
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 50;
-}
-
-/* Modal Styles */
-.ov {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  z-index: 5000;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  animation: fadeIn 0.2s ease-out;
-}
-
-.ov.on {
-  display: flex;
-}
-
-.mdl {
-  background: rgba(30, 41, 59, 0.95);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 32px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-  max-width: 500px;
-  width: 100%;
-  position: relative;
-  animation: slideUp 0.3s ease-out;
-}
-
-.mclose {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  border-radius: 10px;
-  color: var(--text3);
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  z-index: 1;
-}
-
-.mclose:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: var(--text);
-}
-
-.mhd {
-  display: flex;
-  gap: 14px;
-  margin-bottom: 24px;
-}
-
-.mic {
-  width: 48px;
-  height: 48px;
-  background: rgba(14, 165, 233, 0.15);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  flex-shrink: 0;
-}
-
-.mtitle {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--text);
-}
-
-.msub {
-  font-size: 12px;
-  color: var(--text3);
-  margin-top: 4px;
-}
-
-.al {
-  margin-bottom: 14px;
-  font-size: 12px;
-  color: var(--error);
-  font-weight: 700;
-}
-
-.fg {
-  margin-bottom: 16px;
-}
-
-.fl {
-  display: block;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text3);
-  margin-bottom: 8px;
-  text-align: right;
-}
-
-.fi {
-  width: 100%;
-  padding: 12px 14px;
-  background: rgba(15, 23, 42, 0.7);
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: var(--text);
-  font-size: 14px;
-  font-family: 'Cairo', sans-serif;
-  outline: none;
-  transition: all 0.2s;
-  resize: vertical;
-}
-
-.fi:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(15, 23, 42, 0.8);
-}
-
-.fi:focus {
-  border-color: var(--primary);
-  background: rgba(15, 23, 42, 0.9);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
-}
-
-.tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.tab {
-  flex: 1;
-  padding: 12px;
-  background: transparent;
-  border: none;
-  color: var(--text3);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-}
-
-.tab.on {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-}
-
-.ba, .bp {
-  width: 100%;
-  padding: 13px 16px;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  border: none;
-  border-radius: 12px;
-  color: white;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  font-family: 'Cairo', sans-serif;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 10px 25px rgba(14, 165, 233, 0.3);
-}
-
-.ba:hover, .bp:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 15px 35px rgba(14, 165, 233, 0.4);
-}
-
-.h {
-  display: none;
-}
-
-.user-track-screen {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: linear-gradient(135deg, var(--bg-darker) 0%, var(--bg-dark) 100%);
-  z-index: 4000;
-  padding: 24px;
-  overflow-y: auto;
-  flex-direction: column;
-}
-
-.rating-star {
-  font-size: 32px;
-  cursor: pointer;
-  opacity: 0.3;
-  transition: all 0.2s;
-}
-
-.rating-star.on {
-  opacity: 1;
-}
-
-.rating-star:hover {
-  transform: scale(1.1);
-}
-
-/* ════════════════════════════════════════════════════════════════════════════════ */
-/* RESPONSIVE */
-/* ════════════════════════════════════════════════════════════════════════════════ */
-
-@media (max-width: 768px) {
-  .lnav {
-    padding: 14px 20px;
-    flex-wrap: wrap;
-  }
-
-  .lnav-btns {
-    flex: 1;
-    margin-top: 10px;
-  }
-
-  .hero {
-    padding: 40px 20px;
-    min-height: auto;
-  }
-
-  .hero-title {
-    font-size: 36px;
-  }
-
-  .hero-sub {
-    font-size: 16px;
-  }
-
-  .hero-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .gate-card {
-    padding: 28px;
-  }
-
-  .gate-title {
-    font-size: 24px;
-  }
-
-  .mdl {
-    padding: 24px;
-  }
-}
-
-/* Utilities */
-.hidden { display: none !important; }
-
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
+.hidden { display:none !important; }
+::-webkit-scrollbar { width:8px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1); border-radius:4px; }
+::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,.2); }
 </style>
+
 <link rel="stylesheet" href="style.css">
+
 <style>
-/* ── نظام حماية الزبون ── */
-.user-verify-screen{position:fixed;inset:0;z-index:7000;background:linear-gradient(135deg,#0F172A,#1E293B,#1E3A5F);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s}
-.user-verify-screen.on{opacity:1;visibility:visible}
-.verify-card{width:100%;max-width:420px;background:rgba(30,41,59,.92);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:36px 32px;box-shadow:0 25px 50px rgba(0,0,0,.5);animation:slideUp .4s ease-out}
-.verify-icon{width:72px;height:72px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 20px;box-shadow:0 12px 30px rgba(16,185,129,.35)}
-.verify-title{font-family:'Tajawal',sans-serif;font-size:22px;font-weight:900;color:#fff;text-align:center;margin-bottom:6px}
-.verify-sub{font-size:12px;color:rgba(255,255,255,.5);text-align:center;margin-bottom:24px;line-height:1.7}
-.verify-step{display:none;flex-direction:column;gap:14px}
-.verify-step.on{display:flex}
-.verify-input-wa{width:100%;padding:13px 16px;background:rgba(15,23,42,.7);border:1.5px solid rgba(255,255,255,.15);border-radius:12px;color:#fff;font-size:16px;font-weight:700;text-align:center;letter-spacing:2px;outline:none;transition:all .25s;font-family:'Cairo',monospace;direction:ltr}
-.verify-input-wa:focus{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.15)}
-.verify-btn-wa{width:100%;padding:14px;border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;transition:all .25s;display:flex;align-items:center;justify-content:center;gap:8px}
-.verify-btn-wa:disabled{opacity:.4;cursor:not-allowed}
-.otp-display-box{background:rgba(245,158,11,.1);border:1.5px dashed rgba(245,158,11,.5);border-radius:12px;padding:16px;text-align:center}
-.otp-code-big{font-size:30px;font-weight:900;letter-spacing:8px;color:#F59E0B;font-family:monospace;direction:ltr}
-.otp-boxes-row{display:flex;gap:10px;justify-content:center;direction:ltr}
-.otp-box-single{width:52px;height:56px;background:rgba(15,23,42,.8);border:2px solid rgba(255,255,255,.15);border-radius:12px;color:#fff;font-size:22px;font-weight:900;text-align:center;outline:none;transition:all .2s;font-family:monospace}
-.otp-box-single:focus{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.2)}
-.otp-box-single.filled{border-color:rgba(16,185,129,.6);background:rgba(16,185,129,.08)}
-.rate-limit-big{font-size:30px;font-weight:900;color:#EF4444;font-family:monospace;letter-spacing:2px}
-.user-loc-dot-marker{width:18px;height:18px;background:#10B981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,.3);animation:userLocPulse 1.5s ease infinite}
-@keyframes userLocPulse{0%,100%{box-shadow:0 0 0 4px rgba(16,185,129,.3)}50%{box-shadow:0 0 0 10px rgba(16,185,129,0)}}
-.verified-phone-field{width:100%;padding:11px 14px;background:rgba(16,185,129,.08);border:1.5px solid rgba(16,185,129,.4);border-radius:10px;color:#34D399;font-size:15px;font-weight:800;text-align:center;cursor:not-allowed;font-family:'Cairo',sans-serif;direction:ltr;letter-spacing:1px}
+/* ══ USER VERIFY SCREEN ══ */
+.user-verify-screen {
+  position:fixed; inset:0; z-index:7000;
+  background:linear-gradient(135deg,#0F172A,#1E293B,#1E3A5F);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  opacity:0; visibility:hidden; transition:opacity .3s,visibility .3s;
+}
+.user-verify-screen.on { opacity:1; visibility:visible; }
+.verify-card {
+  width:100%; max-width:420px;
+  background:rgba(30,41,59,.92);
+  backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:24px; padding:36px 32px;
+  box-shadow:0 25px 50px rgba(0,0,0,.5);
+  animation:slideUp .4s ease-out;
+}
+.verify-icon { width:72px; height:72px; border-radius:20px; display:flex; align-items:center; justify-content:center; font-size:34px; margin:0 auto 20px; }
+.verify-title { font-family:'Tajawal',sans-serif; font-size:22px; font-weight:900; color:#fff; text-align:center; margin-bottom:6px; }
+.verify-sub { font-size:12px; color:rgba(255,255,255,.5); text-align:center; margin-bottom:24px; line-height:1.7; }
+.verify-step { display:none; flex-direction:column; gap:14px; }
+.verify-step.on { display:flex; }
+.verify-input-wa { width:100%; padding:13px 16px; background:rgba(15,23,42,.7); border:1.5px solid rgba(255,255,255,.15); border-radius:12px; color:#fff; font-size:16px; font-weight:700; text-align:center; letter-spacing:2px; outline:none; transition:all .25s; font-family:'Cairo',monospace; direction:ltr; }
+.verify-input-wa:focus { border-color:#10B981; box-shadow:0 0 0 3px rgba(16,185,129,.15); }
+.verify-btn-wa { width:100%; padding:14px; border:none; border-radius:12px; color:#fff; font-size:14px; font-weight:800; cursor:pointer; font-family:'Cairo',sans-serif; transition:all .25s; display:flex; align-items:center; justify-content:center; gap:8px; }
+.verify-btn-wa:disabled { opacity:.4; cursor:not-allowed; }
+.otp-boxes-row { display:flex; gap:10px; justify-content:center; direction:ltr; }
+.otp-box-single { width:52px; height:56px; background:rgba(15,23,42,.8); border:2px solid rgba(255,255,255,.15); border-radius:12px; color:#fff; font-size:22px; font-weight:900; text-align:center; outline:none; transition:all .2s; font-family:monospace; }
+.otp-box-single:focus { border-color:#10B981; box-shadow:0 0 0 3px rgba(16,185,129,.2); }
+.otp-box-single.filled { border-color:rgba(16,185,129,.6); background:rgba(16,185,129,.08); }
+.user-loc-dot-marker { width:18px; height:18px; background:#10B981; border:3px solid #fff; border-radius:50%; box-shadow:0 0 0 4px rgba(16,185,129,.3); animation:userLocPulse 1.5s ease infinite; }
+@keyframes userLocPulse { 0%,100%{box-shadow:0 0 0 4px rgba(16,185,129,.3)} 50%{box-shadow:0 0 0 10px rgba(16,185,129,0)} }
 </style>
 </head>
 <body>
@@ -1029,41 +360,27 @@ html, body {
 <div id="PTenantGate">
   <div class="gate-container">
     <div style="width:100%;max-width:480px">
-
-      <!-- Logo -->
       <div style="text-align:center;margin-bottom:32px">
         <div class="gate-logo-box">🚕</div>
         <div class="gate-title">منصة الركاب</div>
         <div class="gate-subtitle">طولكرم — نظام إدارة مكاتب التكسي</div>
       </div>
-
-      <!-- Card -->
       <div class="gate-card">
-
         <div id="tg-role-screen">
-
           <div style="text-align:center;margin-bottom:24px">
             <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:4px">اختر طريقة دخولك</div>
             <div style="font-size:12px;color:rgba(255,255,255,.5)">أدخل رمز مكتبك أولاً</div>
           </div>
-
-          <!-- ── حقل رمز المكتب ── -->
           <div style="margin-bottom:20px">
-            <label class="gate-label">
-              <i class="fas fa-building"></i> رمز المكتب
-            </label>
+            <label class="gate-label"><i class="fas fa-building"></i> رمز المكتب</label>
             <div class="gate-input-group">
-              <input id="gate-office-code" type="text" maxlength="6"
-                placeholder="TLK001"
-                class="gate-input"
+              <input id="gate-office-code" type="text" maxlength="6" placeholder="TLK001" class="gate-input"
                 oninput="this.value=this.value.toLowerCase().trim();gateClearErr()"
                 onkeydown="if(event.key==='Enter')gateCheckCode()">
               <button onclick="gateCheckCode()" id="gate-check-btn">
                 <i class="fas fa-check"></i> تحقق
               </button>
             </div>
-
-            <!-- بطاقة التحقق الناجح -->
             <div id="gate-verified" style="display:none">
               <div>🏢</div>
               <div>
@@ -1072,55 +389,32 @@ html, body {
               </div>
               <i class="fas fa-check-circle" style="color:#34D399;font-size:18px;flex-shrink:0"></i>
             </div>
-
-            <!-- رسالة الخطأ -->
             <div id="gate-err"></div>
           </div>
-
-          <!-- ── أزرار الدخول (مخفية حتى التحقق) ── -->
           <div id="gate-btns">
-
             <button onclick="gateEnter('driver')">
               <div>🚕</div>
-              <div>
-                <div>دخول كسائق</div>
-                <div>استقبال الطلبات وتتبع الشيفت</div>
-              </div>
+              <div><div>دخول كسائق</div><div>استقبال الطلبات وتتبع الشيفت</div></div>
             </button>
-
             <button onclick="gateEnter('receiver')">
               <div>📥</div>
-              <div>
-                <div>دخول كمستقبل</div>
-                <div>استقبال الطلبات وإرسالها</div>
-              </div>
+              <div><div>دخول كمستقبل</div><div>استقبال الطلبات وإرسالها</div></div>
             </button>
-
             <button onclick="gateEnter('supervisor')">
               <div>👨‍💼</div>
-              <div>
-                <div>دخول كمشرف</div>
-                <div>إدارة الطلبات والسائقين</div>
-              </div>
+              <div><div>دخول كمشرف</div><div>إدارة الطلبات والسائقين</div></div>
             </button>
-
-            <!-- زر تغيير الرمز -->
             <button onclick="gateReset()" style="justify-content:center;gap:6px">
               <i class="fas fa-arrow-right"></i> تغيير رمز المكتب
             </button>
-
           </div>
-
-          <!-- ── زر الخريطة العامة ── -->
           <div class="gate-divider"></div>
           <button class="gate-public-btn" onclick="openPubPageDirect()">
             <i class="fas fa-map-location-dot"></i> اطلب تكسي — خريطة المكاتب
           </button>
           <div style="text-align:center;font-size:11px;color:rgba(255,255,255,.3);margin-top:12px">لا تحتاج حساباً • للمستخدمين العامة</div>
-
-        </div><!-- /tg-role-screen -->
-
-      </div><!-- /card -->
+        </div>
+      </div>
       <div class="gate-footer">منصة التكسي © 2026 — طولكرم</div>
     </div>
   </div>
@@ -1199,13 +493,10 @@ html, body {
 </div>
 
 <!-- ════════ USER VERIFY SCREEN ════════ -->
-<!-- ════════ USER VERIFY SCREEN — نظام التحقق الكامل ════════ -->
-<!-- استبدل كل ما بين تعليق USER VERIFY SCREEN في index.html بهذا الكود -->
-
 <div class="user-verify-screen" id="UserVerifyScreen">
   <div class="verify-card">
 
-    <!-- ── الخطوة 1: رقم الهاتف ── -->
+    <!-- الخطوة 1: رقم الهاتف -->
     <div class="verify-step on" id="vstep1">
       <div class="verify-icon" style="background:linear-gradient(135deg,#10B981,#059669)">📱</div>
       <div class="verify-title">أدخل رقم هاتفك</div>
@@ -1226,12 +517,10 @@ html, body {
       </button>
     </div>
 
-    <!-- ── الخطوة 2: OTP واتساب ── -->
+    <!-- الخطوة 2: OTP واتساب -->
     <div class="verify-step" id="vstep2">
       <div class="verify-icon" style="background:linear-gradient(135deg,#25D366,#128C7E)">💬</div>
       <div class="verify-title">تحقق عبر واتساب</div>
-
-      <!-- معلومات الإرسال — بدون عرض الكود -->
       <div style="background:rgba(37,211,102,.1);border:1.5px solid rgba(37,211,102,.3);border-radius:12px;padding:16px;text-align:center">
         <div style="font-size:12px;color:rgba(255,255,255,.6);margin-bottom:6px">📨 تم إرسال الكود إلى واتساب:</div>
         <div id="otp-phone-display" style="font-size:20px;font-weight:900;color:#25D366;letter-spacing:2px;direction:ltr">-</div>
@@ -1242,116 +531,11 @@ html, body {
           صالح لمدة: <span id="otp-timer" style="color:#F59E0B;font-weight:800;font-size:14px">5:00</span>
         </div>
       </div>
-
-      <!-- زر فتح واتساب -->
       <button class="verify-btn-wa" onclick="openWaOtp()"
         style="background:linear-gradient(135deg,#25D366,#128C7E);box-shadow:0 8px 20px rgba(37,211,102,.3)">
         <i class="fab fa-whatsapp"></i> فتح واتساب لاستلام الكود
       </button>
-
-      <!-- خانات OTP -->
       <div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center">أدخل الكود المكوّن من 6 أرقام</div>
-      <div class="otp-boxes-row" id="otp-boxes">
-        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
-          oninput="otpBoxInput(this,0)" onkeydown="otpBoxKey(event,0)">
-        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
-          oninput="otpBoxInput(this,1)" onkeydown="otpBoxKey(event,1)">
-        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
-          oninput="otpBoxInput(this,2)" onkeydown="otpBoxKey(event,2)">
-        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
-          oninput="otpBoxInput(this,3)" onkeydown="otpBoxKey(event,3)">
-        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
-          oninput="otpBoxInput(this,4)" onkeydown="otpBoxKey(event,4)">
-        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric"
-          oninput="otpBoxInput(this,5)" onkeydown="otpBoxKey(event,5)">
-      </div>
-      <div id="otp-err" style="color:#FCA5A5;font-size:12px;font-weight:700;text-align:center;min-height:18px"></div>
-
-      <button class="verify-btn-wa" id="v-otp-btn" onclick="checkOtp()" disabled
-        style="background:linear-gradient(135deg,#10B981,#059669)">
-        <i class="fas fa-check-circle"></i> تأكيد الكود
-      </button>
-
-      <div style="display:flex;justify-content:space-between;gap:8px">
-        <button onclick="showVStep(1)"
-          style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
-          <i class="fas fa-arrow-right"></i> تعديل الرقم
-        </button>
-        <button onclick="resendOtp()" id="resend-btn"
-          style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
-          🔄 إعادة الإرسال
-        </button>
-      </div>
-    </div>
-
-    <!-- ── الخطوة 3: GPS — إلزامية بدون تخطي ── -->
-    <div class="verify-step" id="vstep3">
-      <div class="verify-icon" style="background:linear-gradient(135deg,#0EA5E9,#0284C7)">📍</div>
-      <div class="verify-title">تفعيل موقعك الجغرافي</div>
-      <div class="verify-sub">
-        موقعك مطلوب لإرسال التاكسي إليك بدقة<br>
-        <span style="color:rgba(239,68,68,.8);font-size:11px;font-weight:700">⚠️ لا يمكن إرسال الطلب بدون تفعيل الموقع</span>
-      </div>
-
-      <div style="background:rgba(14,165,233,.1);border:1.5px solid rgba(14,165,233,.3);border-radius:14px;padding:16px;text-align:center">
-        <div style="font-size:38px;margin-bottom:8px">🛰️</div>
-        <div id="gps-status-title" style="font-size:13px;font-weight:800;color:#0EA5E9;margin-bottom:4px">في انتظار إذن الموقع...</div>
-        <div id="gps-status-sub" style="font-size:11px;color:rgba(255,255,255,.4)">اضغط الزر أدناه وامنح الإذن</div>
-      </div>
-
-      <button class="verify-btn-wa" id="v-gps-btn" onclick="askGps()"
-        style="background:linear-gradient(135deg,#0EA5E9,#0284C7);box-shadow:0 8px 20px rgba(14,165,233,.3)">
-        <i class="fas fa-map-location-dot"></i> تفعيل الموقع الجغرافي
-      </button>
-
-      <!-- تحذير عند رفض GPS — بدون زر تخطي -->
-      <div id="gps-denied-box"
-        style="display:none;background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.3);border-radius:12px;padding:14px;text-align:center">
-        <div style="font-size:13px;font-weight:800;color:#FCA5A5;margin-bottom:6px">❌ تم رفض إذن الموقع</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.7">
-          يجب السماح بالموقع الجغرافي لإرسال الطلب<br>
-          افتح إعدادات المتصفح وامنح الإذن ثم أعد المحاولة
-        </div>
-        <button onclick="askGps()"
-          style="margin-top:10px;padding:8px 16px;background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);border-radius:8px;color:#FCA5A5;font-size:12px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif">
-          <i class="fas fa-redo"></i> حاول مرة أخرى
-        </button>
-      </div>
-
-      <button onclick="document.getElementById('UserVerifyScreen').classList.remove('on')"
-        style="background:none;border:none;color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif;text-align:center;padding:4px">
-        إلغاء
-      </button>
-    </div>
-
-  </div>
-</div>
-    <!-- الخطوة 2: OTP واتساب -->
-<div class="otp-display-box">
-  <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:8px">
-    📨 تم إرسال الكود إلى واتساب رقم:
-  </div>
-  <div style="font-size:18px;font-weight:900;color:#25D366;letter-spacing:2px;direction:ltr" id="otp-phone-display">
-    -
-  </div>
-  
-  <!-- الكود الكبير واضح -->
-  <div style="font-size:32px;font-weight:bold;letter-spacing:6px;background:rgba(0,0,0,0.2);padding:12px;border-radius:12px;margin:12px 0;text-align:center" id="otp-code-big">
-    ------
-  </div>
-  
-  <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:8px">
-    افتح واتساب واستلم الكود، ثم أدخله هنا
-  </div>
-  <div style="margin-top:8px">
-    صالح لمدة: <span id="otp-timer" style="color:#F59E0B;font-weight:800">5:00</span>
-  </div>
-</div>
-      <button class="verify-btn-wa" onclick="openWaOtp()"
-        style="background:linear-gradient(135deg,#25D366,#128C7E);box-shadow:0 8px 20px rgba(37,211,102,.3)">
-        <i class="fab fa-whatsapp"></i> فتح واتساب وإرسال الكود
-      </button>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center">أو أدخل الكود يدوياً</div>
       <div class="otp-boxes-row" id="otp-boxes">
         <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric" oninput="otpBoxInput(this,0)" onkeydown="otpBoxKey(event,0)">
         <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric" oninput="otpBoxInput(this,1)" onkeydown="otpBoxKey(event,1)">
@@ -1365,32 +549,49 @@ html, body {
         style="background:linear-gradient(135deg,#10B981,#059669)">
         <i class="fas fa-check-circle"></i> تأكيد الكود
       </button>
-      <button onclick="showVStep(1)" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif;text-align:center">
-        <i class="fas fa-arrow-right"></i> تعديل الرقم
-      </button>
+      <div style="display:flex;justify-content:space-between;gap:8px">
+        <button onclick="showVStep(1)" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
+          <i class="fas fa-arrow-right"></i> تعديل الرقم
+        </button>
+        <button onclick="resendOtp()" id="resend-btn" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
+          🔄 إعادة الإرسال
+        </button>
+      </div>
     </div>
-    <!-- الخطوة 3: GPS -->
+
+    <!-- الخطوة 3: GPS — إلزامية -->
     <div class="verify-step" id="vstep3">
       <div class="verify-icon" style="background:linear-gradient(135deg,#0EA5E9,#0284C7)">📍</div>
       <div class="verify-title">تفعيل موقعك الجغرافي</div>
-      <div class="verify-sub">نحتاج موقعك لإرسال التاكسي إليك بدقة<br>اضغط «سماح» عند ظهور طلب الإذن</div>
+      <div class="verify-sub">
+        موقعك مطلوب لإرسال التاكسي إليك بدقة<br>
+        <span style="color:rgba(239,68,68,.8);font-size:11px;font-weight:700">⚠️ لا يمكن إرسال الطلب بدون تفعيل الموقع</span>
+      </div>
       <div style="background:rgba(14,165,233,.1);border:1.5px solid rgba(14,165,233,.3);border-radius:14px;padding:16px;text-align:center">
         <div style="font-size:38px;margin-bottom:8px">🛰️</div>
         <div id="gps-status-title" style="font-size:13px;font-weight:800;color:#0EA5E9;margin-bottom:4px">في انتظار إذن الموقع...</div>
-        <div id="gps-status-sub" style="font-size:11px;color:rgba(255,255,255,.4)">اضغط الزر أدناه</div>
+        <div id="gps-status-sub" style="font-size:11px;color:rgba(255,255,255,.4)">اضغط الزر أدناه وامنح الإذن</div>
       </div>
       <button class="verify-btn-wa" id="v-gps-btn" onclick="askGps()"
         style="background:linear-gradient(135deg,#0EA5E9,#0284C7);box-shadow:0 8px 20px rgba(14,165,233,.3)">
         <i class="fas fa-map-location-dot"></i> تفعيل الموقع الجغرافي
       </button>
-      <button class="verify-btn-wa" id="v-gps-skip" onclick="finishVerify(false)" style="display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15)">
-        <i class="fas fa-exclamation-triangle" style="color:#F59E0B"></i> إرسال بدون موقع تلقائي
-      </button>
+      <div id="gps-denied-box" style="display:none;background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.3);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:13px;font-weight:800;color:#FCA5A5;margin-bottom:6px">❌ تم رفض إذن الموقع</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.7">
+          يجب السماح بالموقع الجغرافي لإرسال الطلب<br>
+          افتح إعدادات المتصفح وامنح الإذن ثم أعد المحاولة
+        </div>
+        <button onclick="askGps()" style="margin-top:10px;padding:8px 16px;background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);border-radius:8px;color:#FCA5A5;font-size:12px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif">
+          <i class="fas fa-redo"></i> حاول مرة أخرى
+        </button>
+      </div>
       <button onclick="document.getElementById('UserVerifyScreen').classList.remove('on')"
-        style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif;text-align:center">
+        style="background:none;border:none;color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif;text-align:center;padding:4px">
         إلغاء
       </button>
     </div>
+
   </div>
 </div>
 
@@ -1409,13 +610,36 @@ html, body {
     <div style="background:var(--green-l);border:1px solid var(--green-m);border-radius:var(--r);padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--green);font-weight:700;display:flex;align-items:center;gap:7px">
       <i class="fas fa-shield-halved"></i> طلبك يصل مباشرة للمكتب ويُرسل لأقرب سائق
     </div>
-    <div class="fg"><label class="fl"><i class="fas fa-phone"></i> رقم هاتفك</label><input type="tel" class="fi" id="ur-phone" placeholder="05xxxxxxxx" style="font-size:15px;letter-spacing:1px"></div>
-    <div class="fg"><label class="fl"><i class="fas fa-map-marker-alt"></i> موقعك الحالي</label><input type="text" class="fi" id="ur-from" placeholder="مثال: شارع فلسطين، بجانب البنك"></div>
-    <div class="fg"><label class="fl"><i class="fas fa-flag-checkered"></i> وجهتك</label><input type="text" class="fi" id="ur-to" placeholder="مثال: مستشفى طولكرم"></div>
+    <!-- رقم الهاتف — يُقفل بعد التحقق -->
+    <div class="fg">
+      <label class="fl"><i class="fas fa-phone"></i> رقم هاتفك</label>
+      <input type="tel" class="fi" id="ur-phone" placeholder="05xxxxxxxx" style="font-size:15px;letter-spacing:1px">
+    </div>
+    <!-- خريطة مصغرة لموقع الزبون — تظهر عند توفر GPS -->
+    <div id="user-mini-map-container" style="display:none;margin-bottom:12px">
+      <div id="user-mini-map" style="height:150px;border-radius:10px;border:1px solid rgba(255,255,255,.1);overflow:hidden"></div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;margin-top:4px">
+        <i class="fas fa-arrows-up-down-left-right"></i> يمكنك سحب الدبوس لتدقيق موقعك
+      </div>
+    </div>
+    <!-- أين أنت -->
+    <div class="fg">
+      <label class="fl"><i class="fas fa-map-marker-alt"></i> أين أنت الآن؟</label>
+      <input type="text" class="fi" id="ur-from" placeholder="مثال: شارع فلسطين، بجانب البنك">
+    </div>
+    <!-- وجهتك -->
+    <div class="fg">
+      <label class="fl"><i class="fas fa-flag-checkered"></i> أين تريد الذهاب؟</label>
+      <input type="text" class="fi" id="ur-to" placeholder="مثال: مستشفى طولكرم">
+    </div>
     <input type="hidden" id="ur-office-id">
     <input type="hidden" id="ur-office-tenant">
-    <button class="bp" style="background:var(--green);font-size:15px;padding:13px" onclick="submitUserReq()"><i class="fas fa-paper-plane"></i> إرسال الطلب</button>
-    <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:10px"><i class="fas fa-clock" style="margin-left:3px"></i> يصلك تحديث فوري بحالة طلبك</div>
+    <button class="bp" style="background:var(--green);font-size:15px;padding:13px" onclick="submitUserReq()">
+      <i class="fas fa-paper-plane"></i> إرسال الطلب
+    </button>
+    <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:10px">
+      <i class="fas fa-clock" style="margin-left:3px"></i> يصلك تحديث فوري بحالة طلبك
+    </div>
   </div>
 </div>
 
@@ -1728,7 +952,7 @@ html, body {
 <script type="module" src="app.js"></script>
 
 <script>
-/* ── إظهار/إخفاء كلمة المرور ── */
+/* ══ إظهار/إخفاء كلمة المرور ══ */
 window.toggleSupPw = function() {
   var inp = document.getElementById('sl-pw');
   var ico = document.getElementById('togglePwIcon');
@@ -1737,7 +961,7 @@ window.toggleSupPw = function() {
   else { inp.type = 'password'; ico.className = 'fas fa-eye'; }
 };
 
-/* ── فتح الخريطة مباشرة من Gate ── */
+/* ══ فتح الخريطة مباشرة من Gate ══ */
 window.openPubPageDirect = function() {
   document.getElementById('PTenantGate').style.display = 'none';
   document.getElementById('PL').style.display = 'block';
@@ -1749,7 +973,7 @@ window.openPubPageDirect = function() {
   }, 150);
 };
 
-/* ── تقييم النجوم ── */
+/* ══ تقييم النجوم ══ */
 window.setRating = window.setRating || function(n) {
   window._userRating = n;
   document.querySelectorAll('.rating-star').forEach(function(s, i) { s.classList.toggle('on', i < n); });
@@ -1758,221 +982,256 @@ window.setRating = window.setRating || function(n) {
   if (label) label.textContent = labels[n] || '';
 };
 
-/* ══════════════════════════════════════════════════
-   نظام حماية الزبون ← التعديل 3
-   ══════════════════════════════════════════════════ */
-var _otpCode='', _otpExpiry=0, _otpTimer=null, _userVerifiedPhone=null;
-var _userGpsLat=null, _userGpsLng=null, _gpsOk=false;
-var _pendingTenant='', _pendingName='', _pendingDesc='';
-var _rateLimitMs=5*60*1000, _userLocMapObj=null;
+/* ══ نظام التحقق ══ */
+var _otpCode = '', _otpExpiry = 0, _otpTimer = null, _userVerifiedPhone = null;
+var _userGpsLat = null, _userGpsLng = null, _gpsOk = false;
+var _pendingTenant = '', _pendingName = '', _pendingDesc = '';
+var _rateLimitMs = 5 * 60 * 1000, _userLocMapObj = null;
 
-window.showVStep = function(n){
-  [1,2,3].forEach(function(i){
-    var el=document.getElementById('vstep'+i);
-    if(el) el.classList.toggle('on', i===n);
+window.showVStep = function(n) {
+  [1, 2, 3].forEach(function(i) {
+    var el = document.getElementById('vstep' + i);
+    if (el) el.classList.toggle('on', i === n);
   });
 };
 
-window.startOtp = function(){
-  var ph=(document.getElementById('v-phone').value||'').trim();
-  if(ph.length<9) return;
+window.startOtp = function() {
+  var ph = (document.getElementById('v-phone').value || '').trim();
+  if (ph.length < 9) return;
   _userVerifiedPhone = ph;
-  _otpCode = String(Math.floor(100000+Math.random()*900000));
-  _otpExpiry = Date.now() + 5*60*1000;
-  document.getElementById('otp-show-code').textContent = _otpCode;
-  document.querySelectorAll('.otp-box-single').forEach(function(b){ b.value=''; b.classList.remove('filled'); });
+  _otpCode = String(Math.floor(100000 + Math.random() * 900000));
+  _otpExpiry = Date.now() + 5 * 60 * 1000;
+  var dispEl = document.getElementById('otp-phone-display');
+  if (dispEl) dispEl.textContent = ph;
+  document.querySelectorAll('.otp-box-single').forEach(function(b) { b.value = ''; b.classList.remove('filled'); });
   document.getElementById('v-otp-btn').disabled = true;
   document.getElementById('otp-err').textContent = '';
-  if(_otpTimer) clearInterval(_otpTimer);
-  var rem=300;
-  _otpTimer = setInterval(function(){
-    var el=document.getElementById('otp-timer'); if(!el){clearInterval(_otpTimer);return;}
-    var m=Math.floor(rem/60),s=rem%60;
-    el.textContent=m+':'+(s<10?'0':'')+s;
-    if(rem<=0){clearInterval(_otpTimer); el.textContent='0:00'; el.style.color='#EF4444';}
+  if (_otpTimer) clearInterval(_otpTimer);
+  var rem = 300;
+  _otpTimer = setInterval(function() {
+    var el = document.getElementById('otp-timer'); if (!el) { clearInterval(_otpTimer); return; }
+    var m = Math.floor(rem / 60), s = rem % 60;
+    el.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    if (rem <= 0) { clearInterval(_otpTimer); el.textContent = '0:00'; el.style.color = '#EF4444'; }
     rem--;
   }, 1000);
   showVStep(2);
 };
 
-window.openWaOtp = function(){
-  if(!_userVerifiedPhone||!_otpCode) return;
-  var msg = encodeURIComponent('كود التحقق الخاص بي في منصة الركاب:\n'+_otpCode+'\n\nلا تشاركه مع أحد.');
-  window.open('https://wa.me/972595125423?text='+msg, '_blank');
-  setTimeout(function(){ var b=document.querySelectorAll('.otp-box-single'); if(b.length) b[0].focus(); }, 2000);
+window.resendOtp = function() {
+  if (!_userVerifiedPhone) return;
+  showVStep(1);
+  setTimeout(function() {
+    var inp = document.getElementById('v-phone');
+    if (inp) { inp.value = _userVerifiedPhone; inp.dispatchEvent(new Event('input')); }
+  }, 100);
 };
 
-window.otpBoxInput = function(inp, idx){
-  var v=(inp.value||'').replace(/[^0-9]/g,'');
-  inp.value=v;
-  if(v){ inp.classList.add('filled'); var boxes=document.querySelectorAll('.otp-box-single'); if(idx<5) boxes[idx+1].focus(); }
+window.openWaOtp = function() {
+  if (!_userVerifiedPhone || !_otpCode) return;
+  var msg = encodeURIComponent('كود التحقق الخاص بي في منصة الركاب:\n' + _otpCode + '\n\nلا تشاركه مع أحد.');
+  window.open('https://wa.me/972595125423?text=' + msg, '_blank');
+  setTimeout(function() { var b = document.querySelectorAll('.otp-box-single'); if (b.length) b[0].focus(); }, 2000);
+};
+
+window.otpBoxInput = function(inp, idx) {
+  var v = (inp.value || '').replace(/[^0-9]/g, '');
+  inp.value = v;
+  if (v) { inp.classList.add('filled'); var boxes = document.querySelectorAll('.otp-box-single'); if (idx < 5) boxes[idx + 1].focus(); }
   else inp.classList.remove('filled');
-  var full=Array.from(document.querySelectorAll('.otp-box-single')).map(function(b){return b.value;}).join('');
-  document.getElementById('v-otp-btn').disabled = full.length<6;
-  if(full.length===6) setTimeout(checkOtp, 200);
+  var full = Array.from(document.querySelectorAll('.otp-box-single')).map(function(b) { return b.value; }).join('');
+  document.getElementById('v-otp-btn').disabled = full.length < 6;
+  if (full.length === 6) setTimeout(checkOtp, 200);
 };
 
-window.otpBoxKey = function(e, idx){
-  if(e.key==='Backspace'){
-    var boxes=document.querySelectorAll('.otp-box-single');
-    if(!boxes[idx].value && idx>0){ boxes[idx-1].value=''; boxes[idx-1].classList.remove('filled'); boxes[idx-1].focus(); }
+window.otpBoxKey = function(e, idx) {
+  if (e.key === 'Backspace') {
+    var boxes = document.querySelectorAll('.otp-box-single');
+    if (!boxes[idx].value && idx > 0) { boxes[idx - 1].value = ''; boxes[idx - 1].classList.remove('filled'); boxes[idx - 1].focus(); }
   }
 };
 
-window.checkOtp = function(){
-  var full=Array.from(document.querySelectorAll('.otp-box-single')).map(function(b){return b.value;}).join('');
-  var err=document.getElementById('otp-err');
-  if(full.length<6) return;
-  if(Date.now()>_otpExpiry){ if(err) err.textContent='⏰ انتهت صلاحية الكود'; return; }
-  if(full!==_otpCode){ if(err) err.textContent='❌ الكود غير صحيح'; document.querySelectorAll('.otp-box-single').forEach(function(b){b.value='';b.classList.remove('filled');}); document.querySelectorAll('.otp-box-single')[0].focus(); return; }
-  if(_otpTimer) clearInterval(_otpTimer);
-  localStorage.setItem('txUserPhone','1|'+_userVerifiedPhone);
-  if(typeof window.toast==='function') toast('ok','✅ تم التوثيق!','');
+window.checkOtp = function() {
+  var full = Array.from(document.querySelectorAll('.otp-box-single')).map(function(b) { return b.value; }).join('');
+  var err = document.getElementById('otp-err');
+  if (full.length < 6) return;
+  if (Date.now() > _otpExpiry) { if (err) err.textContent = '⏰ انتهت صلاحية الكود'; return; }
+  if (full !== _otpCode) {
+    if (err) err.textContent = '❌ الكود غير صحيح';
+    document.querySelectorAll('.otp-box-single').forEach(function(b) { b.value = ''; b.classList.remove('filled'); });
+    document.querySelectorAll('.otp-box-single')[0].focus();
+    return;
+  }
+  if (_otpTimer) clearInterval(_otpTimer);
+  localStorage.setItem('txUserPhone', '1|' + _userVerifiedPhone);
+  if (typeof window.toast === 'function') toast('ok', '✅ تم التوثيق!', '');
   showVStep(3);
 };
 
-window.skipToGps = function(){
-  var saved=localStorage.getItem('txUserPhone')||'';
-  if(saved.startsWith('1|')){ _userVerifiedPhone=saved.slice(2); showVStep(3); document.getElementById('UserVerifyScreen').classList.add('on'); }
-  else toast('warn','يجب إدخال رقم هاتفك أولاً','');
+window.skipToGps = function() {
+  var saved = localStorage.getItem('txUserPhone') || '';
+  if (saved.startsWith('1|')) {
+    _userVerifiedPhone = saved.slice(2);
+    showVStep(3);
+    document.getElementById('UserVerifyScreen').classList.add('on');
+  } else {
+    if (typeof window.toast === 'function') toast('warn', 'يجب إدخال رقم هاتفك أولاً', '');
+  }
 };
 
-window.askGps = function(){
-  var title=document.getElementById('gps-status-title');
-  var sub=document.getElementById('gps-status-sub');
-  var btn=document.getElementById('v-gps-btn');
-  var skip=document.getElementById('v-gps-skip');
-  if(!navigator.geolocation){ if(title) title.textContent='❌ GPS غير مدعوم'; if(skip) skip.style.display='flex'; return; }
-  if(btn){ btn.innerHTML='<span class="spin" style="border-color:rgba(255,255,255,.3);border-top-color:#fff"></span> جاري التحديد...'; btn.disabled=true; }
+window.askGps = function() {
+  var title = document.getElementById('gps-status-title');
+  var sub   = document.getElementById('gps-status-sub');
+  var btn   = document.getElementById('v-gps-btn');
+  var denied = document.getElementById('gps-denied-box');
+  if (!navigator.geolocation) {
+    if (title) title.textContent = '❌ GPS غير مدعوم';
+    if (denied) denied.style.display = 'block';
+    return;
+  }
+  if (btn) { btn.innerHTML = '<span class="spin" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:18px;height:18px;display:inline-block;border-radius:50%;border-width:2px;animation:spin .8s linear infinite"></span> جاري التحديد...'; btn.disabled = true; }
   navigator.geolocation.getCurrentPosition(
-    function(pos){
-      _userGpsLat=pos.coords.latitude; _userGpsLng=pos.coords.longitude; _gpsOk=true;
-      if(title) title.textContent='✅ تم تحديد موقعك!';
-      if(sub) sub.textContent='دقة: '+Math.round(pos.coords.accuracy)+' متر';
-      if(btn){ btn.innerHTML='<i class="fas fa-check-circle"></i> الموقع محدد ✅'; btn.style.background='linear-gradient(135deg,#10B981,#059669)'; }
-      setTimeout(function(){ finishVerify(true); }, 1000);
+    function(pos) {
+      _userGpsLat = pos.coords.latitude; _userGpsLng = pos.coords.longitude; _gpsOk = true;
+      if (title) title.textContent = '✅ تم تحديد موقعك!';
+      if (sub) sub.textContent = 'دقة: ' + Math.round(pos.coords.accuracy) + ' متر';
+      if (btn) { btn.innerHTML = '<i class="fas fa-check-circle"></i> الموقع محدد ✅'; btn.style.background = 'linear-gradient(135deg,#10B981,#059669)'; }
+      setTimeout(function() { finishVerify(true); }, 800);
     },
-    function(err){
-      var msgs={1:'رفضت إذن الموقع',2:'تعذّر التحديد',3:'انتهت المهلة'};
-      if(title) title.textContent='⚠️ '+( msgs[err.code]||'خطأ في GPS');
-      if(btn){ btn.innerHTML='<i class="fas fa-redo"></i> حاول مرة أخرى'; btn.disabled=false; }
-      if(skip) skip.style.display='flex';
+    function(err) {
+      var msgs = { 1: 'رفضت إذن الموقع', 2: 'تعذّر التحديد', 3: 'انتهت المهلة' };
+      if (title) title.textContent = '⚠️ ' + (msgs[err.code] || 'خطأ في GPS');
+      if (btn) { btn.innerHTML = '<i class="fas fa-redo"></i> حاول مرة أخرى'; btn.disabled = false; }
+      if (denied) denied.style.display = 'block';
     },
-    {enableHighAccuracy:true,timeout:15000,maximumAge:0}
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
   );
 };
 
-window.finishVerify = function(gpsOk){
+window.finishVerify = function(gpsOk) {
   document.getElementById('UserVerifyScreen').classList.remove('on');
-  if(!gpsOk){ _gpsOk=false; _userGpsLat=null; _userGpsLng=null; }
-  if(typeof window.toast==='function')
-    toast('ok','🚕 جاهز!', gpsOk?'📍 موقعك محدد':'أدخل موقعك يدوياً');
-  if(typeof window._openProtectedModal==='function') window._openProtectedModal();
+  if (!gpsOk) { _gpsOk = false; _userGpsLat = null; _userGpsLng = null; }
+  if (typeof window.toast === 'function')
+    toast('ok', '🚕 جاهز!', gpsOk ? '📍 موقعك محدد' : 'أدخل موقعك يدوياً');
+  if (typeof window._openProtectedModal === 'function') window._openProtectedModal();
 };
 
-window.openUserReqModal = function(tenantId, name, desc){
-  _pendingTenant=tenantId; _pendingName=name; _pendingDesc=desc;
-  var last=parseInt(localStorage.getItem('txLastReq')||'0',10);
-  if(last && Date.now()-last < _rateLimitMs){
-    var rem=Math.ceil((_rateLimitMs-(Date.now()-last))/1000);
+window.openUserReqModal = function(tenantId, name, desc) {
+  _pendingTenant = tenantId; _pendingName = name; _pendingDesc = desc;
+  var last = parseInt(localStorage.getItem('txLastReq') || '0', 10);
+  if (last && Date.now() - last < _rateLimitMs) {
+    var rem = Math.ceil((_rateLimitMs - (Date.now() - last)) / 1000);
     showRateLimitAlert(rem); return;
   }
-  var saved=localStorage.getItem('txUserPhone')||'';
-  if(saved.startsWith('1|')){ _userVerifiedPhone=saved.slice(2); }
-  if(!_userVerifiedPhone){
+  var saved = localStorage.getItem('txUserPhone') || '';
+  if (saved.startsWith('1|')) { _userVerifiedPhone = saved.slice(2); }
+
+  if (!_userVerifiedPhone) {
     document.getElementById('UserVerifyScreen').classList.add('on');
     showVStep(1);
   } else {
-    var titleEl=document.getElementById('gps-status-title');
-    var subEl=document.getElementById('gps-status-sub');
-    var btnEl=document.getElementById('v-gps-btn');
-    var skipEl=document.getElementById('v-gps-skip');
-    if(titleEl) titleEl.textContent='في انتظار إذن الموقع...';
-    if(subEl) subEl.textContent='اضغط الزر أدناه';
-    if(btnEl){ btnEl.innerHTML='<i class="fas fa-map-location-dot"></i> تفعيل الموقع الجغرافي'; btnEl.disabled=false; btnEl.style.background='linear-gradient(135deg,#0EA5E9,#0284C7)'; }
-    if(skipEl) skipEl.style.display='none';
-    _gpsOk=false; _userGpsLat=null; _userGpsLng=null;
+    /* إعادة تعيين GPS */
+    var titleEl  = document.getElementById('gps-status-title');
+    var subEl    = document.getElementById('gps-status-sub');
+    var btnEl    = document.getElementById('v-gps-btn');
+    var deniedEl = document.getElementById('gps-denied-box');
+    if (titleEl)  titleEl.textContent  = 'في انتظار إذن الموقع...';
+    if (subEl)    subEl.textContent    = 'اضغط الزر أدناه';
+    if (btnEl)    { btnEl.innerHTML = '<i class="fas fa-map-location-dot"></i> تفعيل الموقع الجغرافي'; btnEl.disabled = false; btnEl.style.background = 'linear-gradient(135deg,#0EA5E9,#0284C7)'; }
+    if (deniedEl) deniedEl.style.display = 'none';
+    _gpsOk = false; _userGpsLat = null; _userGpsLng = null;
     document.getElementById('UserVerifyScreen').classList.add('on');
     showVStep(3);
   }
 };
 
-window._openProtectedModal = function(){
-  var offId=document.getElementById('ur-office-id');
-  var offTen=document.getElementById('ur-office-tenant');
-  var offName=document.getElementById('userReqOfficeName');
-  var offAddr=document.getElementById('userReqOfficeAddr');
-  if(offId) offId.value=_pendingTenant;
-  if(offTen) offTen.value=_pendingTenant;
-  if(offName) offName.textContent=_pendingName||'مكتب تاكسي';
-  if(offAddr) offAddr.textContent=_pendingDesc||'أدخل بياناتك';
-  var phoneEl=document.getElementById('ur-phone');
-  if(phoneEl && _userVerifiedPhone){
-    phoneEl.value=_userVerifiedPhone;
-    phoneEl.readOnly=true;
-    phoneEl.style.cssText='background:rgba(16,185,129,.08);border:1.5px solid rgba(16,185,129,.4);color:#34D399;cursor:not-allowed;font-weight:800;letter-spacing:1px;width:100%;padding:11px 14px;border-radius:10px;font-size:14px;font-family:Cairo,sans-serif;direction:ltr;text-align:center';
+window._openProtectedModal = function() {
+  var offId   = document.getElementById('ur-office-id');
+  var offTen  = document.getElementById('ur-office-tenant');
+  var offName = document.getElementById('userReqOfficeName');
+  var offAddr = document.getElementById('userReqOfficeAddr');
+  if (offId)   offId.value   = _pendingTenant;
+  if (offTen)  offTen.value  = _pendingTenant;
+  if (offName) offName.textContent = _pendingName  || 'مكتب تاكسي';
+  if (offAddr) offAddr.textContent = _pendingDesc || 'أدخل بياناتك';
+
+  /* رقم الهاتف — مقفول بعد التحقق */
+  var phoneEl = document.getElementById('ur-phone');
+  if (phoneEl && _userVerifiedPhone) {
+    phoneEl.value    = _userVerifiedPhone;
+    phoneEl.readOnly = true;
+    phoneEl.style.cssText = 'background:rgba(16,185,129,.08);border:1.5px solid rgba(16,185,129,.4);color:#34D399;cursor:not-allowed;font-weight:800;letter-spacing:1px;width:100%;padding:11px 14px;border-radius:10px;font-size:14px;font-family:Cairo,sans-serif;direction:ltr;text-align:center';
   }
-  if(_gpsOk && _userGpsLat){
-    var fromEl=document.getElementById('ur-from');
-    if(fromEl && !fromEl.value) fromEl.value='📍 موقعي ('+_userGpsLat.toFixed(5)+', '+_userGpsLng.toFixed(5)+')';
+
+  /* حقل "أين أنت" — نظّف دائماً عند الفتح */
+  var fromEl = document.getElementById('ur-from');
+  var toEl   = document.getElementById('ur-to');
+  if (fromEl) fromEl.value = '';
+  if (toEl)   toEl.value   = '';
+
+  /* خريطة مصغرة إذا GPS متاح */
+  if (_gpsOk && _userGpsLat) {
+    var fromVal = '📍 موقعي (' + _userGpsLat.toFixed(5) + ', ' + _userGpsLng.toFixed(5) + ')';
+    if (fromEl) fromEl.value = fromVal;
     addUserMiniMap();
+  } else {
+    /* أخفِ الخريطة المصغرة إن وُجدت */
+    var mc = document.getElementById('user-mini-map-container');
+    if (mc) mc.style.display = 'none';
   }
-  var modal=document.getElementById('MuserReq');
-  if(modal) modal.classList.add('on');
-  if(window._pubMap) window._pubMap.closePopup();
+
+  var modal = document.getElementById('MuserReq');
+  if (modal) modal.classList.add('on');
+  if (window._pubMap) window._pubMap.closePopup();
 };
 
-window.addUserMiniMap = function(){
-  if(!window.L || !_userGpsLat) return;
-  var modal=document.getElementById('MuserReq');
-  if(!modal) return;
-  var existing=document.getElementById('user-mini-map');
-  if(!existing){
-    var div=document.createElement('div');
-    div.id='user-mini-map';
-    div.style.cssText='height:150px;border-radius:10px;border:1px solid rgba(255,255,255,.1);overflow:hidden;margin-bottom:10px';
-    var fromFg=modal.querySelector('#ur-from') && modal.querySelector('#ur-from').closest('.fg');
-    if(fromFg) fromFg.parentNode.insertBefore(div, fromFg);
-  }
-  setTimeout(function(){
-    try{
-      if(_userLocMapObj){ _userLocMapObj.remove(); _userLocMapObj=null; }
-      _userLocMapObj = L.map('user-mini-map',{zoomControl:false,attributionControl:false}).setView([_userGpsLat,_userGpsLng],16);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(_userLocMapObj);
-      var icon=L.divIcon({html:'<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div class="user-loc-dot-marker"></div><div style="background:#10B981;color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;white-space:nowrap;font-family:Cairo,sans-serif">موقعك</div></div>',className:'',iconSize:[50,45],iconAnchor:[25,45]});
-      L.marker([_userGpsLat,_userGpsLng],{icon:icon,draggable:true}).addTo(_userLocMapObj)
-        .on('dragend',function(e){
-          var p=e.target.getLatLng(); _userGpsLat=p.lat; _userGpsLng=p.lng;
-          var f=document.getElementById('ur-from');
-          if(f) f.value='📍 موقعي ('+_userGpsLat.toFixed(5)+', '+_userGpsLng.toFixed(5)+')';
+window.addUserMiniMap = function() {
+  if (!window.L || !_userGpsLat) return;
+  var container = document.getElementById('user-mini-map-container');
+  if (container) container.style.display = 'block';
+
+  setTimeout(function() {
+    try {
+      if (_userLocMapObj) { _userLocMapObj.remove(); _userLocMapObj = null; }
+      _userLocMapObj = L.map('user-mini-map', { zoomControl: false, attributionControl: false }).setView([_userGpsLat, _userGpsLng], 16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_userLocMapObj);
+      var icon = L.divIcon({
+        html: '<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div class="user-loc-dot-marker"></div><div style="background:#10B981;color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;white-space:nowrap;font-family:Cairo,sans-serif">موقعك</div></div>',
+        className: '', iconSize: [50, 45], iconAnchor: [25, 45]
+      });
+      L.marker([_userGpsLat, _userGpsLng], { icon: icon, draggable: true }).addTo(_userLocMapObj)
+        .on('dragend', function(e) {
+          var p = e.target.getLatLng();
+          _userGpsLat = p.lat; _userGpsLng = p.lng;
+          var f = document.getElementById('ur-from');
+          if (f) f.value = '📍 موقعي (' + _userGpsLat.toFixed(5) + ', ' + _userGpsLng.toFixed(5) + ')';
         });
-    }catch(e){}
-  },300);
+    } catch(e) {}
+  }, 300);
 };
 
-window.showRateLimitAlert = function(remSec){
-  var el=document.createElement('div');
-  el.id='rl-alert';
-  el.style.cssText='position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px';
-  el.innerHTML='<div style="background:rgba(30,41,59,.96);border:1.5px solid rgba(239,68,68,.4);border-radius:20px;padding:32px 28px;max-width:360px;width:100%;text-align:center;box-shadow:0 25px 50px rgba(0,0,0,.5)">'
-    +'<div style="font-size:48px;margin-bottom:16px">⏳</div>'
-    +'<div style="font-family:Tajawal,sans-serif;font-size:20px;font-weight:900;color:#fff;margin-bottom:8px">الرجاء الانتظار</div>'
-    +'<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:16px;line-height:1.7">يمكنك إرسال طلب واحد كل 5 دقائق</div>'
-    +'<div style="font-size:30px;font-weight:900;color:#EF4444;font-family:monospace;letter-spacing:2px" id="rl-num">--:--</div>'
-    +'<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:16px">دقيقة : ثانية</div>'
-    +'<button onclick="document.getElementById(\'rl-alert\').remove()" style="padding:12px 24px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:10px;color:rgba(255,255,255,.7);font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">حسناً</button>'
-    +'</div>';
+window.showRateLimitAlert = function(remSec) {
+  var el = document.createElement('div');
+  el.id = 'rl-alert';
+  el.style.cssText = 'position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px';
+  el.innerHTML = '<div style="background:rgba(30,41,59,.96);border:1.5px solid rgba(239,68,68,.4);border-radius:20px;padding:32px 28px;max-width:360px;width:100%;text-align:center;box-shadow:0 25px 50px rgba(0,0,0,.5)">'
+    + '<div style="font-size:48px;margin-bottom:16px">⏳</div>'
+    + '<div style="font-family:Tajawal,sans-serif;font-size:20px;font-weight:900;color:#fff;margin-bottom:8px">الرجاء الانتظار</div>'
+    + '<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:16px;line-height:1.7">يمكنك إرسال طلب واحد كل 5 دقائق</div>'
+    + '<div style="font-size:30px;font-weight:900;color:#EF4444;font-family:monospace;letter-spacing:2px" id="rl-num">--:--</div>'
+    + '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:16px">دقيقة : ثانية</div>'
+    + '<button onclick="document.getElementById(\'rl-alert\').remove()" style="padding:12px 24px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:10px;color:rgba(255,255,255,.7);font-size:13px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif">حسناً</button>'
+    + '</div>';
   document.body.appendChild(el);
-  var r=remSec;
-  var t=setInterval(function(){
-    var n=document.getElementById('rl-num'); if(!n){clearInterval(t);return;}
-    var m=Math.floor(r/60),s=r%60;
-    n.textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
-    if(r<=0){clearInterval(t); el.remove(); toast('ok','✅ يمكنك إرسال طلب الآن','');}
+  var r = remSec;
+  var t = setInterval(function() {
+    var n = document.getElementById('rl-num'); if (!n) { clearInterval(t); return; }
+    var m = Math.floor(r / 60), s = r % 60;
+    n.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    if (r <= 0) { clearInterval(t); el.remove(); if (typeof window.toast === 'function') toast('ok', '✅ يمكنك إرسال طلب الآن', ''); }
     r--;
-  },1000);
+  }, 1000);
 };
-
 </script>
 
 </body>
