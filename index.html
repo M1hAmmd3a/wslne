@@ -619,7 +619,7 @@ html, body {
     <div id="user-mini-map-container" style="display:none;margin-bottom:12px">
       <div id="user-mini-map" style="height:150px;border-radius:10px;border:1px solid rgba(255,255,255,.1);overflow:hidden"></div>
       <div style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;margin-top:4px">
-        <i class="fas fa-arrows-up-down-left-right"></i> يمكنك سحب الدبوس لتدقيق موقعك
+        <i class="fas fa-location-dot"></i> موقعك الجغرافي المحدد تلقائياً
       </div>
     </div>
     <!-- أين أنت -->
@@ -1169,13 +1169,10 @@ window._openProtectedModal = function() {
   if (fromEl) fromEl.value = '';
   if (toEl)   toEl.value   = '';
 
-  /* خريطة مصغرة إذا GPS متاح */
+  /* خريطة مصغرة إذا GPS متاح — حقل "أين أنت" يبقى فارغاً ليكتب فيه الزبون */
   if (_gpsOk && _userGpsLat) {
-    var fromVal = '📍 موقعي (' + _userGpsLat.toFixed(5) + ', ' + _userGpsLng.toFixed(5) + ')';
-    if (fromEl) fromEl.value = fromVal;
     addUserMiniMap();
   } else {
-    /* أخفِ الخريطة المصغرة إن وُجدت */
     var mc = document.getElementById('user-mini-map-container');
     if (mc) mc.style.display = 'none';
   }
@@ -1199,13 +1196,8 @@ window.addUserMiniMap = function() {
         html: '<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div class="user-loc-dot-marker"></div><div style="background:#10B981;color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;white-space:nowrap;font-family:Cairo,sans-serif">موقعك</div></div>',
         className: '', iconSize: [50, 45], iconAnchor: [25, 45]
       });
-      L.marker([_userGpsLat, _userGpsLng], { icon: icon, draggable: true }).addTo(_userLocMapObj)
-        .on('dragend', function(e) {
-          var p = e.target.getLatLng();
-          _userGpsLat = p.lat; _userGpsLng = p.lng;
-          var f = document.getElementById('ur-from');
-          if (f) f.value = '📍 موقعي (' + _userGpsLat.toFixed(5) + ', ' + _userGpsLng.toFixed(5) + ')';
-        });
+      /* ثابت — غير قابل للسحب */
+      L.marker([_userGpsLat, _userGpsLng], { icon: icon, draggable: false }).addTo(_userLocMapObj);
     } catch(e) {}
   }, 300);
 };
