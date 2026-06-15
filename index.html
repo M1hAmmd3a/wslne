@@ -501,12 +501,13 @@ html, body {
       <div class="verify-icon" style="background:linear-gradient(135deg,#10B981,#059669)">📱</div>
       <div class="verify-title">أدخل رقم هاتفك</div>
       <div class="verify-sub">
-        سيُرسَل كود التحقق إلى واتساب هذا الرقم<br>
-        <span style="color:rgba(255,255,255,.35);font-size:11px">لن تحتاج لإدخاله مرة أخرى</span>
+        أرقام فلسطينية وإسرائيلية فقط<br>
+        <span style="color:rgba(255,255,255,.35);font-size:11px">05X / 07X / 972 / 050 / 052 / 053 / 054 / 058</span>
       </div>
-      <input class="verify-input-wa" id="v-phone" type="tel" placeholder="05XXXXXXXX" maxlength="12"
-        oninput="this.value=this.value.replace(/[^0-9+]/g,'');document.getElementById('v-phone-btn').disabled=this.value.length<9"
-        onkeydown="if(event.key==='Enter'&&this.value.length>=9)startOtp()">
+      <input class="verify-input-wa" id="v-phone" type="tel" placeholder="05XXXXXXXX" maxlength="13"
+        oninput="validatePhoneInput(this)"
+        onkeydown="if(event.key==='Enter')tryStartOtp()">
+      <div id="v-phone-err" style="font-size:11px;color:#FCA5A5;font-weight:700;text-align:center;min-height:16px"></div>
       <button class="verify-btn-wa" id="v-phone-btn" onclick="startOtp()" disabled
         style="background:linear-gradient(135deg,#10B981,#059669);box-shadow:0 8px 20px rgba(16,185,129,.3)">
         <i class="fas fa-paper-plane"></i> إرسال كود التحقق
@@ -521,39 +522,59 @@ html, body {
     <div class="verify-step" id="vstep2">
       <div class="verify-icon" style="background:linear-gradient(135deg,#25D366,#128C7E)">💬</div>
       <div class="verify-title">تحقق عبر واتساب</div>
-      <div style="background:rgba(37,211,102,.1);border:1.5px solid rgba(37,211,102,.3);border-radius:12px;padding:16px;text-align:center">
-        <div style="font-size:12px;color:rgba(255,255,255,.6);margin-bottom:6px">📨 تم إرسال الكود إلى واتساب:</div>
-        <div id="otp-phone-display" style="font-size:20px;font-weight:900;color:#25D366;letter-spacing:2px;direction:ltr">-</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:8px;line-height:1.6">
-          افتح واتساب واستلم الكود<br>ثم أدخله في الخانات أدناه
+
+      <!-- تعليمات واضحة -->
+      <div style="background:rgba(37,211,102,.1);border:1.5px solid rgba(37,211,102,.3);border-radius:12px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:10px;text-align:center">📋 خطوتان فقط:</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border-radius:9px;padding:9px 12px">
+            <div style="width:24px;height:24px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0">1</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.8);line-height:1.5">
+              اضغط الزر أدناه — سيفتح واتساب برسالة جاهزة على رقم المنصة<br>
+              <span style="color:#25D366;font-weight:700">أرسل الرسالة</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border-radius:9px;padding:9px 12px">
+            <div style="width:24px;height:24px;background:#0EA5E9;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0">2</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.8);line-height:1.5">
+              انتظر الرد على رقمك<br>
+              <span style="direction:ltr;display:inline-block;color:#34D399;font-weight:700" id="otp-phone-display">-</span><br>
+              وأدخل الكود هنا
+            </div>
+          </div>
         </div>
-        <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,.5)">
-          صالح لمدة: <span id="otp-timer" style="color:#F59E0B;font-weight:800;font-size:14px">5:00</span>
+        <div style="margin-top:10px;text-align:center;font-size:11px;color:rgba(255,255,255,.4)">
+          صالح لمدة: <span id="otp-timer" style="color:#F59E0B;font-weight:800;font-size:13px">10:00</span>
         </div>
       </div>
+
+      <!-- زر واتساب -->
       <button class="verify-btn-wa" onclick="openWaOtp()"
         style="background:linear-gradient(135deg,#25D366,#128C7E);box-shadow:0 8px 20px rgba(37,211,102,.3)">
-        <i class="fab fa-whatsapp"></i> فتح واتساب لاستلام الكود
+        <i class="fab fa-whatsapp"></i> اضغط هنا — أرسل الرسالة الجاهزة
       </button>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center">أدخل الكود المكوّن من 6 أرقام</div>
+
+      <!-- خانات 5 أرقام -->
+      <div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center">أدخل الكود المكوّن من 5 أرقام</div>
       <div class="otp-boxes-row" id="otp-boxes">
         <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric" oninput="otpBoxInput(this,0)" onkeydown="otpBoxKey(event,0)">
         <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric" oninput="otpBoxInput(this,1)" onkeydown="otpBoxKey(event,1)">
         <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric" oninput="otpBoxInput(this,2)" onkeydown="otpBoxKey(event,2)">
         <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric" oninput="otpBoxInput(this,3)" onkeydown="otpBoxKey(event,3)">
         <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric" oninput="otpBoxInput(this,4)" onkeydown="otpBoxKey(event,4)">
-        <input class="otp-box-single" maxlength="1" type="text" inputmode="numeric" oninput="otpBoxInput(this,5)" onkeydown="otpBoxKey(event,5)">
       </div>
       <div id="otp-err" style="color:#FCA5A5;font-size:12px;font-weight:700;text-align:center;min-height:18px"></div>
+
       <button class="verify-btn-wa" id="v-otp-btn" onclick="checkOtp()" disabled
         style="background:linear-gradient(135deg,#10B981,#059669)">
         <i class="fas fa-check-circle"></i> تأكيد الكود
       </button>
+
       <div style="display:flex;justify-content:space-between;gap:8px">
         <button onclick="showVStep(1)" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
           <i class="fas fa-arrow-right"></i> تعديل الرقم
         </button>
-        <button onclick="resendOtp()" id="resend-btn" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
+        <button onclick="resendOtp()" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
           🔄 إعادة الإرسال
         </button>
       </div>
@@ -982,11 +1003,28 @@ window.setRating = window.setRating || function(n) {
   if (label) label.textContent = labels[n] || '';
 };
 
-/* ══ نظام التحقق ══ */
-var _otpCode = '', _otpExpiry = 0, _otpTimer = null, _userVerifiedPhone = null;
+/* ══════════════════════════════════════════════
+   نظام التحقق — OTP عبر واتساب المنصة
+   المنطق:
+   1. الزبون يدخل رقمه (فلسطيني/إسرائيلي فقط)
+   2. الموقع يولّد كود ويحفظه في Firebase فقط (مخفي تماماً)
+   3. يفتح واتساب على رقم المنصة 0595125423
+      برسالة جاهزة: "تحقق من رقمي: 05XXXXXXXX"
+   4. الزبون يرسل الرسالة — صاحب الرقم يشوف الكود ويرد
+   5. الزبون يدخل الكود — الموقع يتحقق من Firebase
+   ══════════════════════════════════════════════ */
+
+/* رقم واتساب المنصة الثابت */
+var PLATFORM_WA = '972595125423';
+
+/* Firebase DB URL — نفس المشروع */
+var _FB_DB_URL = 'https://hamode-a2ac1-default-rtdb.firebaseio.com';
+
+var _otpTimer = null, _userVerifiedPhone = null;
 var _userGpsLat = null, _userGpsLng = null, _gpsOk = false;
 var _pendingTenant = '', _pendingName = '', _pendingDesc = '';
 var _rateLimitMs = 5 * 60 * 1000, _userLocMapObj = null;
+var _otpSessionKey = '';   /* مفتاح الجلسة في Firebase */
 
 window.showVStep = function(n) {
   [1, 2, 3].forEach(function(i) {
@@ -995,77 +1033,210 @@ window.showVStep = function(n) {
   });
 };
 
-window.startOtp = function() {
-  var ph = (document.getElementById('v-phone').value || '').trim();
-  if (ph.length < 9) return;
-  _userVerifiedPhone = ph;
-  _otpCode = String(Math.floor(100000 + Math.random() * 900000));
-  _otpExpiry = Date.now() + 5 * 60 * 1000;
-  var dispEl = document.getElementById('otp-phone-display');
-  if (dispEl) dispEl.textContent = ph;
-  document.querySelectorAll('.otp-box-single').forEach(function(b) { b.value = ''; b.classList.remove('filled'); });
-  document.getElementById('v-otp-btn').disabled = true;
-  document.getElementById('otp-err').textContent = '';
-  if (_otpTimer) clearInterval(_otpTimer);
-  var rem = 300;
-  _otpTimer = setInterval(function() {
-    var el = document.getElementById('otp-timer'); if (!el) { clearInterval(_otpTimer); return; }
-    var m = Math.floor(rem / 60), s = rem % 60;
-    el.textContent = m + ':' + (s < 10 ? '0' : '') + s;
-    if (rem <= 0) { clearInterval(_otpTimer); el.textContent = '0:00'; el.style.color = '#EF4444'; }
-    rem--;
-  }, 1000);
-  showVStep(2);
+/* ── التحقق من صحة الرقم (فلسطيني / إسرائيلي) ── */
+window.validatePhoneInput = function(inp) {
+  var raw = inp.value.replace(/[^0-9+]/g, '');
+  inp.value = raw;
+  var err = document.getElementById('v-phone-err');
+  var btn = document.getElementById('v-phone-btn');
+  if (!raw) { if (err) err.textContent = ''; btn.disabled = true; return; }
+
+  /* قبول الأرقام بأشكالها المختلفة */
+  var normalized = raw.replace(/^\+/, '');
+
+  /* فلسطيني: 05X أو 972-5X */
+  var isPal = /^(05[6-9]\d{7}|9725[6-9]\d{7})$/.test(normalized);
+  /* إسرائيلي: 05X (050,052,053,054,055,058) أو 972-5X */
+  var isIsr = /^(0(50|52|53|54|55|58)\d{7}|972(50|52|53|54|55|58)\d{7})$/.test(normalized);
+  /* فلسطيني أرضي أو مكتب: 09X */
+  var isPalLand = /^(09\d{7}|97209\d{7})$/.test(normalized);
+
+  var valid = isPal || isIsr || isPalLand;
+
+  if (raw.length >= 9 && !valid) {
+    if (err) err.textContent = '❌ رقم غير مقبول — أرقام فلسطينية وإسرائيلية فقط';
+    btn.disabled = true;
+  } else {
+    if (err) err.textContent = valid ? '✅ رقم صحيح' : '';
+    if (err && valid) err.style.color = '#34D399';
+    else if (err) err.style.color = '#FCA5A5';
+    btn.disabled = !valid;
+  }
+};
+
+window.tryStartOtp = function() {
+  var btn = document.getElementById('v-phone-btn');
+  if (!btn.disabled) startOtp();
+};
+
+/* ── إنشاء الكود وحفظه في Firebase ── */
+window.startOtp = async function() {
+  var ph = (document.getElementById('v-phone').value || '').replace(/[^0-9+]/g, '').trim();
+  var btn = document.getElementById('v-phone-btn');
+  if (!ph || btn.disabled) return;
+
+  /* تأثير تحميل */
+  var orig = btn.innerHTML;
+  btn.innerHTML = '<span style="display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite"></span> جاري...';
+  btn.disabled = true;
+
+  try {
+    /* 1. توليد كود عشوائي 5 أرقام */
+    var code = String(Math.floor(10000 + Math.random() * 90000));
+
+    /* 2. مفتاح جلسة فريد */
+    _otpSessionKey = 'otp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+
+    /* 3. حفظ الكود في Firebase (مخفي تماماً عن المتصفح) */
+    var expiry = Date.now() + 10 * 60 * 1000; /* 10 دقائق */
+    var payload = JSON.stringify({ code: code, phone: ph, expiry: expiry, used: false });
+    var res = await fetch(
+      _FB_DB_URL + '/otpSessions/' + _otpSessionKey + '.json',
+      { method: 'PUT', body: payload }
+    );
+    if (!res.ok) throw new Error('Firebase error');
+
+    /* 4. حفظ بيانات الجلسة محلياً (بدون الكود) */
+    _userVerifiedPhone = ph;
+
+    /* 5. عرض رقم الزبون في الخطوة 2 */
+    var dispEl = document.getElementById('otp-phone-display');
+    if (dispEl) dispEl.textContent = ph;
+
+    /* 6. تصفير خانات OTP */
+    document.querySelectorAll('.otp-box-single').forEach(function(b) { b.value = ''; b.classList.remove('filled'); });
+    document.getElementById('v-otp-btn').disabled = true;
+    document.getElementById('otp-err').textContent = '';
+
+    /* 7. عداد 10 دقائق */
+    if (_otpTimer) clearInterval(_otpTimer);
+    var rem = 600;
+    _otpTimer = setInterval(function() {
+      var el = document.getElementById('otp-timer'); if (!el) { clearInterval(_otpTimer); return; }
+      var m = Math.floor(rem / 60), s = rem % 60;
+      el.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+      if (rem <= 0) { clearInterval(_otpTimer); el.textContent = '0:00'; el.style.color = '#EF4444'; }
+      rem--;
+    }, 1000);
+
+    showVStep(2);
+
+  } catch(e) {
+    if (typeof window.toast === 'function') toast('err', '❌ خطأ في الاتصال', 'حاول مرة أخرى');
+    btn.innerHTML = orig;
+    btn.disabled = false;
+  }
+};
+
+/* ── فتح واتساب على رقم المنصة ── */
+window.openWaOtp = function() {
+  if (!_userVerifiedPhone) return;
+  /* الرسالة الجاهزة — الزبون يرسلها لرقم المنصة */
+  var msg = encodeURIComponent('تحقق من رقمي: ' + _userVerifiedPhone);
+  window.open('https://wa.me/' + PLATFORM_WA + '?text=' + msg, '_blank');
+  /* بعد ثانيتين ركّز على أول خانة OTP */
+  setTimeout(function() {
+    var b = document.querySelectorAll('.otp-box-single');
+    if (b.length) b[0].focus();
+  }, 2000);
 };
 
 window.resendOtp = function() {
   if (!_userVerifiedPhone) return;
+  /* أعِد للخطوة 1 مع إبقاء الرقم */
   showVStep(1);
   setTimeout(function() {
     var inp = document.getElementById('v-phone');
-    if (inp) { inp.value = _userVerifiedPhone; inp.dispatchEvent(new Event('input')); }
+    if (inp) {
+      inp.value = _userVerifiedPhone;
+      validatePhoneInput(inp);
+    }
   }, 100);
 };
 
-window.openWaOtp = function() {
-  if (!_userVerifiedPhone || !_otpCode) return;
-  var msg = encodeURIComponent('كود التحقق الخاص بي في منصة الركاب:\n' + _otpCode + '\n\nلا تشاركه مع أحد.');
-  window.open('https://wa.me/972595125423?text=' + msg, '_blank');
-  setTimeout(function() { var b = document.querySelectorAll('.otp-box-single'); if (b.length) b[0].focus(); }, 2000);
-};
-
+/* ── خانات OTP ── */
 window.otpBoxInput = function(inp, idx) {
   var v = (inp.value || '').replace(/[^0-9]/g, '');
   inp.value = v;
-  if (v) { inp.classList.add('filled'); var boxes = document.querySelectorAll('.otp-box-single'); if (idx < 5) boxes[idx + 1].focus(); }
-  else inp.classList.remove('filled');
+  if (v) {
+    inp.classList.add('filled');
+    var boxes = document.querySelectorAll('.otp-box-single');
+    if (idx < 4) boxes[idx + 1].focus();
+  } else {
+    inp.classList.remove('filled');
+  }
   var full = Array.from(document.querySelectorAll('.otp-box-single')).map(function(b) { return b.value; }).join('');
-  document.getElementById('v-otp-btn').disabled = full.length < 6;
-  if (full.length === 6) setTimeout(checkOtp, 200);
+  document.getElementById('v-otp-btn').disabled = full.length < 5;
+  if (full.length === 5) setTimeout(checkOtp, 200);
 };
 
 window.otpBoxKey = function(e, idx) {
   if (e.key === 'Backspace') {
     var boxes = document.querySelectorAll('.otp-box-single');
-    if (!boxes[idx].value && idx > 0) { boxes[idx - 1].value = ''; boxes[idx - 1].classList.remove('filled'); boxes[idx - 1].focus(); }
+    if (!boxes[idx].value && idx > 0) {
+      boxes[idx - 1].value = '';
+      boxes[idx - 1].classList.remove('filled');
+      boxes[idx - 1].focus();
+    }
   }
 };
 
-window.checkOtp = function() {
+/* ── التحقق من الكود عبر Firebase (الكود مخفي تماماً) ── */
+window.checkOtp = async function() {
   var full = Array.from(document.querySelectorAll('.otp-box-single')).map(function(b) { return b.value; }).join('');
   var err = document.getElementById('otp-err');
-  if (full.length < 6) return;
-  if (Date.now() > _otpExpiry) { if (err) err.textContent = '⏰ انتهت صلاحية الكود'; return; }
-  if (full !== _otpCode) {
-    if (err) err.textContent = '❌ الكود غير صحيح';
-    document.querySelectorAll('.otp-box-single').forEach(function(b) { b.value = ''; b.classList.remove('filled'); });
-    document.querySelectorAll('.otp-box-single')[0].focus();
-    return;
+  if (full.length < 5) return;
+
+  var btn = document.getElementById('v-otp-btn');
+  var origBtn = btn.innerHTML;
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite"></span> جاري التحقق...';
+  btn.disabled = true;
+
+  try {
+    /* جلب الكود من Firebase */
+    var res = await fetch(_FB_DB_URL + '/otpSessions/' + _otpSessionKey + '.json');
+    var data = await res.json();
+
+    if (!data) {
+      if (err) err.textContent = '❌ انتهت صلاحية الكود — أعد المحاولة';
+      btn.innerHTML = origBtn; btn.disabled = false;
+      return;
+    }
+
+    /* التحقق من انتهاء الصلاحية */
+    if (Date.now() > data.expiry) {
+      if (err) err.textContent = '⏰ انتهت صلاحية الكود';
+      /* حذف الجلسة */
+      fetch(_FB_DB_URL + '/otpSessions/' + _otpSessionKey + '.json', { method: 'DELETE' });
+      btn.innerHTML = origBtn; btn.disabled = false;
+      return;
+    }
+
+    /* التحقق من الكود */
+    if (full !== data.code) {
+      if (err) err.textContent = '❌ الكود غير صحيح — حاول مرة أخرى';
+      document.querySelectorAll('.otp-box-single').forEach(function(b) { b.value = ''; b.classList.remove('filled'); });
+      document.querySelectorAll('.otp-box-single')[0].focus();
+      btn.innerHTML = origBtn; btn.disabled = false;
+      return;
+    }
+
+    /* ✅ كود صحيح */
+    if (_otpTimer) clearInterval(_otpTimer);
+
+    /* حذف الجلسة من Firebase فوراً (لا تُستخدم مرة ثانية) */
+    fetch(_FB_DB_URL + '/otpSessions/' + _otpSessionKey + '.json', { method: 'DELETE' });
+
+    /* حفظ الرقم محلياً */
+    localStorage.setItem('txUserPhone', '1|' + _userVerifiedPhone);
+
+    if (typeof window.toast === 'function') toast('ok', '✅ تم التوثيق!', '');
+    showVStep(3);
+
+  } catch(e) {
+    if (err) err.textContent = '❌ خطأ في الاتصال — حاول مرة أخرى';
+    btn.innerHTML = origBtn; btn.disabled = false;
   }
-  if (_otpTimer) clearInterval(_otpTimer);
-  localStorage.setItem('txUserPhone', '1|' + _userVerifiedPhone);
-  if (typeof window.toast === 'function') toast('ok', '✅ تم التوثيق!', '');
-  showVStep(3);
 };
 
 window.skipToGps = function() {
