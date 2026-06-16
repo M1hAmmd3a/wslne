@@ -1,95 +1,38 @@
-/**
- * server.js - Backend entry point
- *
- * Minimal production-ready server.
- * This file only imports modules that exist in the current project root
- * and can be loaded directly without assuming routes/ or src/ folders.
- */
 require('dotenv').config();
 
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
+const app = require('./app');
+const { initFirebase } = require('./config/firebase');
+const { initRedis } = require('./config/redis');
+const { initPostgres } = require('./config/postgres');
+const { initSchema } = require('./services/store');
+const logger = require('./utils/logger');
 
-const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
-const safeRequire = (modulePath) => {
-    try {
-        return require(modulePath);
-    } catch (err) {
-        console.warn('[server] Skipped ' + modulePath + ': ' + err.message);
-        return null;
-    }
-};
+const start = async () => {
+    await initFirebase();
+    await initRedis();
+    await initPostgres();
+    await initSchema();
 
-const rateLimit = safeRequire('./rateLimit');
-const firebase = safeRequire('./firebase');
-const redis = safeRequire('./redis');
-const response = safeRequire('./Response');
-
-const globalLimiter = rateLimit?.globalLimiter || ((req, res, next) => next());
-const notFound = response?.notFound || ((res, message) => {
-    res.status(404).json({ success: false, error: message });
-});
-const serverError = response?.serverError || ((res, err) => {
-    console.error('Server Error:', err);
-    res.status(500).json({
-        success: false,
-        error: process.env.NODE_ENV === 'development'
-            ? err.message
-            : 'Internal server error',
-    });
-});
-
-app.disable('x-powered-by');
-app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
-
-app.use(helmet());
-app.use(cors({
-    origin: process.env.CORS_ORIGIN || "*",
-    credentials: true,
-}));
-app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '1mb' }));
-
-app.use(globalLimiter);
-
-app.get('/health', (req, res) => {
-    res.status(200).json({
-        success: true,
-        status: 'ok',
-        service: 'rakab-backend',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString(),
-    });
-});
-
-app.use((req, res) => {
-    notFound(res, 'Route not found');
-});
-
-app.use((err, req, res, next) => {
-    if (res.headersSent) return next(err);
-    serverError(res, err);
-});
-
-const startServer = async () => {
-    if (typeof firebase?.initFirebase === 'function') {
-        firebase.initFirebase();
-    }
-
-    if (typeof redis?.initRedis === 'function') {
-        await redis.initRedis();
-    }
-
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
+        logger.info('server_started', { port: PORT });
         console.log('Backend server running on port ' + PORT);
     });
+
+    const shutdown = (signal) => {
+        logger.info('shutdown_signal_received', { signal });
+        server.close(() => {
+            logger.info('http_server_closed');
+            process.exit(0);
+        });
+    };
+
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
 };
 
-startServer().catch((err) => {
-    console.error('Failed to start backend server:', err);
+start().catch((err) => {
+    logger.error('server_start_failed', { error: err.message, stack: err.stack });
     process.exit(1);
 });
-
-module.exports = app;
