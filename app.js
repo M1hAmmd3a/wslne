@@ -1,3 +1,7 @@
+/* ══════════════════════════════════════════════════
+   منصة التاكسي — طولكرم | app.js
+   Firebase Auth + Realtime Database
+   ══════════════════════════════════════════════════ */
 
 import { initializeApp }          from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { getDatabase, ref, set, get, push, onValue, update, remove, off }
@@ -1419,7 +1423,11 @@ const loadSupReqList = () => {
         ${d.addedBy?`<div style="font-size:10px;color:var(--text4);margin-bottom:6px"><i class="fas fa-user" style="margin-left:3px"></i>${esc(d.addedBy)}</div>`:''}
         <div class="reqacts">
           <button class="rca rca-primary" onclick="openTaxiSel('${id}','${eAt(d.phone||'')}','${eAt(d.details||'')}','${id}')"><i class="fas fa-car-side"></i> إرسال لسائق</button>
-          ${d.hasGps&&d.userLat&&d.userLng?`<a href="https://www.google.com/maps?q=${d.userLat},${d.userLng}" target="_blank" class="rca rca-green" style="text-decoration:none;font-size:11px"><i class="fas fa-map-pin"></i> موقع الزبون</a>`:''}
+          ${d.hasGps&&d.userLat&&d.userLng?`
+  <button class="rca rca-green" onclick="showUserGpsOnMap('${id}',${d.userLat},${d.userLng},'${esc(d.phone||'')}')">
+    <i class="fas fa-map-location-dot"></i> خريطة الزبون
+  </button>
+`:''}
           <button class="rca rca-amber"   onclick="openEditReq('${id}','${eAt(d.phone||'')}','${eAt(d.details||'')}')"><i class="fas fa-pen"></i></button>
           <button class="rca rca-red"     onclick="cancelReq('${id}')"><i class="fas fa-ban"></i></button>
           <button class="rca rca-gray"    onclick="delRecvItem('${id}')"><i class="fas fa-trash"></i></button>
@@ -1427,6 +1435,55 @@ const loadSupReqList = () => {
       </div>`;
     }).join('');
   }); addL(r);
+};
+
+window.showUserGpsOnMap = (reqId, lat, lng, phone) => {
+  // إزالة خريطة قديمة إن وجدت
+  const old = document.getElementById('user-gps-modal');
+  if(old) old.remove();
+  
+  const modal = document.createElement('div');
+  modal.id = 'user-gps-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.innerHTML = `
+    <div style="background:var(--bg-card);border-radius:16px;width:100%;max-width:500px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,.5)">
+      <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+        <div style="font-weight:800;font-size:14px;color:var(--text);display:flex;align-items:center;gap:8px">
+          <i class="fas fa-map-location-dot" style="color:var(--green)"></i>
+          موقع الزبون — ${phone}
+        </div>
+        <button onclick="document.getElementById('user-gps-modal').remove()" 
+          style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px">✕</button>
+      </div>
+      <div id="ugps-map" style="height:320px"></div>
+      <div style="padding:10px 14px;display:flex;gap:8px">
+        <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank"
+          style="flex:1;padding:10px;background:var(--primary);border-radius:9px;color:#fff;font-size:12px;font-weight:700;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px">
+          <i class="fas fa-map"></i> فتح Google Maps
+        </a>
+        <button onclick="document.getElementById('user-gps-modal').remove()"
+          style="padding:10px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif">
+          إغلاق
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  
+  // تهيئة الخريطة
+  setTimeout(() => {
+    try {
+      const m = L.map('ugps-map', { zoomControl:true }).setView([lat, lng], 16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(m);
+      const icon = L.divIcon({
+        html: `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:20px;height:20px;background:#10B981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,.3)"></div>
+          <div style="background:#10B981;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px;white-space:nowrap;font-family:Cairo,sans-serif">📍 ${phone}</div>
+        </div>`,
+        className:'', iconSize:[80,45], iconAnchor:[40,20]
+      });
+      L.marker([lat, lng], { icon }).addTo(m).bindPopup(`<div style="font-family:Cairo,sans-serif;text-align:center;font-weight:700">📞 ${phone}</div>`).openPopup();
+    } catch(e) { console.warn('ugps map error', e); }
+  }, 200);
 };
 
 const loadSupNotifList = () => {
@@ -2193,7 +2250,10 @@ const addOfficeMarkerToMap = async (tenantId, office) => {
 };
 
 /* ── User Request Modal ── */
-window.openUserReqModal = (tenantId, name, desc) => {
+/* ملاحظة: openUserReqModal الحقيقية معرّفة في index.html
+   (تتولى تحقق "أنا لست روبوت" + GPS، ثم تستدعي window._openProtectedModal).
+   هنا فقط نضمن وجود دالة احتياطية إن تأخر تحميل index.html. */
+window.openUserReqModal = window.openUserReqModal || ((tenantId, name, desc) => {
   window._pendingTenant = tenantId;
   window._pendingName   = name;
   window._pendingDesc   = desc;
@@ -2202,34 +2262,28 @@ window.openUserReqModal = (tenantId, name, desc) => {
     window.showRateLimitAlert(Math.ceil((5*60*1000-(Date.now()-last))/1000));
     return;
   }
-  var saved = localStorage.getItem('txUserPhone') || '';
-  if (saved.startsWith('1|')) window._userVerifiedPhone = saved.slice(2);
-  if (!window._userVerifiedPhone) {
-    document.getElementById('UserVerifyScreen').classList.add('on');
-    window.showVStep && window.showVStep(1);
-  } else {
-    window._gpsOk = false; window._userGpsLat = null; window._userGpsLng = null;
-    document.getElementById('UserVerifyScreen').classList.add('on');
-    window.showVStep && window.showVStep(3);
-  }
-};
+  window._gpsOk = false; window._userGpsLat = null; window._userGpsLng = null;
+  document.getElementById('UserVerifyScreen').classList.add('on');
+  window.resetVerifyScreen ? window.resetVerifyScreen() : (window.showVStep && window.showVStep(1));
+});
 
 window.submitUserReq = async () => {
-  // ← فحص Rate Limit
   const lastReq = parseInt(localStorage.getItem('txLastReq')||'0',10);
   if(lastReq && Date.now()-lastReq < 5*60*1000){
     const rem = Math.ceil((5*60*1000-(Date.now()-lastReq))/1000);
     if(typeof window.showRateLimitAlert==='function') window.showRateLimitAlert(rem);
     return;
   }
-  // ← فحص GPS
   if(!window._gpsOk){ toast('err','📍 الموقع مطلوب','يجب تفعيل GPS لإرسال الطلب'); return; }
-  const phone    = (window._userVerifiedPhone || ($('ur-phone').value || '')).trim();
-  const from     = ($('ur-from').value  || '').trim();
-  const to       = ($('ur-to').value    || '').trim();
+
+  const phone    = ($('ur-phone').value || '').trim();   // ← المستخدم يكتب رقمه بنفسه
+  const from     = ($('ur-from').value  || '').trim();   // ← "أين أنت"
+  const to       = ($('ur-to').value    || '').trim();   // ← "وجهتك"
   const tenantId =  $('ur-office-tenant').value;
+
   if (!phone || !from || !to) return shAl('al-userreq','err','يرجى ملء جميع الحقول');
   if (!/^[0-9+]{7,15}$/.test(phone.replace(/\s/g,''))) return shAl('al-userreq','err','رقم الهاتف غير صحيح');
+
   const btn = $('MuserReq').querySelector('.bp'), orig = btn.innerHTML;
   btn.innerHTML = '<span class="spin"></span> جار الإرسال...'; btn.disabled = true;
   try {
