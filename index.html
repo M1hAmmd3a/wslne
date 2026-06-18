@@ -15,6 +15,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
 <style>
 :root {
@@ -347,33 +348,16 @@ html, body {
 .user-loc-dot-marker { width:18px; height:18px; background:#10B981; border:3px solid #fff; border-radius:50%; box-shadow:0 0 0 4px rgba(16,185,129,.3); animation:userLocPulse 1.5s ease infinite; }
 @keyframes userLocPulse { 0%,100%{box-shadow:0 0 0 4px rgba(16,185,129,.3)} 50%{box-shadow:0 0 0 10px rgba(16,185,129,0)} }
 
-/* ── Human Check (CAPTCHA بسيط) ── */
-.hc-box {
-  background:rgba(15,23,42,.7); border:1.5px solid rgba(255,255,255,.15);
-  border-radius:14px; padding:18px; display:flex; align-items:center; gap:14px;
-  cursor:pointer; transition:all .2s; user-select:none;
+/* ── Human Check: حاوية widget الحقيقي من Google reCAPTCHA ── */
+.hc-recaptcha-wrap {
+  display:flex; justify-content:center; align-items:center;
+  min-height:80px; margin:4px 0;
 }
-.hc-box:hover { border-color:rgba(16,185,129,.5); background:rgba(15,23,42,.85); }
-.hc-box.checked { border-color:#10B981; background:rgba(16,185,129,.1); }
-.hc-checkbox {
-  width:28px; height:28px; border-radius:8px; border:2px solid rgba(255,255,255,.3);
-  flex-shrink:0; display:flex; align-items:center; justify-content:center;
-  background:rgba(15,23,42,.6); transition:all .2s; font-size:15px; color:#fff;
+/* تصغير خفيف للـ widget على الشاشات الصغيرة بدون كسر تفاعليته */
+@media (max-width:420px) {
+  .hc-recaptcha-wrap { transform:scale(.92); transform-origin:center; }
 }
-.hc-box.checked .hc-checkbox { background:#10B981; border-color:#10B981; }
-.hc-box.loading .hc-checkbox { border-color:#0EA5E9; }
-.hc-label { font-size:14px; font-weight:700; color:#fff; flex:1; text-align:right; }
-.hc-spin { width:18px; height:18px; border:2.5px solid rgba(255,255,255,.2); border-top-color:#0EA5E9; border-radius:50%; animation:spin .7s linear infinite; }
 @keyframes spin { to{transform:rotate(360deg)} }
-.hc-puzzle-row { display:flex; gap:10px; justify-content:center; margin-top:6px; }
-.hc-puzzle-item {
-  width:56px; height:56px; border-radius:12px; border:2px solid rgba(255,255,255,.15);
-  background:rgba(15,23,42,.7); display:flex; align-items:center; justify-content:center;
-  font-size:26px; cursor:pointer; transition:all .2s;
-}
-.hc-puzzle-item:hover { border-color:rgba(14,165,233,.6); transform:translateY(-2px); }
-.hc-puzzle-item.wrong { animation:shakeX .35s; border-color:#EF4444; }
-@keyframes shakeX { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
 </style>
 </head>
 <body>
@@ -518,7 +502,7 @@ html, body {
 <div class="user-verify-screen" id="UserVerifyScreen">
   <div class="verify-card">
 
-    <!-- الخطوة 1: تحقق أنك لست روبوت -->
+    <!-- الخطوة 1: تحقق حقيقي عبر Google reCAPTCHA v2 -->
     <div class="verify-step on" id="vstep1">
       <div class="verify-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🤖</div>
       <div class="verify-title">تحقق سريع</div>
@@ -526,14 +510,13 @@ html, body {
         فقط للتأكد أنك مستخدم حقيقي وليس برنامجاً تلقائياً
       </div>
 
-      <div class="hc-box" id="hc-box" onclick="runHumanCheck()">
-        <div class="hc-checkbox" id="hc-checkbox"><i class="fas fa-check" style="display:none" id="hc-check-icon"></i></div>
-        <div class="hc-label" id="hc-label">أنا لست روبوت</div>
-      </div>
-
-      <div id="hc-puzzle-wrap" style="display:none">
-        <div class="verify-sub" style="margin-bottom:0">اضغط على 🚕 فقط</div>
-        <div class="hc-puzzle-row" id="hc-puzzle-row"></div>
+      <div class="hc-recaptcha-wrap">
+        <div class="g-recaptcha"
+             data-sitekey="6LdL6CUtAAAAADVfMUTLcF7dNAGlkpeam6veRQie"
+             data-callback="onRecaptchaSuccess"
+             data-expired-callback="onRecaptchaExpired"
+             data-error-callback="onRecaptchaError">
+        </div>
       </div>
 
       <div id="hc-err" style="color:#FCA5A5;font-size:12px;font-weight:700;text-align:center;min-height:16px"></div>
@@ -978,14 +961,17 @@ window.setRating = window.setRating || function(n) {
 };
 
 /* ══════════════════════════════════════════════════
-   نظام التحقق: "أنا لست روبوت" + GPS فقط
+   نظام التحقق الحقيقي: Google reCAPTCHA v2 + GPS
    (تم حذف التحقق عبر واتساب بالكامل)
    ══════════════════════════════════════════════════ */
 var _humanVerified = false;
+var _recaptchaToken = '';
 var _userGpsLat = null, _userGpsLng = null, _gpsOk = false;
 var _pendingTenant = '', _pendingName = '', _pendingDesc = '';
 var _rateLimitMs = 5 * 60 * 1000, _userLocMapObj = null;
-var _hcChecking = false;
+
+/* ⚠️ ضع هنا رابط Web App بعد نشر سيرفر Apps Script (anonymized.example/exec) */
+var RECAPTCHA_VERIFY_URL = 'PASTE_APPS_SCRIPT_WEB_APP_URL_HERE';
 
 window.showVStep = function(n) {
   [1, 3].forEach(function(i) {
@@ -994,82 +980,78 @@ window.showVStep = function(n) {
   });
 };
 
-/* ── "أنا لست روبوت": ضغطة + تأخير قصير لمحاكاة فحص حقيقي،
-      مع احتمال ظهور أحجية بسيطة (اختر 🚕) لتعزيز التحقق ── */
-window.runHumanCheck = function() {
-  if (_hcChecking || _humanVerified) return;
-  _hcChecking = true;
-  var box = document.getElementById('hc-box');
-  var cb  = document.getElementById('hc-checkbox');
-  var lbl = document.getElementById('hc-label');
-  var icon = document.getElementById('hc-check-icon');
-  if (box) box.classList.add('loading');
-  if (cb)  cb.innerHTML = '<div class="hc-spin"></div>';
-  if (lbl) lbl.textContent = 'جارٍ التحقق...';
-
-  setTimeout(function() {
-    /* أحجية بسيطة بشكل عشوائي لتعزيز التحقق ضد البرمجيات التلقائية */
-    if (Math.random() < 0.4) {
-      showHumanPuzzle();
-    } else {
-      finishHumanCheck();
-    }
-  }, 700);
-};
-
-window.showHumanPuzzle = function() {
-  var wrap = document.getElementById('hc-puzzle-wrap');
-  var row  = document.getElementById('hc-puzzle-row');
-  var lbl  = document.getElementById('hc-label');
-  var cb   = document.getElementById('hc-checkbox');
-  if (lbl) lbl.textContent = 'تحقق إضافي مطلوب';
-  if (cb)  cb.innerHTML = '';
-  if (wrap) wrap.style.display = 'block';
-  var icons = ['🚌', '🚲', '🚕', '🚗', '🛵'];
-  icons = icons.sort(function() { return Math.random() - 0.5; });
-  if (row) {
-    row.innerHTML = '';
-    icons.forEach(function(ic) {
-      var btn = document.createElement('div');
-      btn.className = 'hc-puzzle-item';
-      btn.textContent = ic;
-      btn.onclick = function() { checkPuzzleAnswer(ic, btn); };
-      row.appendChild(btn);
-    });
-  }
-};
-
-window.checkPuzzleAnswer = function(val, el) {
-  if (val === '🚕') {
-    finishHumanCheck();
-  } else {
-    el.classList.add('wrong');
-    var err = document.getElementById('hc-err');
-    if (err) err.textContent = '❌ حاول مرة أخرى — اختر 🚕';
-    setTimeout(function() { el.classList.remove('wrong'); }, 400);
-  }
-};
-
-window.finishHumanCheck = function() {
-  _humanVerified = true; _hcChecking = false;
-  var box = document.getElementById('hc-box');
-  var cb  = document.getElementById('hc-checkbox');
-  var lbl = document.getElementById('hc-label');
-  var icon = document.getElementById('hc-check-icon');
-  var wrap = document.getElementById('hc-puzzle-wrap');
-  var err  = document.getElementById('hc-err');
-  if (box) box.classList.remove('loading'); if (box) box.classList.add('checked');
-  if (cb)  cb.innerHTML = '<i class="fas fa-check"></i>';
-  if (lbl) lbl.textContent = '✅ تم التحقق بنجاح';
-  if (wrap) wrap.style.display = 'none';
+/* ── تُستدعى تلقائياً من Google عند نجاح ضغط المستخدم على الصندوق
+      (وأي تحدي صور تعرضه Google تلقائياً عند الاشتباه بسلوك المستخدم) ── */
+window.onRecaptchaSuccess = function(token) {
+  _recaptchaToken = token;
+  var err = document.getElementById('hc-err');
   if (err) err.textContent = '';
+  verifyRecaptchaOnServer(token);
+};
+
+window.onRecaptchaExpired = function() {
+  _recaptchaToken = '';
+  _humanVerified  = false;
   var nextBtn = document.getElementById('v-human-next-btn');
-  if (nextBtn) nextBtn.disabled = false;
+  if (nextBtn) nextBtn.disabled = true;
+  var err = document.getElementById('hc-err');
+  if (err) err.textContent = '⏰ انتهت الصلاحية — أعد الضغط على الصندوق';
+};
+
+window.onRecaptchaError = function() {
+  var err = document.getElementById('hc-err');
+  if (err) err.textContent = '⚠️ تعذّر تحميل التحقق — تأكد من اتصالك بالإنترنت';
+};
+
+/* التحقق الحقيقي يتم هنا عبر السيرفر (وليس في المتصفح فقط) —
+   هذا ما يمنع تجاوزه بسطر JS من Developer Console */
+window.verifyRecaptchaOnServer = async function(token) {
+  var nextBtn = document.getElementById('v-human-next-btn');
+  var err = document.getElementById('hc-err');
+  if (nextBtn) {
+    nextBtn.disabled = true;
+    nextBtn.innerHTML = '<span style="width:16px;height:16px;display:inline-block;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite"></span> جاري التحقق...';
+  }
+  if (err) err.textContent = '';
+
+  try {
+    if (!RECAPTCHA_VERIFY_URL || RECAPTCHA_VERIFY_URL.indexOf('PASTE_') === 0) {
+      throw new Error('لم يتم ضبط رابط سيرفر التحقق بعد');
+    }
+    const resp = await fetch(RECAPTCHA_VERIFY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ token: token })
+    });
+    const result = await resp.json();
+
+    if (result && result.success) {
+      _humanVerified = true;
+      if (nextBtn) { nextBtn.disabled = false; nextBtn.innerHTML = '<i class="fas fa-arrow-left"></i> متابعة'; }
+    } else {
+      throw new Error('فشل التحقق — حاول مرة أخرى');
+    }
+  } catch (e) {
+    _humanVerified = false;
+    if (window.grecaptcha) { try { window.grecaptcha.reset(); } catch(_e) {} }
+    if (nextBtn) { nextBtn.disabled = true; nextBtn.innerHTML = '<i class="fas fa-arrow-left"></i> متابعة'; }
+    if (err) err.textContent = '❌ ' + (e.message || 'فشل التحقق');
+  }
+};
+
+window.resetVerifyScreen = function() {
+  _humanVerified  = false;
+  _recaptchaToken = '';
+  if (window.grecaptcha) { try { window.grecaptcha.reset(); } catch(e) {} }
+  var nextBtn = document.getElementById('v-human-next-btn');
+  var err = document.getElementById('hc-err');
+  if (nextBtn) { nextBtn.disabled = true; nextBtn.innerHTML = '<i class="fas fa-arrow-left"></i> متابعة'; }
+  if (err) err.textContent = '';
+  showVStep(1);
 };
 
 window.goToGpsStep = function() {
   if (!_humanVerified) return;
-  /* إعادة تعيين حالة GPS عند كل دخول جديد لهذه الخطوة */
   var titleEl  = document.getElementById('gps-status-title');
   var subEl    = document.getElementById('gps-status-sub');
   var btnEl    = document.getElementById('v-gps-btn');
@@ -1116,24 +1098,6 @@ window.finishVerify = function(gpsOk) {
   if (typeof window.toast === 'function')
     toast('ok', '🚕 جاهز!', gpsOk ? '📍 موقعك محدد' : 'أدخل موقعك يدوياً');
   if (typeof window._openProtectedModal === 'function') window._openProtectedModal();
-};
-
-/* ── إعادة تعيين شاشة التحقق بالكامل عند فتحها من جديد ── */
-window.resetVerifyScreen = function() {
-  _humanVerified = false; _hcChecking = false;
-  var box = document.getElementById('hc-box');
-  var cb  = document.getElementById('hc-checkbox');
-  var lbl = document.getElementById('hc-label');
-  var wrap = document.getElementById('hc-puzzle-wrap');
-  var err  = document.getElementById('hc-err');
-  var nextBtn = document.getElementById('v-human-next-btn');
-  if (box) box.classList.remove('checked', 'loading');
-  if (cb)  cb.innerHTML = '<i class="fas fa-check" style="display:none"></i>';
-  if (lbl) lbl.textContent = 'أنا لست روبوت';
-  if (wrap) wrap.style.display = 'none';
-  if (err) err.textContent = '';
-  if (nextBtn) nextBtn.disabled = true;
-  showVStep(1);
 };
 
 window.openUserReqModal = function(tenantId, name, desc) {
