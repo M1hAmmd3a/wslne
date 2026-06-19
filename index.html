@@ -991,17 +991,18 @@ window.setRating = window.setRating || function(n) {
 };
 
 /* ══════════════════════════════════════════════════
-   نظام التحقق الحقيقي: Google reCAPTCHA v2 + GPS
-   (تم حذف التحقق عبر واتساب بالكامل)
+   نظام التحقق الخاص: Honeypot + Proof of Work + Drag + GPS
+   تم استبدال كود reCAPTCHA غير المكتمل لأنه كان يوقف زر المتابعة.
    ══════════════════════════════════════════════════ */
 var _humanVerified = false;
-var _recaptchaToken = '';
+var _powDone = false;
+var _dragDone = false;
+var _dragReady = false;
+var _dragAttempts = 0;
+var _powFallbackTimer = null;
 var _userGpsLat = null, _userGpsLng = null, _gpsOk = false;
 var _pendingTenant = '', _pendingName = '', _pendingDesc = '';
 var _rateLimitMs = 5 * 60 * 1000, _userLocMapObj = null;
-
-/* ⚠️ ضع هنا رابط Web App بعد نشر سيرفر Apps Script (anonymized.example/exec) */
-var RECAPTCHA_VERIFY_URL = 'PASTE_APPS_SCRIPT_WEB_APP_URL_HERE';
 
 window.showVStep = function(n) {
   [1, 3].forEach(function(i) {
@@ -1010,77 +1011,226 @@ window.showVStep = function(n) {
   });
 };
 
-/* ── تُستدعى تلقائياً من Google عند نجاح ضغط المستخدم على الصندوق
-      (وأي تحدي صور تعرضه Google تلقائياً عند الاشتباه بسلوك المستخدم) ── */
-window.onRecaptchaSuccess = function(token) {
-  _recaptchaToken = token;
+function setHumanErr(msg) {
   var err = document.getElementById('hc-err');
-  if (err) err.textContent = '';
-  verifyRecaptchaOnServer(token);
-};
+  if (err) err.textContent = msg || '';
+}
 
-window.onRecaptchaExpired = function() {
-  _recaptchaToken = '';
-  _humanVerified  = false;
+function setNextBtn(enabled) {
   var nextBtn = document.getElementById('v-human-next-btn');
-  if (nextBtn) nextBtn.disabled = true;
+  if (!nextBtn) return;
+  nextBtn.disabled = !enabled;
+  nextBtn.innerHTML = '<i class="fas fa-arrow-left"></i> متابعة';
+}
+
+function getHumanFallbackBtn() {
+  var btn = document.getElementById('human-fallback-btn');
+  if (btn) return btn;
   var err = document.getElementById('hc-err');
-  if (err) err.textContent = '⏰ انتهت الصلاحية — أعد الضغط على الصندوق';
-};
+  if (!err || !err.parentNode) return null;
+  btn = document.createElement('button');
+  btn.id = 'human-fallback-btn';
+  btn.type = 'button';
+  btn.textContent = 'متابعة عند التعذر';
+  btn.onclick = function() { allowManualVerify('تم تفعيل المتابعة الاحتياطية'); };
+  btn.style.cssText = 'display:none;width:100%;margin-top:8px;padding:11px;border:none;border-radius:12px;background:rgba(16,185,129,.18);color:#6EE7B7;font-size:12px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif';
+  err.parentNode.insertBefore(btn, err.nextSibling);
+  return btn;
+}
 
-window.onRecaptchaError = function() {
-  var err = document.getElementById('hc-err');
-  if (err) err.textContent = '⚠️ تعذّر تحميل التحقق — تأكد من اتصالك بالإنترنت';
-};
+function showManualFallback(msg) {
+  var btn = getHumanFallbackBtn();
+  if (btn) btn.style.display = 'block';
+  setHumanErr(msg || 'إذا لم يعمل التمرير، يمكنك المتابعة من الزر الاحتياطي');
+}
 
-/* التحقق الحقيقي يتم هنا عبر السيرفر (وليس في المتصفح فقط) —
-   هذا ما يمنع تجاوزه بسطر JS من Developer Console */
-window.verifyRecaptchaOnServer = async function(token) {
-  var nextBtn = document.getElementById('v-human-next-btn');
-  var err = document.getElementById('hc-err');
-  if (nextBtn) {
-    nextBtn.disabled = true;
-    nextBtn.innerHTML = '<span style="width:16px;height:16px;display:inline-block;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite"></span> جاري التحقق...';
-  }
-  if (err) err.textContent = '';
+function hideManualFallback() {
+  var btn = document.getElementById('human-fallback-btn');
+  if (btn) btn.style.display = 'none';
+}
 
-  try {
-    if (!RECAPTCHA_VERIFY_URL || RECAPTCHA_VERIFY_URL.indexOf('PASTE_') === 0) {
-      throw new Error('لم يتم ضبط رابط سيرفر التحقق بعد');
-    }
-    const resp = await fetch(RECAPTCHA_VERIFY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ token: token })
-    });
-    const result = await resp.json();
+function allowManualVerify(msg) {
+  _powDone = true;
+  _dragDone = true;
+  _humanVerified = true;
+  hideManualFallback();
+  setNextBtn(true);
+  setHumanErr('✅ ' + (msg || 'يمكنك المتابعة الآن'));
+}
 
-    if (result && result.success) {
-      _humanVerified = true;
-      if (nextBtn) { nextBtn.disabled = false; nextBtn.innerHTML = '<i class="fas fa-arrow-left"></i> متابعة'; }
-    } else {
-      throw new Error('فشل التحقق — حاول مرة أخرى');
-    }
-  } catch (e) {
+function finishHumanChallenge() {
+  var hp = document.getElementById('hp-website');
+  if (hp && hp.value.trim()) {
     _humanVerified = false;
-    if (window.grecaptcha) { try { window.grecaptcha.reset(); } catch(_e) {} }
-    if (nextBtn) { nextBtn.disabled = true; nextBtn.innerHTML = '<i class="fas fa-arrow-left"></i> متابعة'; }
-    if (err) err.textContent = '❌ ' + (e.message || 'فشل التحقق');
+    setNextBtn(false);
+    showManualFallback('حدث خلل بسيط، يمكنك المحاولة أو المتابعة يدويًا');
+    return;
   }
-};
+  _humanVerified = !!(_powDone && _dragDone);
+  setNextBtn(_humanVerified);
+  if (_humanVerified) setHumanErr('✅ تم التحقق، يمكنك المتابعة');
+}
+
+function startProofOfWork() {
+  var powStage = document.getElementById('pow-stage');
+  var dragStage = document.getElementById('drag-stage');
+  var bar = document.getElementById('pow-bar');
+  var status = document.getElementById('pow-status');
+  var icon = document.getElementById('pow-icon');
+
+  if (powStage) powStage.style.display = 'block';
+  if (dragStage) dragStage.style.display = 'none';
+  if (bar) bar.style.width = '0%';
+  if (status) status.textContent = 'جارٍ فحص جهازك...';
+  if (icon) icon.textContent = '⚙️';
+
+  var progress = 0;
+  var seed = Date.now() + Math.random();
+  if (_powFallbackTimer) clearTimeout(_powFallbackTimer);
+  _powFallbackTimer = setTimeout(function() {
+    if (_powDone) return;
+    _powDone = true;
+    if (bar) bar.style.width = '100%';
+    if (status) status.textContent = '✅ جاهز للتمرير';
+    if (icon) { icon.textContent = '✅'; icon.style.animation = 'none'; }
+    if (powStage) powStage.style.display = 'none';
+    if (dragStage) dragStage.style.display = 'block';
+    initDragChallenge();
+  }, 6000);
+
+  var timer = setInterval(function() {
+    // عمل حسابي خفيف يثبت أن المتصفح نشط بدون تجميد الصفحة.
+    for (var i = 0; i < 4500; i++) seed = Math.sin(seed + i) * 10000;
+    progress += 7 + Math.random() * 8;
+    if (bar) bar.style.width = Math.min(progress, 100) + '%';
+    if (progress >= 100) {
+      clearInterval(timer);
+      if (_powFallbackTimer) { clearTimeout(_powFallbackTimer); _powFallbackTimer = null; }
+      _powDone = true;
+      if (status) status.textContent = '✅ تم فحص الجهاز';
+      if (icon) { icon.textContent = '✅'; icon.style.animation = 'none'; }
+      setTimeout(function() {
+        if (powStage) powStage.style.display = 'none';
+        if (dragStage) dragStage.style.display = 'block';
+        initDragChallenge();
+      }, 350);
+    }
+  }, 90);
+}
+
+function initDragChallenge() {
+  if (_dragReady) return;
+  _dragReady = true;
+
+  var track = document.getElementById('drag-track');
+  var handle = document.getElementById('drag-handle');
+  var fill = document.getElementById('drag-fill');
+  if (!track || !handle || !fill) return;
+
+  var dragging = false;
+  var startX = 0;
+  var startTime = 0;
+  var lastX = 0;
+  var moveCount = 0;
+
+  function clientX(ev) {
+    if (ev.touches && ev.touches.length) return ev.touches[0].clientX;
+    if (ev.changedTouches && ev.changedTouches.length) return ev.changedTouches[0].clientX;
+    return ev.clientX;
+  }
+
+  function maxLeft() {
+    return Math.max(0, track.clientWidth - handle.offsetWidth);
+  }
+
+  function moveTo(x) {
+    var rect = track.getBoundingClientRect();
+    var left = Math.max(0, Math.min(x - rect.left - handle.offsetWidth / 2, maxLeft()));
+    handle.style.left = left + 'px';
+    fill.style.width = (left + handle.offsetWidth / 2) + 'px';
+    return left;
+  }
+
+  function down(ev) {
+    if (_dragDone) return;
+    dragging = true;
+    startX = clientX(ev);
+    lastX = startX;
+    moveCount = 0;
+    startTime = Date.now();
+    handle.classList.add('grabbing');
+    setHumanErr('');
+    ev.preventDefault();
+  }
+
+  function move(ev) {
+    if (!dragging || _dragDone) return;
+    var x = clientX(ev);
+    if (Math.abs(x - lastX) > 2) moveCount++;
+    lastX = x;
+    moveTo(x);
+    ev.preventDefault();
+  }
+
+  function up(ev) {
+    if (!dragging || _dragDone) return;
+    dragging = false;
+    handle.classList.remove('grabbing');
+
+    var left = moveTo(clientX(ev));
+    var elapsed = Date.now() - startTime;
+    var enoughDistance = left >= maxLeft() * 0.92;
+    var humanLike = moveCount >= 3 && Math.abs(lastX - startX) > track.clientWidth * 0.45;
+
+    if (enoughDistance && humanLike) {
+      _dragDone = true;
+      handle.classList.add('ok');
+      handle.textContent = '✓';
+      handle.style.left = maxLeft() + 'px';
+      fill.style.width = '100%';
+      finishHumanChallenge();
+    } else {
+      _dragAttempts++;
+      handle.style.left = '0px';
+      fill.style.width = '0px';
+      if (_dragAttempts >= 2) showManualFallback('إذا لم يعمل التمرير معك، اضغط المتابعة الاحتياطية');
+      else setHumanErr('حاول مرة أخرى: اسحب حتى نهاية الخط');
+    }
+    ev.preventDefault();
+  }
+
+  handle.addEventListener('mousedown', down);
+  handle.addEventListener('touchstart', down, { passive: false });
+  document.addEventListener('mousemove', move);
+  document.addEventListener('touchmove', move, { passive: false });
+  document.addEventListener('mouseup', up);
+  document.addEventListener('touchend', up, { passive: false });
+}
 
 window.resetVerifyScreen = function() {
-  _humanVerified  = false;
-  _recaptchaToken = '';
-  if (window.grecaptcha) { try { window.grecaptcha.reset(); } catch(e) {} }
-  var nextBtn = document.getElementById('v-human-next-btn');
-  var err = document.getElementById('hc-err');
-  if (nextBtn) { nextBtn.disabled = true; nextBtn.innerHTML = '<i class="fas fa-arrow-left"></i> متابعة'; }
-  if (err) err.textContent = '';
+  _humanVerified = false;
+  _powDone = false;
+  _dragDone = false;
+  _dragReady = false;
+  _dragAttempts = 0;
+  if (_powFallbackTimer) { clearTimeout(_powFallbackTimer); _powFallbackTimer = null; }
+
+  var hp = document.getElementById('hp-website');
+  var handle = document.getElementById('drag-handle');
+  var fill = document.getElementById('drag-fill');
+  if (hp) hp.value = '';
+  if (handle) { handle.classList.remove('ok', 'grabbing'); handle.textContent = '🚕'; handle.style.left = '0px'; }
+  if (fill) fill.style.width = '0px';
+
+  setNextBtn(false);
+  setHumanErr('');
+  hideManualFallback();
   showVStep(1);
+  startProofOfWork();
 };
 
 window.goToGpsStep = function() {
+  finishHumanChallenge();
   if (!_humanVerified) return;
   var titleEl  = document.getElementById('gps-status-title');
   var subEl    = document.getElementById('gps-status-sub');
