@@ -15,7 +15,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
 <style>
 :root {
@@ -348,16 +347,31 @@ html, body {
 .user-loc-dot-marker { width:18px; height:18px; background:#10B981; border:3px solid #fff; border-radius:50%; box-shadow:0 0 0 4px rgba(16,185,129,.3); animation:userLocPulse 1.5s ease infinite; }
 @keyframes userLocPulse { 0%,100%{box-shadow:0 0 0 4px rgba(16,185,129,.3)} 50%{box-shadow:0 0 0 10px rgba(16,185,129,0)} }
 
-/* ── Human Check: حاوية widget الحقيقي من Google reCAPTCHA ── */
-.hc-recaptcha-wrap {
-  display:flex; justify-content:center; align-items:center;
-  min-height:80px; margin:4px 0;
+/* ── نظام التحقق الخاص: Honeypot + Proof of Work + تحدي السحب ── */
+.pow-box {
+  background:rgba(15,23,42,.7); border:1.5px solid rgba(255,255,255,.15);
+  border-radius:14px; padding:18px; text-align:center;
 }
-/* تصغير خفيف للـ widget على الشاشات الصغيرة بدون كسر تفاعليته */
-@media (max-width:420px) {
-  .hc-recaptcha-wrap { transform:scale(.92); transform-origin:center; }
+.pow-bar-track { width:100%; height:6px; background:rgba(255,255,255,.1); border-radius:10px; overflow:hidden; margin-top:10px; }
+.pow-bar-fill { height:100%; width:0%; background:linear-gradient(90deg,#0EA5E9,#10B981); transition:width .15s linear; }
+.drag-track {
+  position:relative; height:54px; background:rgba(15,23,42,.7);
+  border:1.5px solid rgba(255,255,255,.15); border-radius:14px; overflow:hidden;
+  user-select:none;
 }
+.drag-fill { position:absolute; inset:0; width:0; background:rgba(16,185,129,.22); transition:width .05s linear; }
+.drag-hint { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; color:rgba(255,255,255,.3); font-weight:700; pointer-events:none; }
+.drag-handle {
+  position:absolute; left:0; top:0; width:54px; height:54px;
+  background:linear-gradient(135deg,#0EA5E9,#0284C7); border-radius:14px;
+  display:flex; align-items:center; justify-content:center; font-size:24px;
+  cursor:grab; box-shadow:0 4px 12px rgba(14,165,233,.4); touch-action:none;
+  transition:box-shadow .2s;
+}
+.drag-handle.grabbing { cursor:grabbing; box-shadow:0 6px 18px rgba(14,165,233,.6); }
+.drag-handle.ok { background:linear-gradient(135deg,#10B981,#059669) !important; }
 @keyframes spin { to{transform:rotate(360deg)} }
+@keyframes powPulse { 0%,100%{opacity:1} 50%{opacity:.55} }
 </style>
 </head>
 <body>
@@ -502,20 +516,36 @@ html, body {
 <div class="user-verify-screen" id="UserVerifyScreen">
   <div class="verify-card">
 
-    <!-- الخطوة 1: تحقق حقيقي عبر Google reCAPTCHA v2 -->
+    <!-- الخطوة 1: نظام تحقق خاص — Honeypot + Proof of Work + تحدي سحب تفاعلي -->
     <div class="verify-step on" id="vstep1">
-      <div class="verify-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🤖</div>
-      <div class="verify-title">تحقق سريع</div>
+      <div class="verify-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🛡️</div>
+      <div class="verify-title">تحقق الأمان</div>
       <div class="verify-sub">
         فقط للتأكد أنك مستخدم حقيقي وليس برنامجاً تلقائياً
       </div>
 
-      <div class="hc-recaptcha-wrap">
-        <div class="g-recaptcha"
-             data-sitekey="6LdL6CUtAAAAADVfMUTLcF7dNAGlkpeam6veRQie"
-             data-callback="onRecaptchaSuccess"
-             data-expired-callback="onRecaptchaExpired"
-             data-error-callback="onRecaptchaError">
+      <!-- Honeypot: حقل مخفي تماماً عن البشر، لا تلمسه إلا البرامج الآلية التي تملأ كل الحقول -->
+      <div style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+        <label for="hp-website">اتركه فارغاً</label>
+        <input type="text" id="hp-website" name="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <!-- مرحلة أ: تحدٍّ حسابي (Proof of Work) يستهلك وقت معالج حقيقي -->
+      <div id="pow-stage">
+        <div class="pow-box">
+          <div id="pow-icon" style="font-size:32px;margin-bottom:6px;animation:powPulse 1.2s ease infinite">⚙️</div>
+          <div id="pow-status" style="font-size:13px;font-weight:800;color:#0EA5E9">جارٍ فحص جهازك...</div>
+          <div class="pow-bar-track"><div class="pow-bar-fill" id="pow-bar"></div></div>
+        </div>
+      </div>
+
+      <!-- مرحلة ب: تحدي سحب تفاعلي (يحتاج حركة فأر/لمس فعلية ومتدرجة بالزمن) -->
+      <div id="drag-stage" style="display:none">
+        <div class="verify-sub" style="margin-bottom:8px">اسحب 🚕 حتى نهاية الخط</div>
+        <div class="drag-track" id="drag-track">
+          <div class="drag-fill" id="drag-fill"></div>
+          <div class="drag-hint">اسحب من اليسار لليمين →</div>
+          <div class="drag-handle" id="drag-handle">🚕</div>
         </div>
       </div>
 
