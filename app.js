@@ -2250,10 +2250,7 @@ const addOfficeMarkerToMap = async (tenantId, office) => {
 };
 
 /* ── User Request Modal ── */
-/* ملاحظة: openUserReqModal الحقيقية معرّفة في index.html
-   (تتولى تحقق "أنا لست روبوت" + GPS، ثم تستدعي window._openProtectedModal).
-   هنا فقط نضمن وجود دالة احتياطية إن تأخر تحميل index.html. */
-window.openUserReqModal = window.openUserReqModal || ((tenantId, name, desc) => {
+window.openUserReqModal = (tenantId, name, desc) => {
   window._pendingTenant = tenantId;
   window._pendingName   = name;
   window._pendingDesc   = desc;
@@ -2262,10 +2259,19 @@ window.openUserReqModal = window.openUserReqModal || ((tenantId, name, desc) => 
     window.showRateLimitAlert(Math.ceil((5*60*1000-(Date.now()-last))/1000));
     return;
   }
-  window._gpsOk = false; window._userGpsLat = null; window._userGpsLng = null;
-  document.getElementById('UserVerifyScreen').classList.add('on');
-  window.resetVerifyScreen ? window.resetVerifyScreen() : (window.showVStep && window.showVStep(1));
-});
+  var saved = localStorage.getItem('txUserPhone') || '';
+  if (saved.startsWith('1|')) window._userVerifiedPhone = saved.slice(2);
+  if (!window._userVerifiedPhone) {
+    window._gpsOk = false; window._userGpsLat = null; window._userGpsLng = null;
+    document.getElementById('UserVerifyScreen').classList.add('on');
+    if (typeof window.resetVerifyScreen === 'function') window.resetVerifyScreen();
+    else if (window.showVStep) window.showVStep(1);
+  } else {
+    window._gpsOk = false; window._userGpsLat = null; window._userGpsLng = null;
+    document.getElementById('UserVerifyScreen').classList.add('on');
+    window.showVStep && window.showVStep(3);
+  }
+};
 
 window.submitUserReq = async () => {
   const lastReq = parseInt(localStorage.getItem('txLastReq')||'0',10);
@@ -2275,15 +2281,15 @@ window.submitUserReq = async () => {
     return;
   }
   if(!window._gpsOk){ toast('err','📍 الموقع مطلوب','يجب تفعيل GPS لإرسال الطلب'); return; }
-
-  const phone    = ($('ur-phone').value || '').trim();   // ← المستخدم يكتب رقمه بنفسه
+  
+  const phone    = (window._userVerifiedPhone || ($('ur-phone').value || '')).trim();
   const from     = ($('ur-from').value  || '').trim();   // ← "أين أنت"
   const to       = ($('ur-to').value    || '').trim();   // ← "وجهتك"
   const tenantId =  $('ur-office-tenant').value;
-
+  
   if (!phone || !from || !to) return shAl('al-userreq','err','يرجى ملء جميع الحقول');
   if (!/^[0-9+]{7,15}$/.test(phone.replace(/\s/g,''))) return shAl('al-userreq','err','رقم الهاتف غير صحيح');
-
+  
   const btn = $('MuserReq').querySelector('.bp'), orig = btn.innerHTML;
   btn.innerHTML = '<span class="spin"></span> جار الإرسال...'; btn.disabled = true;
   try {
