@@ -8,8 +8,6 @@ import { getDatabase, ref, set, get, push, onValue, update, remove, off }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-                                   import { getFunctions, httpsCallable }
-                                   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-functions.js";
 /* ══════════════════════════════════════════════════
    TENANT MAP  — uid → tenantId
    ضع هنا الـ UID من Firebase Console
@@ -108,8 +106,6 @@ const _app = initializeApp(firebaseConfig, "main");
 
 const _db = getDatabase(_app);
 const _auth = getAuth(_app);
-const _functions = getFunctions(_app);
-const _setUserClaims = httpsCallable(_functions, 'setUserClaims');
 
 
 
@@ -653,9 +649,6 @@ window.sLogin = async () => {
     CU = { id: supId, name: TENANT_NAMES[tenantId], role:'admin', officeId: tenantId };
     CR = 'supervisor';
 
-    await _setUserClaims({ role: 'supervisor', tenant: tenantId });
-    await cred.user.getIdToken(true);
-
     CM('Msup');
 
     if (IS_RECV) {
@@ -725,7 +718,6 @@ window.dReg = async () => {
       officeId: TENANT_ID, approvalStatus: 'pending', lastSeen: Date.now(),
     });
 
-    await _setUserClaims({ role: 'driver', tenant: TENANT_ID });
     await signOut(_auth);
 
     await push(tRef('notifications'), { type:'new_driver', msg:`🆕 سائق جديد: ${nm} (${ph})`, ts: Date.now(), read: false, driverId: phKey });
@@ -782,9 +774,6 @@ window.dLogin = async () => {
       shAl('al-drv', 'err', 'كلمة المرور خاطئة');
       btn.innerHTML = orig; btn.disabled = false; return;
     }
-
-    await _setUserClaims({ role: 'driver', tenant: TENANT_ID });
-    await cred.user.getIdToken(true);
 
     await update(tRef(`drivers/${phKey}`), { status:'online', lastSeen: Date.now(), taxiColor:'green' });
 
