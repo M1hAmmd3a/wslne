@@ -8,6 +8,8 @@ import { getDatabase, ref, set, get, push, onValue, update, remove, off }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+                                   import { getFunctions, httpsCallable }
+                                   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-functions.js";
 /* ══════════════════════════════════════════════════
    TENANT MAP  — uid → tenantId
    ضع هنا الـ UID من Firebase Console
@@ -106,6 +108,8 @@ const _app = initializeApp(firebaseConfig, "main");
 
 const _db = getDatabase(_app);
 const _auth = getAuth(_app);
+const _functions = getFunctions(_app);
+const _setUserClaims = httpsCallable(_functions, 'setUserClaims');
 
 
 
@@ -649,6 +653,9 @@ window.sLogin = async () => {
     CU = { id: supId, name: TENANT_NAMES[tenantId], role:'admin', officeId: tenantId };
     CR = 'supervisor';
 
+    await _setUserClaims({ role: 'supervisor', tenant: tenantId });
+    await cred.user.getIdToken(true);
+
     CM('Msup');
 
     if (IS_RECV) {
@@ -692,10 +699,8 @@ window.dReg = async () => {
   if (pw.length < 6)              return shAl('al-drv', 'err', 'كلمة المرور قصيرة جداً');
   if (!TENANT_ID)                 return shAl('al-drv', 'err', 'لا يوجد مكتب محدد — ادخل برمز المكتب أولاً');
 
-  /* التحقق من كود الدعوة */
   if (invCode) {
     const expectedInvite = TENANT_INVITE[TENANT_ID] || '';
-    /* مقارنة بدون الرمز ! في النهاية للتوافق */
     const clean = code => code.replace(/[!]/g, '').toUpperCase();
     if (clean(invCode) !== clean(expectedInvite)) return shAl('al-drv', 'err', '❌ كود الدعوة غير صحيح');
   }
@@ -709,19 +714,28 @@ window.dReg = async () => {
     const chk = await get(tRef(`drivers/${phKey}`));
     if (chk.exists()) { shAl('al-drv', 'err', 'رقم الهاتف مسجل مسبقاً'); btn.innerHTML = orig; btn.disabled = false; return; }
 
-    const pwHash = await _h(pw);
+    const driverEmail = `${phKey}@driver.taxi.local`;
+    const cred = await createUserWithEmailAndPassword(_auth, driverEmail, pw);
+
     await set(tRef(`drivers/${phKey}`), {
-      name: nm, phone: ph, carNumber: car, pwHash,
+      name: nm, phone: ph, carNumber: car,
       status: 'offline', taxiColor: 'green',
       deliveries: 0, totalDeliveries: 0,
       createdAt: Date.now(), role: 'driver',
       officeId: TENANT_ID, approvalStatus: 'pending', lastSeen: Date.now(),
     });
+
+    await _setUserClaims({ role: 'driver', tenant: TENANT_ID });
+    await signOut(_auth);
+
     await push(tRef('notifications'), { type:'new_driver', msg:`🆕 سائق جديد: ${nm} (${ph})`, ts: Date.now(), read: false, driverId: phKey });
     shAl('al-drv', 'ok', '✅ تم التسجيل! انتظر موافقة المشرف');
     ['dr-nm','dr-ph','dr-car','dr-pw','dr-pw2','dr-invite'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     setTimeout(() => dtab('li'), 2500);
-  } catch(err) { shAl('al-drv', 'err', 'خطأ: ' + (err.message || '')); }
+  } catch(err) {
+    const msgs = { 'auth/email-already-in-use': 'رقم الهاتف مسجل مسبقاً' };
+    shAl('al-drv', 'err', msgs[err.code] || ('خطأ: ' + (err.message || '')));
+  }
 
   btn.innerHTML = orig; btn.disabled = false;
 };
@@ -749,26 +763,32 @@ window.dLogin = async () => {
     if (found.approvalStatus === 'pending')  { shAl('al-drv', 'warn', '⏳ حسابك قيد المراجعة'); btn.innerHTML = orig; btn.disabled = false; return; }
     if (found.approvalStatus === 'rejected') { shAl('al-drv', 'err',  '❌ تم رفض حسابك');       btn.innerHTML = orig; btn.disabled = false; return; }
 
-    /* لا يمكن السائق الدخول دون tenant */
     if (!TENANT_ID) {
-      /* استخدم officeId المحفوظة مع الحساب */
       if (found.officeId) { TENANT_ID = found.officeId; TENANT_INFO = { name: TENANT_NAMES[found.officeId] || found.officeId }; }
       else { shAl('al-drv', 'err', 'ادخل برمز مكتبك أولاً'); btn.innerHTML = orig; btn.disabled = false; return; }
     }
-
     if (TENANT_ID && found.officeId && found.officeId !== TENANT_ID) {
       shAl('al-drv', 'err', 'هذا الحساب مسجل في مكتب آخر'); btn.innerHTML = orig; btn.disabled = false; return;
     }
+    if ((found.carNumber || '').toLowerCase() !== car.toLowerCase()) {
+      shAl('al-drv', 'err', 'رقم السيارة غير صحيح'); btn.innerHTML = orig; btn.disabled = false; return;
+    }
 
-    const pwHash  = await _h(pw);
-    const validPw = found.pwHash ? pwHash === found.pwHash : found.password === pw;
-    if (!validPw) { shAl('al-drv', 'err', 'كلمة المرور خاطئة'); btn.innerHTML = orig; btn.disabled = false; return; }
-    if ((found.carNumber || '').toLowerCase() !== car.toLowerCase()) { shAl('al-drv', 'err', 'رقم السيارة غير صحيح'); btn.innerHTML = orig; btn.disabled = false; return; }
+    const driverEmail = `${phKey}@driver.taxi.local`;
+    let cred;
+    try {
+      cred = await signInWithEmailAndPassword(_auth, driverEmail, pw);
+    } catch (authErr) {
+      shAl('al-drv', 'err', 'كلمة المرور خاطئة');
+      btn.innerHTML = orig; btn.disabled = false; return;
+    }
 
-    if (!found.pwHash) await update(tRef(`drivers/${phKey}`), { pwHash, password: null }).catch(() => {});
+    await _setUserClaims({ role: 'driver', tenant: TENANT_ID });
+    await cred.user.getIdToken(true);
+
     await update(tRef(`drivers/${phKey}`), { status:'online', lastSeen: Date.now(), taxiColor:'green' });
 
-    CU = { ...found, id: phKey, pwHash, password: undefined };
+    CU = { ...found, id: phKey };
     CR = 'driver'; IS_RECV = false;
     if (found.shiftStart && !found.shiftEnd) shiftStartTime = found.shiftStart;
 
