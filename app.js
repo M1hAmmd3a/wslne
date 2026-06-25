@@ -284,22 +284,6 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide',     stopGPS);
 window.addEventListener('beforeunload', stopGPS);
 
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    if (_gpsSendTimer) { clearInterval(_gpsSendTimer); _gpsSendTimer = null; }
-  } else if (CU && CR === 'driver' && CU.status !== 'offline' && !_gpsSendTimer) {
-    _gpsSendTimer = setInterval(() => {
-      if (Date.now() - _gpsLastSent >= GPS_INTERVAL)
-        navigator.geolocation.getCurrentPosition(
-          pos => sendGPS(CU.id, pos.coords.latitude, pos.coords.longitude, false),
-          () => {}, { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-        );
-    }, GPS_INTERVAL);
-  }
-});
-window.addEventListener('pagehide',      stopGPS);
-window.addEventListener('beforeunload',  stopGPS);
-
 /* ══════════════════════════════════════════════════
    SHARED DRIVER CACHE
    ══════════════════════════════════════════════════ */
@@ -548,8 +532,93 @@ window.gateEnter = role => {
   tenantEnter(role);
 };
 
-document.addEventListener('DOMContentLoaded', initTenantGate);
+/* ══ حفظ/مسح الجلسة محلياً ══ */
+const SESSION_KEYS = { tenant:'txTenantId', role:'txRole', driverKey:'txDriverKey' };
+const saveSession = (role, driverKey = '') => {
+  try {
+    localStorage.setItem(SESSION_KEYS.tenant, TENANT_ID);
+    localStorage.setItem(SESSION_KEYS.role, role);
+    if (driverKey) localStorage.setItem(SESSION_KEYS.driverKey, driverKey);
+    else localStorage.removeItem(SESSION_KEYS.driverKey);
+  } catch(e) {}
+};
+const clearSession = () => {
+  try {
+    localStorage.removeItem(SESSION_KEYS.tenant);
+    localStorage.removeItem(SESSION_KEYS.role);
+    localStorage.removeItem(SESSION_KEYS.driverKey);
+  } catch(e) {}
+};
 
+/* ══ استعادة الجلسة بعد تحديث الصفحة ══ */
+const _bootLoader = document.createElement('div');
+_bootLoader.id = '_bootLoader';
+_bootLoader.style.cssText = 'position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#0F172A,#1E293B);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px';
+_bootLoader.innerHTML = '<div style="font-size:46px">🚕</div><div style="width:34px;height:34px;border:3px solid rgba(255,255,255,.15);border-top-color:#0EA5E9;border-radius:50%;animation:spin .8s linear infinite"></div><div style="color:rgba(255,255,255,.6);font-size:12px;font-weight:700;font-family:Cairo,sans-serif">جارٍ التحقق من الجلسة...</div>';
+document.body.appendChild(_bootLoader);
+
+const restoreSession = () => new Promise(resolve => {
+  let settled = false;
+  const done = v => {
+    if (settled) return;
+    settled = true; clearTimeout(timer);
+    if (v) { const g = $('PTenantGate'); if (g) g.style.display = 'none'; }
+    resolve(v);
+  };
+  const timer = setTimeout(() => done(false), 6000);
+  let unsub;
+  unsub = onAuthStateChanged(_auth, async user => {
+    if (settled) return;
+    if (typeof unsub === 'function') { try { unsub(); } catch(e) {} }
+    if (!user) return done(false);
+    try {
+      const savedTenant = localStorage.getItem(SESSION_KEYS.tenant) || localStorage.getItem('txOfficeCode') || '';
+      const savedRole   = localStorage.getItem(SESSION_KEYS.role)   || '';
+      const savedDrvKey = localStorage.getItem(SESSION_KEYS.driverKey) || '';
+
+      if (savedRole === 'driver' && savedDrvKey && savedTenant && TENANT_NAMES[savedTenant]) {
+        TENANT_ID = savedTenant; TENANT_INFO = { name: TENANT_NAMES[savedTenant] };
+        const snap = await get(tRef(`drivers/${savedDrvKey}`)).catch(() => null);
+        if (!snap || !snap.exists()) return done(false);
+        const found = snap.val();
+        if (found.approvalStatus === 'pending' || found.approvalStatus === 'rejected') return done(false);
+        CU = { ...found, id: savedDrvKey }; CR = 'driver'; IS_RECV = false;
+        if (found.shiftStart && !found.shiftEnd) shiftStartTime = found.shiftStart;
+        document.querySelectorAll('.lgn1').forEach(el => el.textContent = TENANT_INFO.name);
+        await update(tRef(`drivers/${savedDrvKey}`), { status:'online', lastSeen: Date.now(), taxiColor:'green' }).catch(() => {});
+        await registerSW(); await reqPushPerm();
+        startGPS(savedDrvKey);
+        initDash();
+        listenDriverRequests(savedDrvKey);
+        listenSosBroadcast();
+        listenDriverPushNotifs(savedDrvKey);
+        return done(true);
+      }
+
+      if (savedRole === 'supervisor' || savedRole === 'receiver') {
+        const tenantId = EMAIL_TO_TENANT[(user.email||'').toLowerCase()] || savedTenant;
+        if (!tenantId || !TENANT_NAMES[tenantId]) return done(false);
+        TENANT_ID = tenantId; TENANT_INFO = { name: TENANT_NAMES[tenantId] };
+        document.querySelectorAll('.lgn1').forEach(el => el.textContent = TENANT_INFO.name);
+        document.title = TENANT_INFO.name + ' — منصة التاكسي';
+        const supId = 'admin_' + tenantId;
+        const supSnap = await get(tRef(`supervisors/${supId}`)).catch(() => null);
+        CU = { id: supId, name: (supSnap && supSnap.exists() ? supSnap.val().name : TENANT_NAMES[tenantId]), role:'admin', officeId: tenantId };
+        CR = 'supervisor'; IS_RECV = savedRole === 'receiver';
+        if (IS_RECV) initRecvDash();
+        else { initDash(); listenSupNotifs(); startDriverListener(); }
+        return done(true);
+      }
+      return done(false);
+    } catch(e) { return done(false); }
+  });
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const restored = await restoreSession();
+  const l = document.getElementById('_bootLoader'); if (l) l.remove();
+  if (!restored) initTenantGate();
+});
 /* من أي زر دخل المستخدم (مشرف / مستقبل / سائق) */
 window.tenantEnter = role => {
   $('PTenantGate').style.display = 'none';
@@ -648,6 +717,7 @@ window.sLogin = async () => {
     }
     CU = { id: supId, name: TENANT_NAMES[tenantId], role:'admin', officeId: tenantId };
     CR = 'supervisor';
+    saveSession(IS_RECV ? 'receiver' : 'supervisor');
 
     CM('Msup');
 
@@ -776,9 +846,9 @@ window.dLogin = async () => {
     }
 
     await update(tRef(`drivers/${phKey}`), { status:'online', lastSeen: Date.now(), taxiColor:'green' });
-
-    CU = { ...found, id: phKey };
+CU = { ...found, id: phKey };
     CR = 'driver'; IS_RECV = false;
+    saveSession('driver', phKey);
     if (found.shiftStart && !found.shiftEnd) shiftStartTime = found.shiftStart;
 
     CM('Mdriver');
@@ -1508,7 +1578,9 @@ const loadSupNotifList = () => {
       <div class="notif-body"><div class="notif-title">${esc(n.msg||'')}</div>${n.reason?`<div class="notif-sub">السبب: ${esc(n.reason)}</div>`:''}<div class="notif-time">${fmt(n.ts||Date.now())}</div></div>
       <button class="notif-del-btn" onclick="delNotif('${nid}')" style="position:absolute;left:8px;top:50%;transform:translateY(-50%)"><i class="fas fa-times"></i></button>
     </div>`).join('');
-    items.filter(([,n]) => !n.read).forEach(([nid]) => update(tRef(`notifications/${nid}`), { read:true }).catch(() => {}));
+    if (!window._clearingNotifs) {
+  items.filter(([,n]) => !n.read).forEach(([nid]) => update(tRef(`notifications/${nid}`), { read:true }).catch(() => {}));
+}
   }); addL(r);
 };
 
@@ -1729,7 +1801,14 @@ const renderNotifs = () => {
   }); addL(r);
 };
 window.delNotif       = async nid => remove(tRef(`notifications/${nid}`)).catch(() => {});
-window.clearAllNotifs = async () => { if (!confirm('حذف كل التنبيهات؟')) return; if (!confirm('تأكيد نهائي؟')) return; await remove(tRef('notifications')).catch(() => {}); toast('ok','تم الحذف',''); };
+window.clearAllNotifs = async () => {
+  if (!confirm('حذف كل التنبيهات؟')) return;
+  if (!confirm('تأكيد نهائي؟')) return;
+  window._clearingNotifs = true;
+  await remove(tRef('notifications')).catch(() => {});
+  setTimeout(() => { window._clearingNotifs = false; }, 1500);
+  toast('ok','تم الحذف','');
+};
 
 /* ══════════════════════════════════════════════════
    APPROVALS TAB
@@ -2688,10 +2767,10 @@ window.logout = async () => {
   /* تسجيل خروج من Firebase Auth */
   await signOut(_auth).catch(() => {});
   clrListeners(false);
-  CU = null; CR = null; shiftStartTime = null; allDrvs = {}; IS_RECV = false;
+CU = null; CR = null; shiftStartTime = null; allDrvs = {}; IS_RECV = false;
   TENANT_ID = ''; TENANT_INFO = null;
-  $('PD').style.display = 'none'; $('PR').style.display = 'none'; $('PL').style.display = 'none';
-  $('PTenantGate').style.display = 'block';
+  clearSession();
+  $('PD').style.display = 'none'; $('PR').style.display = 'none'; $('PL').style.display = 'none';  $('PTenantGate').style.display = 'block';
   $('ntabs').innerHTML = '';
   const navav = $('navav'); if (navav) { navav.textContent = '🚕'; navav.classList.remove('sup-av'); }
   const monBtn = $('monitorBtn'); if (monBtn) monBtn.remove();
@@ -2704,6 +2783,7 @@ window.logoutRecv = async () => {
   await signOut(_auth).catch(() => {});
   CU = null; CR = null; IS_RECV = false; recvAllDrvs = {};
   TENANT_ID = ''; TENANT_INFO = null;
+  clearSession();
   if (window._recvMap) { try { window._recvMap.remove(); } catch(e) {} window._recvMap = null; }
   $('PR').style.display  = 'none'; $('PL').style.display = 'none';
   $('PTenantGate').style.display = 'block';
