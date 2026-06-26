@@ -1141,8 +1141,7 @@ const initDash = () => {
     tabs.innerHTML = cfg.map((t,i) => `<button class="ntab${i===0?' on':''}" id="nt-${t.id}" onclick="nTab('${t.id}')"><i class="${t.icon}"></i> ${t.label}</button>`).join('');
     if (mobNav && mobTabs) {
       mobNav.style.display = 'block';
-      mobTabs.innerHTML = cfg.map((t,i) => `<button class="mob-tab${i===0?' on':''}" id="mnt-${t.id}" onclick="nTab('${t.id}')"><i class="${t.icon}"></i><span class="mob-label">${t.label}</span></button>`).join('');
-    }
+mobTabs.innerHTML = cfg.map((t,i) => `<button class="mob-tab${i===0?' on':''}" id="mnt-${t.id}" onclick="nTab('${t.id}')"><i class="${t.icon}"></i><span class="mob-label">${t.label}</span></button>`).join('') + `<button class="mob-tab" onclick="logout()" style="color:var(--red)"><i class="fas fa-right-from-bracket"></i><span class="mob-label">خروج</span></button>`;    }
     renderDriverReqs();
   } else {
 const cfg = [
