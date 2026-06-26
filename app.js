@@ -1089,6 +1089,16 @@ const listenSupNotifs = () => {
     });
   });
   LSNRS.push({ r, keep: true });
+
+  const rReqs = tRef('recvRequests');
+  onValue(rReqs, snap => {
+    const count = snap.exists() ? Object.values(snap.val()).filter(d => d.driverStatus !== 'done').length : 0;
+    ['reqs-badge','mob-reqs-badge'].forEach(bid => {
+      const b = $(bid); if (b) { b.textContent = count; b.style.display = count > 0 ? 'inline' : 'none'; }
+    });
+  });
+  LSNRS.push({ r: rReqs, keep: true });
+
   listenForUserRequests();
 };
 
@@ -1135,8 +1145,8 @@ const initDash = () => {
     }
     renderDriverReqs();
   } else {
-    const cfg = [
-      {id:'reqs',      icon:'fas fa-inbox',           label:'الطلبات'},
+const cfg = [
+      {id:'reqs',      icon:'fas fa-inbox',           label:'الطلبات',    badge3:true},
       {id:'map',       icon:'fas fa-map-location-dot', label:'الخريطة'},
       {id:'notifs',    icon:'fas fa-bell',             label:'التنبيهات',  badge:true},
       {id:'approvals', icon:'fas fa-user-check',       label:'الموافقات',  badge2:true},
@@ -1148,10 +1158,12 @@ const initDash = () => {
     tabs.innerHTML = cfg.map((t,i) =>
       `<button class="ntab${i===0?' sup-on':''}" id="nt-${t.id}" onclick="nTab('${t.id}')">
         <i class="${t.icon}"></i> ${t.label}
+        ${t.badge3 ? `<span class="ntab-badge" id="reqs-badge"     style="display:none;background:var(--green)">0</span>` : ''}
         ${t.badge  ? `<span class="ntab-badge" id="notif-badge"    style="display:none">0</span>` : ''}
         ${t.badge2 ? `<span class="ntab-badge" id="approval-badge" style="display:none;background:var(--green)">0</span>` : ''}
       </button>`
     ).join('');
+
 
     const monBtn = document.createElement('button');
     monBtn.id = 'monitorBtn'; monBtn.className = 'btn-primary';
@@ -1163,6 +1175,7 @@ const initDash = () => {
       mobNav.style.display = 'block';
       mobTabs.innerHTML = cfg.map((t,i) =>
         `<button class="mob-tab${i===0?' sup-on':''}" id="mnt-${t.id}" onclick="nTab('${t.id}')">
+          ${t.badge3 ? `<span class="mob-tab-badge" id="mob-reqs-badge"     style="display:none;background:var(--green)">0</span>` : ''}
           ${t.badge  ? `<span class="mob-tab-badge" id="mob-notif-badge"    style="display:none">0</span>` : ''}
           ${t.badge2 ? `<span class="mob-tab-badge" id="mob-approval-badge" style="display:none;background:var(--green)">0</span>` : ''}
           <i class="${t.icon}"></i><span class="mob-label">${t.label}</span>
@@ -1359,6 +1372,7 @@ window.doneDelivery = async id => {
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'done', doneAt:Date.now(), doneDelivery:true });
   const rd = chk.val();
   if (rd.fromUser && rd.userReqRef) await update(ref(_db, rd.userReqRef), { driverStatus:'done', doneAt:Date.now() }).catch(() => {});
+  if (rd.recvReqId) await update(tRef(`recvRequests/${rd.recvReqId}`), { driverStatus:'done', doneAt:Date.now(), driverName:CU.name }).catch(() => {});
   const today = new Date().toISOString().split('T')[0];
   const lRef  = tRef(`drivers/${CU.id}/dailyReport/${today}`);
   const snap  = await get(lRef).catch(() => null);
@@ -1495,11 +1509,16 @@ const loadSupReqList = () => {
     if (!snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text4)"><i class="fas fa-inbox" style="font-size:32px;opacity:.2;display:block;margin-bottom:8px"></i>لا يوجد طلبات</div>`; return; }
     const items = Object.entries(snap.val()).sort((a,b) => (b[1].ts||0)-(a[1].ts||0)).slice(0,50);
     list.innerHTML = items.map(([id,d]) => {
+      const isDone = d.driverStatus === 'done';
       const userBadge = d.fromUser ? `<span style="background:#ECFDF5;color:#059669;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #A7F3D0;margin-right:4px">🌐 مستخدم</span>` : '';
-      return `<div class="reqcard" id="sreq-${id}" style="margin-bottom:9px">
-        <div class="reqtop"><div class="reqphone"><i class="fas fa-phone"></i>${esc(d.phone||'-')}${userBadge}</div><div class="reqtimes"><span class="reqtime"><i class="fas fa-clock"></i>${fmt(d.ts||Date.now())}</span></div></div>
-        <div class="reqdetails"><i class="fas fa-map-marker-alt"></i><span>${esc(d.details||'-')}</span></div>
+      return `<div class="reqcard" id="sreq-${id}" style="margin-bottom:9px${isDone?';opacity:.7;background:var(--green-l);border-color:var(--green-m)':''}">
+        <div class="reqtop"><div class="reqphone" style="${isDone?'text-decoration:line-through':''}"><i class="fas fa-phone"></i>${esc(d.phone||'-')}${userBadge}</div><div class="reqtimes"><span class="reqtime"><i class="fas fa-clock"></i>${fmt(d.ts||Date.now())}</span></div></div>
+        <div class="reqdetails" style="${isDone?'text-decoration:line-through':''}"><i class="fas fa-map-marker-alt"></i><span>${esc(d.details||'-')}</span></div>
         ${d.addedBy?`<div style="font-size:10px;color:var(--text4);margin-bottom:6px"><i class="fas fa-user" style="margin-left:3px"></i>${esc(d.addedBy)}</div>`:''}
+        ${isDone ? `
+        <div style="background:var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px"><i class="fas fa-check-circle"></i> تم التوصيل بنجاح ✅</div>
+        <div class="reqacts"><button class="rca rca-gray" onclick="delRecvItem('${id}')"><i class="fas fa-trash"></i></button></div>
+        ` : `
         <div class="reqacts">
           <button class="rca rca-primary" onclick="openTaxiSel('${id}','${eAt(d.phone||'')}','${eAt(d.details||'')}','${id}')"><i class="fas fa-car-side"></i> إرسال لسائق</button>
           ${d.hasGps&&d.userLat&&d.userLng?`
@@ -1511,6 +1530,7 @@ const loadSupReqList = () => {
           <button class="rca rca-red"     onclick="cancelReq('${id}')"><i class="fas fa-ban"></i></button>
           <button class="rca rca-gray"    onclick="delRecvItem('${id}')"><i class="fas fa-trash"></i></button>
         </div>
+        `}
       </div>`;
     }).join('');
   }); addL(r);
@@ -1666,12 +1686,12 @@ window.sendSosBroadcast = async () => {
 window.openTaxiSel = (reqId, phone, details, recvReqId='') => {
   selTaxiId = null; selReqData = { id:reqId, phone:phone.replace(/&#39;/g,"'"), details:details.replace(/&#39;/g,"'"), recvReqId:recvReqId||reqId };
   const list   = $('sel-taxi-list');
-  const avail  = Object.entries(allDrvs).sort(([,a],[,b]) => {
-    const ao = getTCS(a).monCls==='st-online'?0:getTCS(a).monCls==='st-break'?1:2;
-    const bo = getTCS(b).monCls==='st-online'?0:getTCS(b).monCls==='st-break'?1:2;
-    return ao - bo;
-  });
-  if (!avail.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد سائقون</div>'; $('SelTaxiModal').classList.add('on'); return; }
+  const avail  = Object.entries(allDrvs).filter(([,d]) => getTCS(d).monCls === 'st-online');
+  if (!avail.length) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)"><i class="fas fa-circle-exclamation" style="font-size:26px;color:var(--amber);display:block;margin-bottom:8px"></i>لا يوجد سائقون متاحين حالياً<br><span style="font-size:11px;color:var(--text4)">يجب أن يكون السائق ضاغط "بدء الشيفت" 🟢</span></div>';
+    $('SelTaxiModal').classList.add('on'); $('confirmSelBtn').style.display = 'none'; return;
+  }
+  $('confirmSelBtn').style.display = '';
   list.innerHTML = avail.map(([id,d]) => {
     const cs = getTCS(d);
     return `<div class="sel-taxi-item" id="stitem-${id}" onclick="selectTaxi('${id}')">
@@ -1694,12 +1714,17 @@ window.closeTaxiSel = () => { $('SelTaxiModal').classList.remove('on'); selTaxiI
 let _sendBusy = false;
 window.confirmTaxiSel = async () => {
   if (!selTaxiId || !selReqData || _sendBusy) return;
+  const drvCheckSnap = await get(tRef(`drivers/${selTaxiId}`)).catch(() => null);
+  if (!drvCheckSnap || !drvCheckSnap.exists() || getTCS(drvCheckSnap.val()).monCls !== 'st-online') {
+    toast('err', '❌ السائق غير متاح الآن', 'يرجى اختيار سائق آخر متاح');
+    closeTaxiSel();
+    return;
+  }
   const msg = prompt('رسالة للسائق (اختياري):',''); if (msg === null) return;
-  _sendBusy = true;
-  const btn = $('confirmSelBtn'); btn.innerHTML = '<span class="spin"></span>'; btn.disabled = true; btn.style.opacity = '.7';
+  _sendBusy = true;  const btn = $('confirmSelBtn'); btn.innerHTML = '<span class="spin"></span>'; btn.disabled = true; btn.style.opacity = '.7';
   try {
     const recvSnap = await get(tRef(`recvRequests/${selReqData.recvReqId}`)).catch(() => null), recvData = recvSnap&&recvSnap.exists()?recvSnap.val():{};
-    const payload  = { phone:selReqData.phone, details:selReqData.details, status:'pending', ts:Date.now(), sentBy:CU.name, sentAt:Date.now() };
+    const payload  = { phone:selReqData.phone, details:selReqData.details, status:'pending', ts:Date.now(), sentBy:CU.name, sentAt:Date.now(), recvReqId:selReqData.recvReqId };
     if (msg) payload.message = msg;
     if (recvData.fromUser && recvData.userReqRef) { payload.fromUser = true; payload.userReqRef = recvData.userReqRef; }
     const reqRef = await push(tRef(`driverRequests/${selTaxiId}`), payload);
@@ -2101,6 +2126,9 @@ const renderDProfile = () => {
       <div class="fg"><label class="fl"><i class="fas fa-car"></i> رقم السيارة</label><input class="fi" id="ep-car" value="${esc(CU.carNumber||'')}"></div>
       <div class="fg"><label class="fl"><i class="fas fa-lock"></i> كلمة مرور جديدة</label><input class="fi" type="password" id="ep-pw" placeholder="••••••••"></div>
       <button class="bp" onclick="saveDProf()"><i class="fas fa-save"></i> حفظ التعديلات</button>
+      <button onclick="logout()" style="width:100%;margin-top:10px;padding:13px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px">
+        <i class="fas fa-right-from-bracket"></i> تسجيل الخروج
+      </button>
       <button class="bdng" onclick="delMyAcc()"><i class="fas fa-trash"></i> حذف حسابي نهائياً</button>
     </div>
   </div>`;
@@ -2576,18 +2604,18 @@ const loadRecvDrivers = () => {
   recvAllDrvs = {};
   const r = tRef('drivers');
   onValue(r, snap => { recvAllDrvs = {}; if (snap.exists()) Object.entries(snap.val()).forEach(([id,d]) => { const {avatar,...dn} = d; recvAllDrvs[id] = dn; }); });
-  LSNRS.push({ r });
+  LSNRS.push({ r, keep: true });
 };
 
 const listenRecvNewReqs = () => {
   let lastCount = null;
   const r = tRef('recvRequests');
   onValue(r, snap => {
-    const count = snap.exists() ? Object.keys(snap.val()).length : 0;
+    const count = snap.exists() ? Object.values(snap.val()).filter(d => d.driverStatus !== 'done').length : 0;
     if (lastCount !== null && count > lastCount) { playSound('notif'); vibrate([200,100,200]); toast('info','📥 طلب جديد وارد!',''); }
     lastCount = count;
-    ['recv-req-badge','mob-recv-badge'].forEach(bid => { const b = $(bid); if (b) { b.textContent = count>0?count:''; b.style.display = count>0?'inline':'none'; } });
-  }); LSNRS.push({ r });
+    ['recv-req-badge','mob-recv-badge'].forEach(bid => { const b = $(bid); if (b) { b.style.background = 'var(--green)'; b.textContent = count>0?count:''; b.style.display = count>0?'inline':'none'; } });
+  }); LSNRS.push({ r, keep: true });
 };
 
 window.recvTab = t => {
@@ -2595,9 +2623,8 @@ window.recvTab = t => {
   const el = $('rnt-'+t); if (el) el.classList.add('sup-on');
   document.querySelectorAll('#mobTabs .mob-tab').forEach(b => b.classList.remove('on','sup-on'));
   const mel = $('rmnt-'+t); if (mel) mel.classList.add('sup-on');
-  clrListeners(false);
-  if (window._recvMap) { try { window._recvMap.remove(); } catch(e) {} window._recvMap = null; }
-  const body = $('recv-dbody');
+  clrListeners(true);
+  if (window._recvMap) { try { window._recvMap.remove(); } catch(e) {} window._recvMap = null; }  const body = $('recv-dbody');
   if      (t==='requests') renderRecvRequests(body);
   else if (t==='map')      renderRecvMap(body);
   else if (t==='add')      renderRecvAdd(body);
@@ -2618,19 +2645,25 @@ const renderRecvRequests = body => {
     if (!snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text4)"><i class="fas fa-inbox" style="font-size:40px;opacity:.2;display:block;margin-bottom:12px"></i><p style="font-size:13px">لا توجد طلبات حالياً</p></div>`; return; }
     const items = Object.entries(snap.val()).sort((a,b) => (b[1].ts||0)-(a[1].ts||0));
     list.innerHTML = items.map(([id,d]) => {
+      const isDone = d.driverStatus === 'done';
       const userBadge = d.fromUser ? `<span style="background:#ECFDF5;color:#059669;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #A7F3D0;margin-right:4px">🌐 مستخدم</span>` : '';
-      return `<div class="recv-req-card">
+      return `<div class="recv-req-card" style="${isDone?'opacity:.7;background:var(--green-l);border-color:var(--green-m)':''}">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:15px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px"><i class="fas fa-phone" style="color:var(--primary);font-size:12px"></i>${esc(d.phone||'-')}${userBadge}</div>
+          <div style="font-size:15px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px;${isDone?'text-decoration:line-through':''}"><i class="fas fa-phone" style="color:var(--primary);font-size:12px"></i>${esc(d.phone||'-')}${userBadge}</div>
           <span style="font-size:10px;color:var(--text4)">${fmt(d.ts||Date.now())}</span>
         </div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;display:flex;align-items:flex-start;gap:6px"><i class="fas fa-map-marker-alt" style="color:var(--amber);margin-top:3px;flex-shrink:0"></i>${esc(d.details||'-')}</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;display:flex;align-items:flex-start;gap:6px;${isDone?'text-decoration:line-through':''}"><i class="fas fa-map-marker-alt" style="color:var(--amber);margin-top:3px;flex-shrink:0"></i>${esc(d.details||'-')}</div>
         ${d.addedBy?`<div style="font-size:10px;color:var(--text4);margin-bottom:8px"><i class="fas fa-user" style="margin-left:3px"></i>${esc(d.addedBy)}</div>`:''}
+        ${isDone ? `
+        <div style="background:var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px"><i class="fas fa-check-circle"></i> تم التوصيل بنجاح ✅</div>
+        <div style="display:flex;gap:7px"><button class="rca rca-red" onclick="recvDelReq('${id}')"><i class="fas fa-trash"></i></button></div>
+        ` : `
         <div style="display:flex;gap:7px;flex-wrap:wrap">
           <button class="rca rca-primary" onclick="recvSendReqToTaxi('${id}','${eAt(d.phone||'')}','${eAt(d.details||'')}')"><i class="fas fa-car-side"></i> إرسال لسائق</button>
           <button class="rca rca-amber"   onclick="recvEditReq('${id}','${eAt(d.phone||'')}','${eAt(d.details||'')}')"><i class="fas fa-pen"></i></button>
           <button class="rca rca-red"     onclick="recvDelReq('${id}')"><i class="fas fa-trash"></i></button>
         </div>
+        `}
       </div>`;
     }).join('');
   }); LSNRS.push({ r });
@@ -2639,8 +2672,12 @@ const renderRecvRequests = body => {
 window.recvSendReqToTaxi = (reqId, phone, details) => {
   selTaxiId = null; selReqData = { id:reqId, phone:phone.replace(/&#39;/g,"'"), details:details.replace(/&#39;/g,"'"), recvReqId:reqId };
   const list  = $('sel-taxi-list');
-  const avail = Object.entries(recvAllDrvs).sort(([,a],[,b]) => { const ao=getTCS(a).monCls==='st-online'?0:1, bo=getTCS(b).monCls==='st-online'?0:1; return ao-bo; });
-  if (!avail.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد سائقون</div>'; $('SelTaxiModal').classList.add('on'); return; }
+  const avail = Object.entries(recvAllDrvs).filter(([,d]) => getTCS(d).monCls === 'st-online');
+  if (!avail.length) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)"><i class="fas fa-circle-exclamation" style="font-size:26px;color:var(--amber);display:block;margin-bottom:8px"></i>لا يوجد سائقون متاحين حالياً<br><span style="font-size:11px;color:var(--text4)">يجب أن يكون السائق ضاغط "بدء الشيفت" 🟢</span></div>';
+    $('SelTaxiModal').classList.add('on'); $('confirmSelBtn').style.display = 'none'; return;
+  }
+  $('confirmSelBtn').style.display = '';
   list.innerHTML = avail.map(([id,d]) => {
     const cs = getTCS(d);
     return `<div class="sel-taxi-item" id="stitem-${id}" onclick="selectTaxi('${id}')">
@@ -2684,8 +2721,12 @@ const renderRecvMap = body => {
           if (!d.lat || !d.lng) return;
           const cs = getTCS(d);
           const ic = L.divIcon({ html:`<div class="drv-marker-wrap"><div class="drv-marker" style="border-color:${cs.border}">🚕</div><div class="drv-marker-name">${d.name}</div></div>`, className:'', iconSize:[50,50], iconAnchor:[25,50] });
-          if (window._recvMarkers[id]) { window._recvMarkers[id].setLatLng([d.lat,d.lng]); window._recvMarkers[id].setIcon(ic); }
-          else { window._recvMarkers[id] = L.marker([d.lat,d.lng],{icon:ic}).addTo(window._recvMap).bindPopup(`<div style="font-family:Cairo,sans-serif;text-align:center"><b>${d.name}</b><br><span style="color:${cs.dot}">${cs.label}</span><br><button onclick="recvSendToDriver('${id}','${(d.name||'').replace(/'/g,'')}')"><i class='fas fa-paper-plane'></i> إرسال طلب</button></div>`); }
+          const sendBtnHtml = cs.monCls === 'st-online'
+            ? `<button onclick="recvSendToDriver('${id}','${(d.name||'').replace(/'/g,'')}')" style="margin-top:6px;padding:6px 12px;background:var(--primary);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif"><i class="fas fa-paper-plane"></i> إرسال طلب</button>`
+            : `<div style="margin-top:6px;font-size:10px;color:var(--text4)">⏸️ غير متاح لاستقبال طلبات</div>`;
+          const popHtml = `<div style="font-family:Cairo,sans-serif;text-align:center"><b>${d.name}</b><br><span style="color:${cs.dot}">${cs.label}</span><br>${sendBtnHtml}</div>`;
+          if (window._recvMarkers[id]) { window._recvMarkers[id].setLatLng([d.lat,d.lng]); window._recvMarkers[id].setIcon(ic); window._recvMarkers[id].setPopupContent(popHtml); }
+          else { window._recvMarkers[id] = L.marker([d.lat,d.lng],{icon:ic}).addTo(window._recvMap).bindPopup(popHtml); }
         });
       };
       refresh();
@@ -2696,12 +2737,18 @@ const renderRecvMap = body => {
   }));
 };
 window.recvSendToDriver = async (drvId, drvName) => {
+  const drvCheckSnap = await get(tRef(`drivers/${drvId}`)).catch(() => null);
+  if (!drvCheckSnap || !drvCheckSnap.exists() || getTCS(drvCheckSnap.val()).monCls !== 'st-online') {
+    toast('err', '❌ السائق غير متاح الآن', 'لا يمكن إرسال طلب لسائق غير متاح');
+    if (window._recvMap) window._recvMap.closePopup();
+    return;
+  }
   const phone   = prompt('📞 رقم هاتف الزبون:','');   if (!phone?.trim())   return;
   const details = prompt('📍 التفاصيل والموقع:',''); if (!details?.trim()) return;
   try {
     const ts = Date.now();
-    await push(tRef('recvRequests'), { phone:phone.trim(), details:details.trim(), ts, addedBy:CU?CU.name:'المستقبل', assignedTo:drvId });
-    await push(tRef(`driverRequests/${drvId}`), { phone:phone.trim(), details:details.trim(), status:'pending', ts, sentBy:CU?CU.name:'المستقبل', sentAt:ts });
+    const recvRef = await push(tRef('recvRequests'), { phone:phone.trim(), details:details.trim(), ts, addedBy:CU?CU.name:'المستقبل', assignedTo:drvId });
+    await push(tRef(`driverRequests/${drvId}`), { phone:phone.trim(), details:details.trim(), status:'pending', ts, sentBy:CU?CU.name:'المستقبل', sentAt:ts, recvReqId:recvRef.key });
     await push(tRef(`driverPushNotifs/${drvId}`), { title:'📦 طلب جديد', body:`📞 ${phone.trim()}\n📍 ${details.trim()}`, type:'new_request', ts, read:false });
     toast('ok', `✅ تم الإرسال لـ ${drvName}`, ''); playSound('notif');
     if (window._recvMap) window._recvMap.closePopup();
@@ -2756,6 +2803,7 @@ const renderRecvHistory = body => {
    LOGOUT
    ══════════════════════════════════════════════════ */
 window.logout = async () => {
+  if (!confirm('هل تريد تسجيل الخروج؟' + (CR === 'driver' ? '\nسيتم إيقاف تتبع موقعك.' : ''))) return;
   stopGPS();
   if (reqCountdownTimer) { clearInterval(reqCountdownTimer); reqCountdownTimer = null; }
   if (monitorInterval)   { clearInterval(monitorInterval);   monitorInterval   = null; }
