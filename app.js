@@ -1280,8 +1280,18 @@ const renderDriverReqs = () => {
       </div>
     </div>
   </div>`;
-  listenDriverReqsList(); updateNotifBar();
-  setInterval(() => {
+listenDriverReqsList(); updateNotifBar();
+
+/* زر خروج عائم للهاتف */
+const _existingLogout = document.getElementById('_floatLogout');
+if (_existingLogout) _existingLogout.remove();
+const _logoutBtn = document.createElement('button');
+_logoutBtn.id = '_floatLogout';
+_logoutBtn.innerHTML = '<i class="fas fa-right-from-bracket"></i> خروج';
+_logoutBtn.onclick = logout;
+_logoutBtn.style.cssText = 'display:none;position:fixed;bottom:80px;left:16px;z-index:999;padding:10px 18px;background:#DC2626;border:none;border-radius:50px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;box-shadow:0 4px 15px rgba(220,38,38,.4)';
+document.body.appendChild(_logoutBtn);
+if (window.innerWidth <= 768) _logoutBtn.style.display = 'flex';  setInterval(() => {
     const el = $('gpsStatus'); if (!el) return;
     const age = Date.now() - _gpsLastSent;
     if (_gpsLastSent === 0) { el.textContent = 'GPS: انتظار...'; return; }
