@@ -1183,6 +1183,7 @@ const cfg = [
         </button>`
       ).join('');
       mobTabs.innerHTML += `<button class="mob-tab" onclick="openMonitor()"><i class="fas fa-tv"></i><span class="mob-label">مراقبة</span></button>`;
+      mobTabs.innerHTML += `<button class="mob-tab mob-logout" onclick="logout()" style="color:var(--red)"><i class="fas fa-right-from-bracket"></i><span class="mob-label">خروج</span></button>`;
     }
     renderSupReqs();
   }
@@ -2588,7 +2589,7 @@ const initRecvDash = () => {
       ${t.badge ? `<span class="ntab-badge" id="recv-req-badge" style="display:none">0</span>` : ''}
     </button>`
   ).join('');
-  const mobNav = $('mobileNav'), mobTabs = $('mobTabs');
+const mobNav = $('mobileNav'), mobTabs = $('mobTabs');
   if (mobNav && mobTabs) {
     mobNav.style.display = 'block';
     mobTabs.innerHTML = recvCfg.map((t,i) =>
@@ -2597,6 +2598,7 @@ const initRecvDash = () => {
         <i class="${t.icon}"></i><span class="mob-label">${t.label}</span>
       </button>`
     ).join('');
+    mobTabs.innerHTML += `<button class="mob-tab mob-logout" onclick="logoutRecv()" style="color:var(--red)"><i class="fas fa-right-from-bracket"></i><span class="mob-label">خروج</span></button>`;
   }
   loadRecvDrivers(); listenRecvNewReqs(); recvTab('requests');
 };
