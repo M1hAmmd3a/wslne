@@ -2411,18 +2411,18 @@ window.submitUserReq = async () => {
   btn.innerHTML = '<span class="spin"></span> جار الإرسال...'; btn.disabled = true;
   try {
     const details = `من: ${from} ← إلى: ${to}`;
-    const reqRef  = await push(ref(_db, `tenants/${tenantId}/recvRequests`), {
+    const newRef  = push(ref(_db, `tenants/${tenantId}/recvRequests`));
+    const userReqRefPath = `tenants/${tenantId}/recvRequests/${newRef.key}`;
+    await set(newRef, {
       phone, details, ts:Date.now(), addedBy:'مستخدم عام 🌐', fromUser:true,
-      userFrom:from, userTo:to, userReqRef:null,
+      userFrom:from, userTo:to, userReqRef:userReqRefPath,
       ...(window._gpsOk && window._userGpsLat ? { userLat:window._userGpsLat, userLng:window._userGpsLng, hasGps:true } : { hasGps:false }),
     });
-    const userReqRefPath = `tenants/${tenantId}/recvRequests/${reqRef.key}`;
-    await update(reqRef, { userReqRef: userReqRefPath });
-    _userReqId = reqRef.key; _userReqTenantId = tenantId;
+    _userReqId = newRef.key; _userReqTenantId = tenantId;
     CM('MuserReq');
     localStorage.setItem('txLastReq', String(Date.now()));
     openTrackScreen(phone, details, $('userReqOfficeName').textContent);
-    listenUserReqStatus(tenantId, reqRef.key);
+    listenUserReqStatus(tenantId, newRef.key);
   } catch(err) { shAl('al-userreq','err','خطأ: '+(err.message||'')); }
   btn.innerHTML = orig; btn.disabled = false;
 };
