@@ -2401,8 +2401,8 @@ window.submitUserReq = async () => {
   if(!window._gpsOk){ toast('err','📍 الموقع مطلوب','يجب تفعيل GPS لإرسال الطلب'); return; }
   
   const phone    = (window._userVerifiedPhone || ($('ur-phone').value || '')).trim();
-  const from     = ($('ur-from').value  || '').trim();   // ← "أين أنت"
-  const to       = ($('ur-to').value    || '').trim();   // ← "وجهتك"
+  const from     = ($('ur-from').value  || '').trim();
+  const to       = ($('ur-to').value    || '').trim();
   const tenantId =  $('ur-office-tenant').value;
   
   if (!phone || !from || !to) return shAl('al-userreq','err','يرجى ملء جميع الحقول');
@@ -2412,19 +2412,24 @@ window.submitUserReq = async () => {
   btn.innerHTML = '<span class="spin"></span> جار الإرسال...'; btn.disabled = true;
   try {
     const details = `من: ${from} ← إلى: ${to}`;
-    const newRef  = push(ref(_db, `tenants/${tenantId}/recvRequests`));
-    const userReqRefPath = `tenants/${tenantId}/recvRequests/${newRef.key}`;
-    await set(newRef, {
+    const reqData = {
       phone, details, ts:Date.now(), addedBy:'مستخدم عام 🌐', fromUser:true,
-      userFrom:from, userTo:to, userReqRef:userReqRefPath,
+      userFrom:from, userTo:to, status: 'pending',
       ...(window._gpsOk && window._userGpsLat ? { userLat:window._userGpsLat, userLng:window._userGpsLng, hasGps:true } : { hasGps:false }),
-    });
+    };
+    
+    const newRef = await push(ref(_db, `tenants/${tenantId}/recvRequests`), reqData);
+    const userReqRefPath = `tenants/${tenantId}/recvRequests/${newRef.key}`;
+    await update(newRef, { userReqRef: userReqRefPath });
+    
     _userReqId = newRef.key; _userReqTenantId = tenantId;
     CM('MuserReq');
     localStorage.setItem('txLastReq', String(Date.now()));
     openTrackScreen(phone, details, $('userReqOfficeName').textContent);
     listenUserReqStatus(tenantId, newRef.key);
-  } catch(err) { shAl('al-userreq','err','خطأ: '+(err.message||'')); }
+  } catch(err) { 
+    shAl('al-userreq','err','خطأ: '+(err.message||'')); 
+  }
   btn.innerHTML = orig; btn.disabled = false;
 };
 
@@ -2500,12 +2505,28 @@ window.userCancelReq = async () => {
   if (!_userReqId || !_userReqTenantId) return;
   if (!confirm('هل تريد إلغاء الطلب؟')) return;
   try {
-    await update(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`), { status:'cancelled', cancelledAt:Date.now(), cancelledBy:'user' });
-    await push(ref(_db,  `tenants/${_userReqTenantId}/notifications`), { type:'cancel', msg:`🚫 مستخدم ألغى الطلب: ${$('trackPhone').textContent}`, ts:Date.now(), read:false });
-    $('UserTrackScreen').classList.remove('on'); toast('info','تم إلغاء الطلب','');
-    if (_pubReqListener) { try { off(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`)); } catch(e) {} _pubReqListener = null; }
+    await set(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`), {
+      status: 'cancelled',
+      cancelledAt: Date.now(),
+      cancelledBy: 'user'
+    }, { merge: true });
+    
+    await push(ref(_db,  `tenants/${_userReqTenantId}/notifications`), { 
+      type:'cancel', 
+      msg:`🚫 مستخدم ألغى الطلب: ${$('trackPhone').textContent}`, 
+      ts:Date.now(), 
+      read:false 
+    });
+    $('UserTrackScreen').classList.remove('on'); 
+    toast('info','تم إلغاء الطلب','');
+    if (_pubReqListener) { 
+      try { off(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`)); } catch(e) {} 
+      _pubReqListener = null; 
+    }
     _userReqId = null; _userReqTenantId = null;
-  } catch(err) { toast('err','خطأ',err.message||''); }
+  } catch(err) { 
+    toast('err','خطأ',err.message||''); 
+  }
 };
 
 window.confirmTaxiArrived = async () => {
