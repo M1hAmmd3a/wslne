@@ -4,7 +4,7 @@
    ══════════════════════════════════════════════════ */
 
 import { initializeApp }          from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getDatabase, ref, set, get, push, onValue, update, remove, off }
+import { getDatabase, ref, set, get, push, onValue, update, remove, off, serverTimestamp }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
@@ -790,7 +790,7 @@ window.dReg = async () => {
 
     await signOut(_auth);
 
-    await push(tRef('notifications'), { type:'new_driver', msg:`🆕 سائق جديد: ${nm} (${ph})`, ts: Date.now(), read: false, driverId: phKey });
+    await push(tRef('notifications'), { type:'new_driver', msg:`🆕 سائق جديد: ${nm} (${ph})`, ts: serverTimestamp(), read: false, driverId: phKey });
     shAl('al-drv', 'ok', '✅ تم التسجيل! انتظر موافقة المشرف');
     ['dr-nm','dr-ph','dr-car','dr-pw','dr-pw2','dr-invite'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     setTimeout(() => dtab('li'), 2500);
@@ -979,7 +979,7 @@ const showDriverReq = (rid, rd) => {
       clearInterval(reqCountdownTimer);
       if ($('ReqNotif').classList.contains('on')) {
         await update(tRef(`driverRequests/${CU.id}/${rid}`), { status: 'no_response' });
-        await push(tRef('notifications'), { type:'timeout', driverId:CU.id, driverName:CU.name, reqId:rid, msg:`⏰ السائق ${CU.name} لم يرد`, ts:Date.now(), read:false });
+        await push(tRef('notifications'), { type:'timeout', driverId:CU.id, driverName:CU.name, reqId:rid, msg:`⏰ السائق ${CU.name} لم يرد`, ts:serverTimestamp(), read:false });
         const rdSnap = await get(tRef(`driverRequests/${CU.id}/${rid}`)).catch(() => null);
         if (rdSnap && rdSnap.exists()) {
           const rdv = rdSnap.val();
@@ -1015,7 +1015,7 @@ window.acceptReq = async () => {
   await update(tRef(`driverRequests/${CU.id}/${rid}`), { status:'accepted', acceptedAt: ts });
   await update(tRef(`drivers/${CU.id}`), { taxiColor:'red', status:'busy' });
   CU.taxiColor = 'red';
-  await push(tRef('notifications'), { type:'accept', driverId:CU.id, driverName:CU.name, reqId:rid, msg:`✅ السائق ${CU.name} قبل الطلب`, ts, read:false });
+  await push(tRef('notifications'), { type:'accept', driverId:CU.id, driverName:CU.name, reqId:rid, msg:`✅ السائق ${CU.name} قبل الطلب`, ts: serverTimestamp(), read:false });
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${rid}`), 'accepted', { acceptedAt: ts });
   $('ReqNotif').classList.remove('on'); vibrate([200]); playSound('accept'); toast('ok','تم قبول الطلب 🚕','');
 };
@@ -1026,7 +1026,7 @@ window.submitReject = async () => {
   clearInterval(reqCountdownTimer);
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${rid}`), 'rejected');
   await update(tRef(`driverRequests/${CU.id}/${rid}`), { status:'rejected', rejectedAt:Date.now(), reason });
-  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:rid, reason, msg:`❌ السائق ${CU.name} رفض — ${reason}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:rid, reason, msg:`❌ السائق ${CU.name} رفض — ${reason}`, ts:serverTimestamp(), read:false });
   $('ReqNotif').classList.remove('on'); vibrate([100,50,100]); playSound('reject'); toast('info','تم رفض الطلب','');
 };
 
@@ -1041,7 +1041,7 @@ window.inlineAccept = async id => {
   await update(tRef(`drivers/${CU.id}`), { taxiColor:'red', status:'busy' });
   CU.taxiColor = 'red'; CU.status = 'busy';
   if ($('currentReqId').value === id) { clearInterval(reqCountdownTimer); $('ReqNotif').classList.remove('on'); $('currentReqId').value = ''; }
-  await push(tRef('notifications'), { type:'accept', driverId:CU.id, driverName:CU.name, reqId:id, msg:`✅ السائق ${CU.name} قبل الطلب`, ts, read:false });
+  await push(tRef('notifications'), { type:'accept', driverId:CU.id, driverName:CU.name, reqId:id, msg:`✅ السائق ${CU.name} قبل الطلب`, ts: serverTimestamp(), read:false });
   if (rd.fromUser && rd.userReqRef) await update(ref(_db, rd.userReqRef), { driverStatus:'accepted', driverName:CU.name, acceptedAt:ts }).catch(() => {});
   vibrate([200]); playSound('accept'); toast('ok','تم قبول الطلب 🚕','');
   const b = $('drvStatusBadge'); if (b) b.innerHTML = getStatusBadge(CU);
@@ -1052,7 +1052,7 @@ window.inlineReject = async id => {
   const rd   = snap && snap.exists() ? snap.val() : {};
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'rejected', rejectedAt:Date.now(), reason:reason.trim() });
   if ($('currentReqId').value === id) { clearInterval(reqCountdownTimer); $('ReqNotif').classList.remove('on'); $('currentReqId').value = ''; }
-  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:id, reason:reason.trim(), msg:`❌ السائق ${CU.name} رفض — ${reason.trim()}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:id, reason:reason.trim(), msg:`❌ السائق ${CU.name} رفض — ${reason.trim()}`, ts:serverTimestamp(), read:false });
   if (rd.fromUser && rd.userReqRef) await update(ref(_db, rd.userReqRef), { driverStatus:'rejected' }).catch(() => {});
   vibrate([100,50,100]); playSound('reject'); toast('info','تم رفض الطلب','');
 };
@@ -1349,15 +1349,14 @@ window.setDrvWaiting = async id => {
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'waiting', waitingAt:Date.now() });
   await updStatus('waiting');
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${id}`), 'waiting');
-  await push(tRef('notifications'), { type:'waiting', driverId:CU.id, driverName:CU.name, reqId:id, msg:`🕐 السائق ${CU.name} بالانتظار`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'waiting', driverId:CU.id, driverName:CU.name, reqId:id, msg:`🕐 السائق ${CU.name} بالانتظار`, ts:serverTimestamp(), read:false });
   toast('ok','بالانتظار 🟠',''); playSound('notif');
 };
 window.setDrvNear = async id => {
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'near', nearAt:Date.now() });
   await updStatus('near');
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${id}`), 'near');
-  await push(tRef('notifications'), { type:'near', driverId:CU.id, driverName:CU.name, reqId:id, msg:`⚠️ السائق ${CU.name} قريب`, ts:Date.now(), read:false });
-  toast('ok','قريب ⚠️',''); playSound('notif');
+await push(tRef('notifications'), { type:'near', driverId:CU.id, driverName:CU.name, reqId:id, msg:`⚠️ السائق ${CU.name} قريب`, ts:serverTimestamp(), read:false });  toast('ok','قريب ⚠️',''); playSound('notif');
 };
 window.confirmMod = async id => { await update(tRef(`driverRequests/${CU.id}/${id}`), { driverConfirmed:true, status:'accepted' }); toast('ok','تم التأكيد',''); };
 
@@ -1380,7 +1379,7 @@ window.doneDelivery = async id => {
   const snap  = await get(lRef).catch(() => null);
   const prev  = snap && snap.exists() ? snap.val() : { deliveries:0 };
   await set(lRef, { ...prev, deliveries:(prev.deliveries||0)+1, lastUpdate:Date.now() });
-  await push(tRef('notifications'), { type:'done', driverId:CU.id, driverName:CU.name, msg:`📦 السائق ${CU.name} أتم التوصيل — إجمالي: ${count}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'done', driverId:CU.id, driverName:CU.name, msg:`📦 السائق ${CU.name} أتم التوصيل — إجمالي: ${count}`, ts:serverTimestamp(), read:false });
   toast('ok', `تم التوصيل! 🎉`, `إجمالي: ${count} توصيلة`); playSound('accept');
   const b  = $('drvStatusBadge'); if (b) b.innerHTML = getStatusBadge(CU);
   const db = document.querySelector('.deliv-badge'); if (db) db.innerHTML = `<i class="fas fa-box"></i> ${count} توصيلة`;
@@ -1424,18 +1423,18 @@ window.drvAct = async t => {
     toast('ok','انتهى الشيفت 🏁', `مدة: ${dur} دقيقة`);
   } else toast('ok','تم الإرسال ✅','');
   const b = $('drvStatusBadge'); if (b) b.innerHTML = getStatusBadge(CU);
-  await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`${msgs[t]} — ${CU.name}`, ts:Date.now(), read:false });
+await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`${msgs[t]} — ${CU.name}`, ts:serverTimestamp(), read:false });
 };
 
 window.sendExcuse = async () => {
   const e = ($('custom-excuse').value || '').trim(); if (!e) return;
-  await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`📝 ${e} — ${CU.name}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`📝 ${e} — ${CU.name}`, ts:serverTimestamp(), read:false });
   $('custom-excuse').value = ''; toast('ok','تم الإرسال','');
 };
 
 window.doDriverSOS = async () => {
   if (!confirm('إرسال نداء طوارئ للمشرف؟')) return;
-  await push(tRef('notifications'), { type:'sos', driverId:CU.id, driverName:CU.name, msg:`🆘 SOS! السائق ${CU.name} يحتاج مساعدة!`, ts:Date.now(), read:false, urgent:true });
+  await push(tRef('notifications'), { type:'sos', driverId:CU.id, driverName:CU.name, msg:`🆘 SOS! السائق ${CU.name} يحتاج مساعدة!`, ts:serverTimestamp(), read:false, urgent:true });
   vibrate([500,100,500,100,500]); playSound('sos'); toast('err','🆘 SOS أُرسل','');
 };
 
@@ -1617,7 +1616,7 @@ window.addReqItem = async () => {
   const btn = $('MaddReq').querySelector('.bp'), origText = btn ? btn.innerHTML : '';
   if (btn) { btn.innerHTML = '<span class="spin"></span> جار...'; btn.disabled = true; }
   try {
-    await push(tRef('recvRequests'), { phone, details, ts:Date.now(), addedBy:CU?.name||'المشرف' });
+    await push(tRef('recvRequests'), { phone, details, ts:serverTimestamp(), addedBy:CU?.name||'المشرف' });
     $('req-phone').value = ''; $('req-details').value = '';
     toast('ok','✅ تم إضافة الطلب',''); playSound('notif'); CM('MaddReq');
   } catch(err) { shAl('al-req','err','خطأ: '+(err.message||'')); }
@@ -1649,7 +1648,7 @@ window.saveReqEdit  = async () => {
       });
     });
   }
-  await push(tRef('notifications'), { type:'edit', msg:`✏️ تعديل طلب: ${np} — ${nd}`, ts:Date.now(), read:false });
+await push(tRef('notifications'), { type:'edit', msg:`✏️ تعديل طلب: ${np} — ${nd}`, ts:serverTimestamp(), read:false });
   CM('MeditReq'); toast('ok','تم التعديل',''); playSound('edit');
 };
 
@@ -1670,14 +1669,14 @@ window.cancelReq = async id => {
     }
   }
   if (old.userReqRef) await update(ref(_db, old.userReqRef), { driverStatus:'cancelled', cancelledAt:Date.now() }).catch(() => {});
-  await push(tRef('notifications'), { type:'cancel', msg:`🚫 إلغاء: ${old.phone||id}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'cancel', msg:`🚫 إلغاء: ${old.phone||id}`, ts:serverTimestamp(), read:false });
   await remove(tRef(`recvRequests/${id}`)); toast('ok','تم الإلغاء',''); playSound('cancel');
 };
 
 window.sendSosBroadcast = async () => {
   const msg = ($('sos-sup-msg').value||'').trim(); if (!msg) return toast('warn','يرجى كتابة رسالة الطوارئ','');
   await update(tRef('sosActive'), { msg, senderName:CU.name, ts:Date.now(), acked:{} });
-  await push(tRef('notifications'), { type:'sos', msg:`🆘 SOS من المشرف: ${msg}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'sos', msg:`🆘 SOS من المشرف: ${msg}`, ts:serverTimestamp(), read:false });
   $('SosSupModal').classList.remove('on'); $('sos-sup-msg').value = '';
   toast('err','🆘 SOS أُرسل لجميع السائقين',''); playSound('sos'); vibrate([400,100,400,100,400]);
 };
@@ -1875,14 +1874,14 @@ const loadPendingDrivers = async () => {
 window.approveDriver = async drvId => {
   if (!confirm('قبول هذا السائق؟')) return;
   await update(tRef(`drivers/${drvId}`), { approvalStatus:'approved', status:'online', taxiColor:'green', approvedBy:CU.name, approvedAt:Date.now() });
-  await push(tRef('notifications'), { type:'accept', msg:`✅ تم قبول السائق: ${drvId}`, ts:Date.now(), read:false });
+await push(tRef('notifications'), { type:'accept', msg:`✅ تم قبول السائق: ${drvId}`, ts:serverTimestamp(), read:false });
   await push(tRef(`driverPushNotifs/${drvId}`), { title:'✅ تم قبول حسابك!', body:'يمكنك الآن الدخول والعمل', type:'info', ts:Date.now(), read:false });
   toast('ok','تم قبول السائق ✅',''); playSound('accept'); loadPendingDrivers();
 };
 window.rejectDriver = async (drvId, drvName) => {
   const reason = prompt(`سبب رفض "${drvName}" (اختياري):`,''); if (reason === null) return;
   await update(tRef(`drivers/${drvId}`), { approvalStatus:'rejected', status:'offline', rejectedBy:CU.name, rejectedAt:Date.now(), rejectionReason:reason||'-' });
-  await push(tRef('notifications'), { type:'reject', msg:`❌ رفض: ${drvId}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'reject', msg:`❌ رفض: ${drvId}`, ts:serverTimestamp(), read:false });
   toast('info','تم الرفض',''); loadPendingDrivers();
 };
 
@@ -2106,7 +2105,7 @@ const renderSupport = async role => {
 window.reportBug = async () => {
   const msg = prompt('صف المشكلة التي واجهتها:',''); if (!msg||!msg.trim()) return;
   window.open(`https://wa.me/972595125423?text=${encodeURIComponent(`🐛 بلاغ مشكلة:\n${msg.trim()}`)}`, '_blank');
-  await push(tRef('errorLogs'), { msg:msg.trim(), userId:CU?.id||'anon', userName:CU?.name||'زائر', role:CR||'unknown', officeId:TENANT_ID||'-', ts:Date.now() }).catch(() => {});
+  await push(tRef('errorLogs'), { msg:msg.trim(), userId:CU?.id||'anon', userName:CU?.name||'زائر', role:CR||'unknown', officeId:TENANT_ID||'-', ts:serverTimestamp() }).catch(() => {});
   toast('ok','✅ تم فتح واتساب','');
 };
 
@@ -2415,7 +2414,7 @@ window.submitUserReq = async () => {
     const newRef  = push(ref(_db, `tenants/${tenantId}/recvRequests`));
     const userReqRefPath = `tenants/${tenantId}/recvRequests/${newRef.key}`;
     await set(newRef, {
-      phone, details, ts:Date.now(), addedBy:'مستخدم عام 🌐', fromUser:true,
+      phone, details, ts:serverTimestamp(), addedBy:'مستخدم عام 🌐', fromUser:true,
       userFrom:from, userTo:to, userReqRef:userReqRefPath,
       ...(window._gpsOk && window._userGpsLat ? { userLat:window._userGpsLat, userLng:window._userGpsLng, hasGps:true } : { hasGps:false }),
     });
@@ -2501,7 +2500,7 @@ window.userCancelReq = async () => {
   if (!confirm('هل تريد إلغاء الطلب؟')) return;
   try {
     await update(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`), { status:'cancelled', cancelledAt:Date.now(), cancelledBy:'user' });
-    await push(ref(_db,  `tenants/${_userReqTenantId}/notifications`), { type:'cancel', msg:`🚫 مستخدم ألغى الطلب: ${$('trackPhone').textContent}`, ts:Date.now(), read:false });
+    await push(ref(_db,  `tenants/${_userReqTenantId}/notifications`), { type:'cancel', msg:`🚫 مستخدم ألغى الطلب: ${$('trackPhone').textContent}`, ts:serverTimestamp(), read:false });
     $('UserTrackScreen').classList.remove('on'); toast('info','تم إلغاء الطلب','');
     if (_pubReqListener) { try { off(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`)); } catch(e) {} _pubReqListener = null; }
     _userReqId = null; _userReqTenantId = null;
@@ -2533,7 +2532,7 @@ window.confirmTaxiArrived = async () => {
             const lSnap = await get(lRef).catch(() => null);
             const prev  = lSnap && lSnap.exists() ? lSnap.val() : { deliveries:0 };
             await set(lRef, { ...prev, deliveries:(prev.deliveries||0)+1, lastUpdate:Date.now() }).catch(() => {});
-            await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'done', driverId:drvId, driverName:drvData.name||drvId, msg:`📦 تأكد المستخدم وصول التكسي — ${drvData.name||drvId} — إجمالي: ${newCount}`, ts:Date.now(), read:false }).catch(() => {});
+            await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'done', driverId:drvId, driverName:drvData.name||drvId, msg:`📦 تأكد المستخدم وصول التكسي — ${drvData.name||drvId} — إجمالي: ${newCount}`, ts:serverTimestamp(), read:false }).catch(() => {});
             break;
           }
         }
@@ -2553,9 +2552,8 @@ window.submitRating = async () => {
   if (_userRating === 0) return toast('warn','يرجى اختيار تقييم','');
   const comment = ($('ratingComment').value||'').trim();
   if (_userReqTenantId) {
-    await push(ref(_db, `tenants/${_userReqTenantId}/ratings`), { stars:_userRating, comment, reqId:_userReqId, phone:$('trackPhone').textContent, ts:Date.now() }).catch(() => {});
-    await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'rating', msg:`⭐ تقييم جديد: ${'⭐'.repeat(_userRating)} — ${comment||'بدون تعليق'}`, ts:Date.now(), read:false }).catch(() => {});
-  }
+await push(ref(_db, `tenants/${_userReqTenantId}/ratings`), { stars:_userRating, comment, reqId:_userReqId, phone:$('trackPhone').textContent, ts:serverTimestamp() }).catch(() => {});
+    await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'rating', msg:`⭐ تقييم جديد: ${'⭐'.repeat(_userRating)} — ${comment||'بدون تعليق'}`, ts:serverTimestamp(), read:false }).catch(() => {});  }
   toast('ok','✅ شكراً على تقييمك!','');
   closeTrackScreen();
   if (_pubMap) setTimeout(() => loadPublicOffices(), 1000);
@@ -2750,7 +2748,7 @@ window.recvSendToDriver = async (drvId, drvName) => {
   const details = prompt('📍 التفاصيل والموقع:',''); if (!details?.trim()) return;
   try {
     const ts = Date.now();
-    const recvRef = await push(tRef('recvRequests'), { phone:phone.trim(), details:details.trim(), ts, addedBy:CU?CU.name:'المستقبل', assignedTo:drvId });
+    const recvRef = await push(tRef('recvRequests'), { phone:phone.trim(), details:details.trim(), ts: serverTimestamp(), addedBy:CU?CU.name:'المستقبل', assignedTo:drvId });
     await push(tRef(`driverRequests/${drvId}`), { phone:phone.trim(), details:details.trim(), status:'pending', ts, sentBy:CU?CU.name:'المستقبل', sentAt:ts, recvReqId:recvRef.key });
     await push(tRef(`driverPushNotifs/${drvId}`), { title:'📦 طلب جديد', body:`📞 ${phone.trim()}\n📍 ${details.trim()}`, type:'new_request', ts, read:false });
     toast('ok', `✅ تم الإرسال لـ ${drvName}`, ''); playSound('notif');
@@ -2773,7 +2771,7 @@ window.addRecvReq = async () => {
   const phone   = ($('recv-phone').value   || '').trim();
   const details = ($('recv-details').value || '').trim();
   if (!phone || !details) return shAl('al-recv-add','err','يرجى ملء جميع الحقول');
-  await push(tRef('recvRequests'), { phone, details, ts:Date.now(), addedBy:CU?CU.name:'المستقبل' });
+await push(tRef('recvRequests'), { phone, details, ts:serverTimestamp(), addedBy:CU?CU.name:'المستقبل' });
   $('recv-phone').value = ''; $('recv-details').value = '';
   shAl('al-recv-add','ok','✅ تم إضافة الطلب'); playSound('notif');
   setTimeout(() => recvTab('requests'), 1200);
