@@ -8,6 +8,34 @@ import { getDatabase, ref, set, get, push, onValue, update, remove, off, serverT
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
+/* ══════════════════════════════════════════════════
+   WAKE LOCK — منع إطفاء الشاشة للسائق
+   ══════════════════════════════════════════════════ */
+let _wakeLock = null;
+
+const requestWakeLock = async () => {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    _wakeLock = await navigator.wakeLock.request('screen');
+    _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+  } catch(e) {}
+};
+
+const releaseWakeLock = async () => {
+  if (_wakeLock) {
+    try { await _wakeLock.release(); } catch(e) {}
+    _wakeLock = null;
+  }
+};
+
+/* إعادة تفعيل Wake Lock لما يرجع المستخدم للتطبيق بعد ما كان مخفي */
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && CR === 'driver' && CU) {
+    await requestWakeLock();
+  }
+});
+
 /* ══════════════════════════════════════════════════
    TENANT MAP  — uid → tenantId
    ضع هنا الـ UID من Firebase Console
@@ -284,6 +312,8 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide',     stopGPS);
 window.addEventListener('beforeunload', stopGPS);
 
+
+
 /* ══════════════════════════════════════════════════
    SHARED DRIVER CACHE
    ══════════════════════════════════════════════════ */
@@ -532,93 +562,8 @@ window.gateEnter = role => {
   tenantEnter(role);
 };
 
-/* ══ حفظ/مسح الجلسة محلياً ══ */
-const SESSION_KEYS = { tenant:'txTenantId', role:'txRole', driverKey:'txDriverKey' };
-const saveSession = (role, driverKey = '') => {
-  try {
-    localStorage.setItem(SESSION_KEYS.tenant, TENANT_ID);
-    localStorage.setItem(SESSION_KEYS.role, role);
-    if (driverKey) localStorage.setItem(SESSION_KEYS.driverKey, driverKey);
-    else localStorage.removeItem(SESSION_KEYS.driverKey);
-  } catch(e) {}
-};
-const clearSession = () => {
-  try {
-    localStorage.removeItem(SESSION_KEYS.tenant);
-    localStorage.removeItem(SESSION_KEYS.role);
-    localStorage.removeItem(SESSION_KEYS.driverKey);
-  } catch(e) {}
-};
+document.addEventListener('DOMContentLoaded', initTenantGate);
 
-/* ══ استعادة الجلسة بعد تحديث الصفحة ══ */
-const _bootLoader = document.createElement('div');
-_bootLoader.id = '_bootLoader';
-_bootLoader.style.cssText = 'position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#0F172A,#1E293B);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px';
-_bootLoader.innerHTML = '<div style="font-size:46px">🚕</div><div style="width:34px;height:34px;border:3px solid rgba(255,255,255,.15);border-top-color:#0EA5E9;border-radius:50%;animation:spin .8s linear infinite"></div><div style="color:rgba(255,255,255,.6);font-size:12px;font-weight:700;font-family:Cairo,sans-serif">جارٍ التحقق من الجلسة...</div>';
-document.body.appendChild(_bootLoader);
-
-const restoreSession = () => new Promise(resolve => {
-  let settled = false;
-  const done = v => {
-    if (settled) return;
-    settled = true; clearTimeout(timer);
-    if (v) { const g = $('PTenantGate'); if (g) g.style.display = 'none'; }
-    resolve(v);
-  };
-  const timer = setTimeout(() => done(false), 6000);
-  let unsub;
-  unsub = onAuthStateChanged(_auth, async user => {
-    if (settled) return;
-    if (typeof unsub === 'function') { try { unsub(); } catch(e) {} }
-    if (!user) return done(false);
-    try {
-      const savedTenant = localStorage.getItem(SESSION_KEYS.tenant) || localStorage.getItem('txOfficeCode') || '';
-      const savedRole   = localStorage.getItem(SESSION_KEYS.role)   || '';
-      const savedDrvKey = localStorage.getItem(SESSION_KEYS.driverKey) || '';
-
-      if (savedRole === 'driver' && savedDrvKey && savedTenant && TENANT_NAMES[savedTenant]) {
-        TENANT_ID = savedTenant; TENANT_INFO = { name: TENANT_NAMES[savedTenant] };
-        const snap = await get(tRef(`drivers/${savedDrvKey}`)).catch(() => null);
-        if (!snap || !snap.exists()) return done(false);
-        const found = snap.val();
-        if (found.approvalStatus === 'pending' || found.approvalStatus === 'rejected') return done(false);
-        CU = { ...found, id: savedDrvKey }; CR = 'driver'; IS_RECV = false;
-        if (found.shiftStart && !found.shiftEnd) shiftStartTime = found.shiftStart;
-        document.querySelectorAll('.lgn1').forEach(el => el.textContent = TENANT_INFO.name);
-        await update(tRef(`drivers/${savedDrvKey}`), { status:'online', lastSeen: Date.now(), taxiColor:'green' }).catch(() => {});
-        await registerSW(); await reqPushPerm();
-        startGPS(savedDrvKey);
-        initDash();
-        listenDriverRequests(savedDrvKey);
-        listenSosBroadcast();
-        listenDriverPushNotifs(savedDrvKey);
-        return done(true);
-      }
-
-      if (savedRole === 'supervisor' || savedRole === 'receiver') {
-        const tenantId = EMAIL_TO_TENANT[(user.email||'').toLowerCase()] || savedTenant;
-        if (!tenantId || !TENANT_NAMES[tenantId]) return done(false);
-        TENANT_ID = tenantId; TENANT_INFO = { name: TENANT_NAMES[tenantId] };
-        document.querySelectorAll('.lgn1').forEach(el => el.textContent = TENANT_INFO.name);
-        document.title = TENANT_INFO.name + ' — منصة التاكسي';
-        const supId = 'admin_' + tenantId;
-        const supSnap = await get(tRef(`supervisors/${supId}`)).catch(() => null);
-        CU = { id: supId, name: (supSnap && supSnap.exists() ? supSnap.val().name : TENANT_NAMES[tenantId]), role:'admin', officeId: tenantId };
-        CR = 'supervisor'; IS_RECV = savedRole === 'receiver';
-        if (IS_RECV) initRecvDash();
-        else { initDash(); listenSupNotifs(); startDriverListener(); }
-        return done(true);
-      }
-      return done(false);
-    } catch(e) { return done(false); }
-  });
-});
-
-document.addEventListener('DOMContentLoaded', async () => {
-  const restored = await restoreSession();
-  const l = document.getElementById('_bootLoader'); if (l) l.remove();
-  if (!restored) initTenantGate();
-});
 /* من أي زر دخل المستخدم (مشرف / مستقبل / سائق) */
 window.tenantEnter = role => {
   $('PTenantGate').style.display = 'none';
@@ -717,7 +662,6 @@ window.sLogin = async () => {
     }
     CU = { id: supId, name: TENANT_NAMES[tenantId], role:'admin', officeId: tenantId };
     CR = 'supervisor';
-    saveSession(IS_RECV ? 'receiver' : 'supervisor');
 
     CM('Msup');
 
@@ -790,7 +734,7 @@ window.dReg = async () => {
 
     await signOut(_auth);
 
-    await push(tRef('notifications'), { type:'new_driver', msg:`🆕 سائق جديد: ${nm} (${ph})`, ts: serverTimestamp(), read: false, driverId: phKey });
+    await push(tRef('notifications'), { type:'new_driver', msg:`🆕 سائق جديد: ${nm} (${ph})`, ts: Date.now(), read: false, driverId: phKey });
     shAl('al-drv', 'ok', '✅ تم التسجيل! انتظر موافقة المشرف');
     ['dr-nm','dr-ph','dr-car','dr-pw','dr-pw2','dr-invite'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     setTimeout(() => dtab('li'), 2500);
@@ -846,9 +790,9 @@ window.dLogin = async () => {
     }
 
     await update(tRef(`drivers/${phKey}`), { status:'online', lastSeen: Date.now(), taxiColor:'green' });
-CU = { ...found, id: phKey };
+
+    CU = { ...found, id: phKey };
     CR = 'driver'; IS_RECV = false;
-    saveSession('driver', phKey);
     if (found.shiftStart && !found.shiftEnd) shiftStartTime = found.shiftStart;
 
     CM('Mdriver');
@@ -979,7 +923,7 @@ const showDriverReq = (rid, rd) => {
       clearInterval(reqCountdownTimer);
       if ($('ReqNotif').classList.contains('on')) {
         await update(tRef(`driverRequests/${CU.id}/${rid}`), { status: 'no_response' });
-        await push(tRef('notifications'), { type:'timeout', driverId:CU.id, driverName:CU.name, reqId:rid, msg:`⏰ السائق ${CU.name} لم يرد`, ts:serverTimestamp(), read:false });
+        await push(tRef('notifications'), { type:'timeout', driverId:CU.id, driverName:CU.name, reqId:rid, msg:`⏰ السائق ${CU.name} لم يرد`, ts:Date.now(), read:false });
         const rdSnap = await get(tRef(`driverRequests/${CU.id}/${rid}`)).catch(() => null);
         if (rdSnap && rdSnap.exists()) {
           const rdv = rdSnap.val();
@@ -1015,7 +959,7 @@ window.acceptReq = async () => {
   await update(tRef(`driverRequests/${CU.id}/${rid}`), { status:'accepted', acceptedAt: ts });
   await update(tRef(`drivers/${CU.id}`), { taxiColor:'red', status:'busy' });
   CU.taxiColor = 'red';
-  await push(tRef('notifications'), { type:'accept', driverId:CU.id, driverName:CU.name, reqId:rid, msg:`✅ السائق ${CU.name} قبل الطلب`, ts: serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'accept', driverId:CU.id, driverName:CU.name, reqId:rid, msg:`✅ السائق ${CU.name} قبل الطلب`, ts, read:false });
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${rid}`), 'accepted', { acceptedAt: ts });
   $('ReqNotif').classList.remove('on'); vibrate([200]); playSound('accept'); toast('ok','تم قبول الطلب 🚕','');
 };
@@ -1026,7 +970,7 @@ window.submitReject = async () => {
   clearInterval(reqCountdownTimer);
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${rid}`), 'rejected');
   await update(tRef(`driverRequests/${CU.id}/${rid}`), { status:'rejected', rejectedAt:Date.now(), reason });
-  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:rid, reason, msg:`❌ السائق ${CU.name} رفض — ${reason}`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:rid, reason, msg:`❌ السائق ${CU.name} رفض — ${reason}`, ts:Date.now(), read:false });
   $('ReqNotif').classList.remove('on'); vibrate([100,50,100]); playSound('reject'); toast('info','تم رفض الطلب','');
 };
 
@@ -1041,7 +985,7 @@ window.inlineAccept = async id => {
   await update(tRef(`drivers/${CU.id}`), { taxiColor:'red', status:'busy' });
   CU.taxiColor = 'red'; CU.status = 'busy';
   if ($('currentReqId').value === id) { clearInterval(reqCountdownTimer); $('ReqNotif').classList.remove('on'); $('currentReqId').value = ''; }
-  await push(tRef('notifications'), { type:'accept', driverId:CU.id, driverName:CU.name, reqId:id, msg:`✅ السائق ${CU.name} قبل الطلب`, ts: serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'accept', driverId:CU.id, driverName:CU.name, reqId:id, msg:`✅ السائق ${CU.name} قبل الطلب`, ts, read:false });
   if (rd.fromUser && rd.userReqRef) await update(ref(_db, rd.userReqRef), { driverStatus:'accepted', driverName:CU.name, acceptedAt:ts }).catch(() => {});
   vibrate([200]); playSound('accept'); toast('ok','تم قبول الطلب 🚕','');
   const b = $('drvStatusBadge'); if (b) b.innerHTML = getStatusBadge(CU);
@@ -1052,7 +996,7 @@ window.inlineReject = async id => {
   const rd   = snap && snap.exists() ? snap.val() : {};
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'rejected', rejectedAt:Date.now(), reason:reason.trim() });
   if ($('currentReqId').value === id) { clearInterval(reqCountdownTimer); $('ReqNotif').classList.remove('on'); $('currentReqId').value = ''; }
-  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:id, reason:reason.trim(), msg:`❌ السائق ${CU.name} رفض — ${reason.trim()}`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:id, reason:reason.trim(), msg:`❌ السائق ${CU.name} رفض — ${reason.trim()}`, ts:Date.now(), read:false });
   if (rd.fromUser && rd.userReqRef) await update(ref(_db, rd.userReqRef), { driverStatus:'rejected' }).catch(() => {});
   vibrate([100,50,100]); playSound('reject'); toast('info','تم رفض الطلب','');
 };
@@ -1089,16 +1033,6 @@ const listenSupNotifs = () => {
     });
   });
   LSNRS.push({ r, keep: true });
-
-  const rReqs = tRef('recvRequests');
-  onValue(rReqs, snap => {
-    const count = snap.exists() ? Object.values(snap.val()).filter(d => d.driverStatus !== 'done').length : 0;
-    ['reqs-badge','mob-reqs-badge'].forEach(bid => {
-      const b = $(bid); if (b) { b.textContent = count; b.style.display = count > 0 ? 'inline' : 'none'; }
-    });
-  });
-  LSNRS.push({ r: rReqs, keep: true });
-
   listenForUserRequests();
 };
 
@@ -1126,6 +1060,9 @@ const listenForUserRequests = () => {
    ══════════════════════════════════════════════════ */
 const initDash = () => {
   $('PL').style.display = 'none'; $('PD').style.display = 'block';
+
+  if (CR === 'driver') requestWakeLock();
+
   const nav = $('navav'); nav.textContent = CR === 'driver' ? '🚕' : '👨‍💼';
   if (CR === 'supervisor') nav.classList.add('sup-av');
 
@@ -1138,16 +1075,15 @@ const initDash = () => {
       {id:'support', icon:'fas fa-headset',   label:'دعم فني'},
       {id:'profile', icon:'fas fa-user-cog',  label:'حسابي'},
     ];
-        tabs.innerHTML = cfg.map((t,i) => `<button class="ntab${i===0?' on':''}" id="nt-${t.id}" onclick="nTab('${t.id}')"><i class="${t.icon}"></i> ${t.label}</button>`).join('');
+    tabs.innerHTML = cfg.map((t,i) => `<button class="ntab${i===0?' on':''}" id="nt-${t.id}" onclick="nTab('${t.id}')"><i class="${t.icon}"></i> ${t.label}</button>`).join('');
     if (mobNav && mobTabs) {
       mobNav.style.display = 'block';
-      mobTabs.innerHTML = cfg.map((t,i) => `<button class="mob-tab${i===0?' on':''}" id="mnt-${t.id}" onclick="nTab('${t.id}')"><i class="${t.icon}"></i><span class="mob-label">${t.label}</span></button>`).join('') +
-        `<button class="mob-tab mob-logout" onclick="logout()" style="color:var(--red)"><i class="fas fa-right-from-bracket"></i><span class="mob-label">خروج</span></button>`;
+      mobTabs.innerHTML = cfg.map((t,i) => `<button class="mob-tab${i===0?' on':''}" id="mnt-${t.id}" onclick="nTab('${t.id}')"><i class="${t.icon}"></i><span class="mob-label">${t.label}</span></button>`).join('');
     }
     renderDriverReqs();
   } else {
-const cfg = [
-      {id:'reqs',      icon:'fas fa-inbox',           label:'الطلبات',    badge3:true},
+    const cfg = [
+      {id:'reqs',      icon:'fas fa-inbox',           label:'الطلبات'},
       {id:'map',       icon:'fas fa-map-location-dot', label:'الخريطة'},
       {id:'notifs',    icon:'fas fa-bell',             label:'التنبيهات',  badge:true},
       {id:'approvals', icon:'fas fa-user-check',       label:'الموافقات',  badge2:true},
@@ -1159,12 +1095,10 @@ const cfg = [
     tabs.innerHTML = cfg.map((t,i) =>
       `<button class="ntab${i===0?' sup-on':''}" id="nt-${t.id}" onclick="nTab('${t.id}')">
         <i class="${t.icon}"></i> ${t.label}
-        ${t.badge3 ? `<span class="ntab-badge" id="reqs-badge"     style="display:none;background:var(--green)">0</span>` : ''}
         ${t.badge  ? `<span class="ntab-badge" id="notif-badge"    style="display:none">0</span>` : ''}
         ${t.badge2 ? `<span class="ntab-badge" id="approval-badge" style="display:none;background:var(--green)">0</span>` : ''}
       </button>`
     ).join('');
-
 
     const monBtn = document.createElement('button');
     monBtn.id = 'monitorBtn'; monBtn.className = 'btn-primary';
@@ -1176,14 +1110,12 @@ const cfg = [
       mobNav.style.display = 'block';
       mobTabs.innerHTML = cfg.map((t,i) =>
         `<button class="mob-tab${i===0?' sup-on':''}" id="mnt-${t.id}" onclick="nTab('${t.id}')">
-          ${t.badge3 ? `<span class="mob-tab-badge" id="mob-reqs-badge"     style="display:none;background:var(--green)">0</span>` : ''}
           ${t.badge  ? `<span class="mob-tab-badge" id="mob-notif-badge"    style="display:none">0</span>` : ''}
           ${t.badge2 ? `<span class="mob-tab-badge" id="mob-approval-badge" style="display:none;background:var(--green)">0</span>` : ''}
           <i class="${t.icon}"></i><span class="mob-label">${t.label}</span>
         </button>`
       ).join('');
       mobTabs.innerHTML += `<button class="mob-tab" onclick="openMonitor()"><i class="fas fa-tv"></i><span class="mob-label">مراقبة</span></button>`;
-      mobTabs.innerHTML += `<button class="mob-tab mob-logout" onclick="logout()" style="color:var(--red)"><i class="fas fa-right-from-bracket"></i><span class="mob-label">خروج</span></button>`;
     }
     renderSupReqs();
   }
@@ -1349,14 +1281,15 @@ window.setDrvWaiting = async id => {
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'waiting', waitingAt:Date.now() });
   await updStatus('waiting');
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${id}`), 'waiting');
-  await push(tRef('notifications'), { type:'waiting', driverId:CU.id, driverName:CU.name, reqId:id, msg:`🕐 السائق ${CU.name} بالانتظار`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'waiting', driverId:CU.id, driverName:CU.name, reqId:id, msg:`🕐 السائق ${CU.name} بالانتظار`, ts:Date.now(), read:false });
   toast('ok','بالانتظار 🟠',''); playSound('notif');
 };
 window.setDrvNear = async id => {
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'near', nearAt:Date.now() });
   await updStatus('near');
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${id}`), 'near');
-await push(tRef('notifications'), { type:'near', driverId:CU.id, driverName:CU.name, reqId:id, msg:`⚠️ السائق ${CU.name} قريب`, ts:serverTimestamp(), read:false });  toast('ok','قريب ⚠️',''); playSound('notif');
+  await push(tRef('notifications'), { type:'near', driverId:CU.id, driverName:CU.name, reqId:id, msg:`⚠️ السائق ${CU.name} قريب`, ts:Date.now(), read:false });
+  toast('ok','قريب ⚠️',''); playSound('notif');
 };
 window.confirmMod = async id => { await update(tRef(`driverRequests/${CU.id}/${id}`), { driverConfirmed:true, status:'accepted' }); toast('ok','تم التأكيد',''); };
 
@@ -1373,13 +1306,12 @@ window.doneDelivery = async id => {
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'done', doneAt:Date.now(), doneDelivery:true });
   const rd = chk.val();
   if (rd.fromUser && rd.userReqRef) await update(ref(_db, rd.userReqRef), { driverStatus:'done', doneAt:Date.now() }).catch(() => {});
-  if (rd.recvReqId) await update(tRef(`recvRequests/${rd.recvReqId}`), { driverStatus:'done', doneAt:Date.now(), driverName:CU.name }).catch(() => {});
   const today = new Date().toISOString().split('T')[0];
   const lRef  = tRef(`drivers/${CU.id}/dailyReport/${today}`);
   const snap  = await get(lRef).catch(() => null);
   const prev  = snap && snap.exists() ? snap.val() : { deliveries:0 };
   await set(lRef, { ...prev, deliveries:(prev.deliveries||0)+1, lastUpdate:Date.now() });
-  await push(tRef('notifications'), { type:'done', driverId:CU.id, driverName:CU.name, msg:`📦 السائق ${CU.name} أتم التوصيل — إجمالي: ${count}`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'done', driverId:CU.id, driverName:CU.name, msg:`📦 السائق ${CU.name} أتم التوصيل — إجمالي: ${count}`, ts:Date.now(), read:false });
   toast('ok', `تم التوصيل! 🎉`, `إجمالي: ${count} توصيلة`); playSound('accept');
   const b  = $('drvStatusBadge'); if (b) b.innerHTML = getStatusBadge(CU);
   const db = document.querySelector('.deliv-badge'); if (db) db.innerHTML = `<i class="fas fa-box"></i> ${count} توصيلة`;
@@ -1423,18 +1355,18 @@ window.drvAct = async t => {
     toast('ok','انتهى الشيفت 🏁', `مدة: ${dur} دقيقة`);
   } else toast('ok','تم الإرسال ✅','');
   const b = $('drvStatusBadge'); if (b) b.innerHTML = getStatusBadge(CU);
-await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`${msgs[t]} — ${CU.name}`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`${msgs[t]} — ${CU.name}`, ts:Date.now(), read:false });
 };
 
 window.sendExcuse = async () => {
   const e = ($('custom-excuse').value || '').trim(); if (!e) return;
-  await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`📝 ${e} — ${CU.name}`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`📝 ${e} — ${CU.name}`, ts:Date.now(), read:false });
   $('custom-excuse').value = ''; toast('ok','تم الإرسال','');
 };
 
 window.doDriverSOS = async () => {
   if (!confirm('إرسال نداء طوارئ للمشرف؟')) return;
-  await push(tRef('notifications'), { type:'sos', driverId:CU.id, driverName:CU.name, msg:`🆘 SOS! السائق ${CU.name} يحتاج مساعدة!`, ts:serverTimestamp(), read:false, urgent:true });
+  await push(tRef('notifications'), { type:'sos', driverId:CU.id, driverName:CU.name, msg:`🆘 SOS! السائق ${CU.name} يحتاج مساعدة!`, ts:Date.now(), read:false, urgent:true });
   vibrate([500,100,500,100,500]); playSound('sos'); toast('err','🆘 SOS أُرسل','');
 };
 
@@ -1510,16 +1442,11 @@ const loadSupReqList = () => {
     if (!snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text4)"><i class="fas fa-inbox" style="font-size:32px;opacity:.2;display:block;margin-bottom:8px"></i>لا يوجد طلبات</div>`; return; }
     const items = Object.entries(snap.val()).sort((a,b) => (b[1].ts||0)-(a[1].ts||0)).slice(0,50);
     list.innerHTML = items.map(([id,d]) => {
-      const isDone = d.driverStatus === 'done';
       const userBadge = d.fromUser ? `<span style="background:#ECFDF5;color:#059669;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #A7F3D0;margin-right:4px">🌐 مستخدم</span>` : '';
-      return `<div class="reqcard" id="sreq-${id}" style="margin-bottom:9px${isDone?';opacity:.7;background:var(--green-l);border-color:var(--green-m)':''}">
-        <div class="reqtop"><div class="reqphone" style="${isDone?'text-decoration:line-through':''}"><i class="fas fa-phone"></i>${esc(d.phone||'-')}${userBadge}</div><div class="reqtimes"><span class="reqtime"><i class="fas fa-clock"></i>${fmt(d.ts||Date.now())}</span></div></div>
-        <div class="reqdetails" style="${isDone?'text-decoration:line-through':''}"><i class="fas fa-map-marker-alt"></i><span>${esc(d.details||'-')}</span></div>
+      return `<div class="reqcard" id="sreq-${id}" style="margin-bottom:9px">
+        <div class="reqtop"><div class="reqphone"><i class="fas fa-phone"></i>${esc(d.phone||'-')}${userBadge}</div><div class="reqtimes"><span class="reqtime"><i class="fas fa-clock"></i>${fmt(d.ts||Date.now())}</span></div></div>
+        <div class="reqdetails"><i class="fas fa-map-marker-alt"></i><span>${esc(d.details||'-')}</span></div>
         ${d.addedBy?`<div style="font-size:10px;color:var(--text4);margin-bottom:6px"><i class="fas fa-user" style="margin-left:3px"></i>${esc(d.addedBy)}</div>`:''}
-        ${isDone ? `
-        <div style="background:var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px"><i class="fas fa-check-circle"></i> تم التوصيل بنجاح ✅</div>
-        <div class="reqacts"><button class="rca rca-gray" onclick="delRecvItem('${id}')"><i class="fas fa-trash"></i></button></div>
-        ` : `
         <div class="reqacts">
           <button class="rca rca-primary" onclick="openTaxiSel('${id}','${eAt(d.phone||'')}','${eAt(d.details||'')}','${id}')"><i class="fas fa-car-side"></i> إرسال لسائق</button>
           ${d.hasGps&&d.userLat&&d.userLng?`
@@ -1531,7 +1458,6 @@ const loadSupReqList = () => {
           <button class="rca rca-red"     onclick="cancelReq('${id}')"><i class="fas fa-ban"></i></button>
           <button class="rca rca-gray"    onclick="delRecvItem('${id}')"><i class="fas fa-trash"></i></button>
         </div>
-        `}
       </div>`;
     }).join('');
   }); addL(r);
@@ -1599,9 +1525,7 @@ const loadSupNotifList = () => {
       <div class="notif-body"><div class="notif-title">${esc(n.msg||'')}</div>${n.reason?`<div class="notif-sub">السبب: ${esc(n.reason)}</div>`:''}<div class="notif-time">${fmt(n.ts||Date.now())}</div></div>
       <button class="notif-del-btn" onclick="delNotif('${nid}')" style="position:absolute;left:8px;top:50%;transform:translateY(-50%)"><i class="fas fa-times"></i></button>
     </div>`).join('');
-    if (!window._clearingNotifs) {
-  items.filter(([,n]) => !n.read).forEach(([nid]) => update(tRef(`notifications/${nid}`), { read:true }).catch(() => {}));
-}
+    items.filter(([,n]) => !n.read).forEach(([nid]) => update(tRef(`notifications/${nid}`), { read:true }).catch(() => {}));
   }); addL(r);
 };
 
@@ -1616,7 +1540,7 @@ window.addReqItem = async () => {
   const btn = $('MaddReq').querySelector('.bp'), origText = btn ? btn.innerHTML : '';
   if (btn) { btn.innerHTML = '<span class="spin"></span> جار...'; btn.disabled = true; }
   try {
-    await push(tRef('recvRequests'), { phone, details, ts:serverTimestamp(), addedBy:CU?.name||'المشرف' });
+    await push(tRef('recvRequests'), { phone, details, ts:Date.now(), addedBy:CU?.name||'المشرف' });
     $('req-phone').value = ''; $('req-details').value = '';
     toast('ok','✅ تم إضافة الطلب',''); playSound('notif'); CM('MaddReq');
   } catch(err) { shAl('al-req','err','خطأ: '+(err.message||'')); }
@@ -1648,7 +1572,7 @@ window.saveReqEdit  = async () => {
       });
     });
   }
-await push(tRef('notifications'), { type:'edit', msg:`✏️ تعديل طلب: ${np} — ${nd}`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'edit', msg:`✏️ تعديل طلب: ${np} — ${nd}`, ts:Date.now(), read:false });
   CM('MeditReq'); toast('ok','تم التعديل',''); playSound('edit');
 };
 
@@ -1669,14 +1593,14 @@ window.cancelReq = async id => {
     }
   }
   if (old.userReqRef) await update(ref(_db, old.userReqRef), { driverStatus:'cancelled', cancelledAt:Date.now() }).catch(() => {});
-  await push(tRef('notifications'), { type:'cancel', msg:`🚫 إلغاء: ${old.phone||id}`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'cancel', msg:`🚫 إلغاء: ${old.phone||id}`, ts:Date.now(), read:false });
   await remove(tRef(`recvRequests/${id}`)); toast('ok','تم الإلغاء',''); playSound('cancel');
 };
 
 window.sendSosBroadcast = async () => {
   const msg = ($('sos-sup-msg').value||'').trim(); if (!msg) return toast('warn','يرجى كتابة رسالة الطوارئ','');
   await update(tRef('sosActive'), { msg, senderName:CU.name, ts:Date.now(), acked:{} });
-  await push(tRef('notifications'), { type:'sos', msg:`🆘 SOS من المشرف: ${msg}`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'sos', msg:`🆘 SOS من المشرف: ${msg}`, ts:Date.now(), read:false });
   $('SosSupModal').classList.remove('on'); $('sos-sup-msg').value = '';
   toast('err','🆘 SOS أُرسل لجميع السائقين',''); playSound('sos'); vibrate([400,100,400,100,400]);
 };
@@ -1687,12 +1611,12 @@ window.sendSosBroadcast = async () => {
 window.openTaxiSel = (reqId, phone, details, recvReqId='') => {
   selTaxiId = null; selReqData = { id:reqId, phone:phone.replace(/&#39;/g,"'"), details:details.replace(/&#39;/g,"'"), recvReqId:recvReqId||reqId };
   const list   = $('sel-taxi-list');
-  const avail  = Object.entries(allDrvs).filter(([,d]) => getTCS(d).monCls === 'st-online');
-  if (!avail.length) {
-    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)"><i class="fas fa-circle-exclamation" style="font-size:26px;color:var(--amber);display:block;margin-bottom:8px"></i>لا يوجد سائقون متاحين حالياً<br><span style="font-size:11px;color:var(--text4)">يجب أن يكون السائق ضاغط "بدء الشيفت" 🟢</span></div>';
-    $('SelTaxiModal').classList.add('on'); $('confirmSelBtn').style.display = 'none'; return;
-  }
-  $('confirmSelBtn').style.display = '';
+  const avail  = Object.entries(allDrvs).sort(([,a],[,b]) => {
+    const ao = getTCS(a).monCls==='st-online'?0:getTCS(a).monCls==='st-break'?1:2;
+    const bo = getTCS(b).monCls==='st-online'?0:getTCS(b).monCls==='st-break'?1:2;
+    return ao - bo;
+  });
+  if (!avail.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد سائقون</div>'; $('SelTaxiModal').classList.add('on'); return; }
   list.innerHTML = avail.map(([id,d]) => {
     const cs = getTCS(d);
     return `<div class="sel-taxi-item" id="stitem-${id}" onclick="selectTaxi('${id}')">
@@ -1715,17 +1639,12 @@ window.closeTaxiSel = () => { $('SelTaxiModal').classList.remove('on'); selTaxiI
 let _sendBusy = false;
 window.confirmTaxiSel = async () => {
   if (!selTaxiId || !selReqData || _sendBusy) return;
-  const drvCheckSnap = await get(tRef(`drivers/${selTaxiId}`)).catch(() => null);
-  if (!drvCheckSnap || !drvCheckSnap.exists() || getTCS(drvCheckSnap.val()).monCls !== 'st-online') {
-    toast('err', '❌ السائق غير متاح الآن', 'يرجى اختيار سائق آخر متاح');
-    closeTaxiSel();
-    return;
-  }
   const msg = prompt('رسالة للسائق (اختياري):',''); if (msg === null) return;
-  _sendBusy = true;  const btn = $('confirmSelBtn'); btn.innerHTML = '<span class="spin"></span>'; btn.disabled = true; btn.style.opacity = '.7';
+  _sendBusy = true;
+  const btn = $('confirmSelBtn'); btn.innerHTML = '<span class="spin"></span>'; btn.disabled = true; btn.style.opacity = '.7';
   try {
     const recvSnap = await get(tRef(`recvRequests/${selReqData.recvReqId}`)).catch(() => null), recvData = recvSnap&&recvSnap.exists()?recvSnap.val():{};
-    const payload  = { phone:selReqData.phone, details:selReqData.details, status:'pending', ts:Date.now(), sentBy:CU.name, sentAt:Date.now(), recvReqId:selReqData.recvReqId };
+    const payload  = { phone:selReqData.phone, details:selReqData.details, status:'pending', ts:Date.now(), sentBy:CU.name, sentAt:Date.now() };
     if (msg) payload.message = msg;
     if (recvData.fromUser && recvData.userReqRef) { payload.fromUser = true; payload.userReqRef = recvData.userReqRef; }
     const reqRef = await push(tRef(`driverRequests/${selTaxiId}`), payload);
@@ -1827,14 +1746,7 @@ const renderNotifs = () => {
   }); addL(r);
 };
 window.delNotif       = async nid => remove(tRef(`notifications/${nid}`)).catch(() => {});
-window.clearAllNotifs = async () => {
-  if (!confirm('حذف كل التنبيهات؟')) return;
-  if (!confirm('تأكيد نهائي؟')) return;
-  window._clearingNotifs = true;
-  await remove(tRef('notifications')).catch(() => {});
-  setTimeout(() => { window._clearingNotifs = false; }, 1500);
-  toast('ok','تم الحذف','');
-};
+window.clearAllNotifs = async () => { if (!confirm('حذف كل التنبيهات؟')) return; if (!confirm('تأكيد نهائي؟')) return; await remove(tRef('notifications')).catch(() => {}); toast('ok','تم الحذف',''); };
 
 /* ══════════════════════════════════════════════════
    APPROVALS TAB
@@ -1874,14 +1786,14 @@ const loadPendingDrivers = async () => {
 window.approveDriver = async drvId => {
   if (!confirm('قبول هذا السائق؟')) return;
   await update(tRef(`drivers/${drvId}`), { approvalStatus:'approved', status:'online', taxiColor:'green', approvedBy:CU.name, approvedAt:Date.now() });
-await push(tRef('notifications'), { type:'accept', msg:`✅ تم قبول السائق: ${drvId}`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'accept', msg:`✅ تم قبول السائق: ${drvId}`, ts:Date.now(), read:false });
   await push(tRef(`driverPushNotifs/${drvId}`), { title:'✅ تم قبول حسابك!', body:'يمكنك الآن الدخول والعمل', type:'info', ts:Date.now(), read:false });
   toast('ok','تم قبول السائق ✅',''); playSound('accept'); loadPendingDrivers();
 };
 window.rejectDriver = async (drvId, drvName) => {
   const reason = prompt(`سبب رفض "${drvName}" (اختياري):`,''); if (reason === null) return;
   await update(tRef(`drivers/${drvId}`), { approvalStatus:'rejected', status:'offline', rejectedBy:CU.name, rejectedAt:Date.now(), rejectionReason:reason||'-' });
-  await push(tRef('notifications'), { type:'reject', msg:`❌ رفض: ${drvId}`, ts:serverTimestamp(), read:false });
+  await push(tRef('notifications'), { type:'reject', msg:`❌ رفض: ${drvId}`, ts:Date.now(), read:false });
   toast('info','تم الرفض',''); loadPendingDrivers();
 };
 
@@ -2105,7 +2017,7 @@ const renderSupport = async role => {
 window.reportBug = async () => {
   const msg = prompt('صف المشكلة التي واجهتها:',''); if (!msg||!msg.trim()) return;
   window.open(`https://wa.me/972595125423?text=${encodeURIComponent(`🐛 بلاغ مشكلة:\n${msg.trim()}`)}`, '_blank');
-  await push(tRef('errorLogs'), { msg:msg.trim(), userId:CU?.id||'anon', userName:CU?.name||'زائر', role:CR||'unknown', officeId:TENANT_ID||'-', ts:serverTimestamp() }).catch(() => {});
+  await push(tRef('errorLogs'), { msg:msg.trim(), userId:CU?.id||'anon', userName:CU?.name||'زائر', role:CR||'unknown', officeId:TENANT_ID||'-', ts:Date.now() }).catch(() => {});
   toast('ok','✅ تم فتح واتساب','');
 };
 
@@ -2127,9 +2039,6 @@ const renderDProfile = () => {
       <div class="fg"><label class="fl"><i class="fas fa-car"></i> رقم السيارة</label><input class="fi" id="ep-car" value="${esc(CU.carNumber||'')}"></div>
       <div class="fg"><label class="fl"><i class="fas fa-lock"></i> كلمة مرور جديدة</label><input class="fi" type="password" id="ep-pw" placeholder="••••••••"></div>
       <button class="bp" onclick="saveDProf()"><i class="fas fa-save"></i> حفظ التعديلات</button>
-      <button onclick="logout()" style="width:100%;margin-top:10px;padding:13px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px">
-        <i class="fas fa-right-from-bracket"></i> تسجيل الخروج
-      </button>
       <button class="bdng" onclick="delMyAcc()"><i class="fas fa-trash"></i> حذف حسابي نهائياً</button>
     </div>
   </div>`;
@@ -2411,18 +2320,18 @@ window.submitUserReq = async () => {
   btn.innerHTML = '<span class="spin"></span> جار الإرسال...'; btn.disabled = true;
   try {
     const details = `من: ${from} ← إلى: ${to}`;
-    const newRef  = push(ref(_db, `tenants/${tenantId}/recvRequests`));
-    const userReqRefPath = `tenants/${tenantId}/recvRequests/${newRef.key}`;
-    await set(newRef, {
-      phone, details, ts:serverTimestamp(), addedBy:'مستخدم عام 🌐', fromUser:true,
-      userFrom:from, userTo:to, userReqRef:userReqRefPath,
+    const reqRef  = await push(ref(_db, `tenants/${tenantId}/recvRequests`), {
+      phone, details, ts:Date.now(), addedBy:'مستخدم عام 🌐', fromUser:true,
+      userFrom:from, userTo:to, userReqRef:null,
       ...(window._gpsOk && window._userGpsLat ? { userLat:window._userGpsLat, userLng:window._userGpsLng, hasGps:true } : { hasGps:false }),
     });
-    _userReqId = newRef.key; _userReqTenantId = tenantId;
+    const userReqRefPath = `tenants/${tenantId}/recvRequests/${reqRef.key}`;
+    await update(reqRef, { userReqRef: userReqRefPath });
+    _userReqId = reqRef.key; _userReqTenantId = tenantId;
     CM('MuserReq');
     localStorage.setItem('txLastReq', String(Date.now()));
     openTrackScreen(phone, details, $('userReqOfficeName').textContent);
-    listenUserReqStatus(tenantId, newRef.key);
+    listenUserReqStatus(tenantId, reqRef.key);
   } catch(err) { shAl('al-userreq','err','خطأ: '+(err.message||'')); }
   btn.innerHTML = orig; btn.disabled = false;
 };
@@ -2500,7 +2409,7 @@ window.userCancelReq = async () => {
   if (!confirm('هل تريد إلغاء الطلب؟')) return;
   try {
     await update(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`), { status:'cancelled', cancelledAt:Date.now(), cancelledBy:'user' });
-    await push(ref(_db,  `tenants/${_userReqTenantId}/notifications`), { type:'cancel', msg:`🚫 مستخدم ألغى الطلب: ${$('trackPhone').textContent}`, ts:serverTimestamp(), read:false });
+    await push(ref(_db,  `tenants/${_userReqTenantId}/notifications`), { type:'cancel', msg:`🚫 مستخدم ألغى الطلب: ${$('trackPhone').textContent}`, ts:Date.now(), read:false });
     $('UserTrackScreen').classList.remove('on'); toast('info','تم إلغاء الطلب','');
     if (_pubReqListener) { try { off(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`)); } catch(e) {} _pubReqListener = null; }
     _userReqId = null; _userReqTenantId = null;
@@ -2532,7 +2441,7 @@ window.confirmTaxiArrived = async () => {
             const lSnap = await get(lRef).catch(() => null);
             const prev  = lSnap && lSnap.exists() ? lSnap.val() : { deliveries:0 };
             await set(lRef, { ...prev, deliveries:(prev.deliveries||0)+1, lastUpdate:Date.now() }).catch(() => {});
-            await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'done', driverId:drvId, driverName:drvData.name||drvId, msg:`📦 تأكد المستخدم وصول التكسي — ${drvData.name||drvId} — إجمالي: ${newCount}`, ts:serverTimestamp(), read:false }).catch(() => {});
+            await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'done', driverId:drvId, driverName:drvData.name||drvId, msg:`📦 تأكد المستخدم وصول التكسي — ${drvData.name||drvId} — إجمالي: ${newCount}`, ts:Date.now(), read:false }).catch(() => {});
             break;
           }
         }
@@ -2552,8 +2461,9 @@ window.submitRating = async () => {
   if (_userRating === 0) return toast('warn','يرجى اختيار تقييم','');
   const comment = ($('ratingComment').value||'').trim();
   if (_userReqTenantId) {
-await push(ref(_db, `tenants/${_userReqTenantId}/ratings`), { stars:_userRating, comment, reqId:_userReqId, phone:$('trackPhone').textContent, ts:serverTimestamp() }).catch(() => {});
-    await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'rating', msg:`⭐ تقييم جديد: ${'⭐'.repeat(_userRating)} — ${comment||'بدون تعليق'}`, ts:serverTimestamp(), read:false }).catch(() => {});  }
+    await push(ref(_db, `tenants/${_userReqTenantId}/ratings`), { stars:_userRating, comment, reqId:_userReqId, phone:$('trackPhone').textContent, ts:Date.now() }).catch(() => {});
+    await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'rating', msg:`⭐ تقييم جديد: ${'⭐'.repeat(_userRating)} — ${comment||'بدون تعليق'}`, ts:Date.now(), read:false }).catch(() => {});
+  }
   toast('ok','✅ شكراً على تقييمك!','');
   closeTrackScreen();
   if (_pubMap) setTimeout(() => loadPublicOffices(), 1000);
@@ -2587,7 +2497,7 @@ const initRecvDash = () => {
       ${t.badge ? `<span class="ntab-badge" id="recv-req-badge" style="display:none">0</span>` : ''}
     </button>`
   ).join('');
-const mobNav = $('mobileNav'), mobTabs = $('mobTabs');
+  const mobNav = $('mobileNav'), mobTabs = $('mobTabs');
   if (mobNav && mobTabs) {
     mobNav.style.display = 'block';
     mobTabs.innerHTML = recvCfg.map((t,i) =>
@@ -2596,7 +2506,6 @@ const mobNav = $('mobileNav'), mobTabs = $('mobTabs');
         <i class="${t.icon}"></i><span class="mob-label">${t.label}</span>
       </button>`
     ).join('');
-    mobTabs.innerHTML += `<button class="mob-tab mob-logout" onclick="logoutRecv()" style="color:var(--red)"><i class="fas fa-right-from-bracket"></i><span class="mob-label">خروج</span></button>`;
   }
   loadRecvDrivers(); listenRecvNewReqs(); recvTab('requests');
 };
@@ -2605,18 +2514,18 @@ const loadRecvDrivers = () => {
   recvAllDrvs = {};
   const r = tRef('drivers');
   onValue(r, snap => { recvAllDrvs = {}; if (snap.exists()) Object.entries(snap.val()).forEach(([id,d]) => { const {avatar,...dn} = d; recvAllDrvs[id] = dn; }); });
-  LSNRS.push({ r, keep: true });
+  LSNRS.push({ r });
 };
 
 const listenRecvNewReqs = () => {
   let lastCount = null;
   const r = tRef('recvRequests');
   onValue(r, snap => {
-    const count = snap.exists() ? Object.values(snap.val()).filter(d => d.driverStatus !== 'done').length : 0;
+    const count = snap.exists() ? Object.keys(snap.val()).length : 0;
     if (lastCount !== null && count > lastCount) { playSound('notif'); vibrate([200,100,200]); toast('info','📥 طلب جديد وارد!',''); }
     lastCount = count;
-    ['recv-req-badge','mob-recv-badge'].forEach(bid => { const b = $(bid); if (b) { b.style.background = 'var(--green)'; b.textContent = count>0?count:''; b.style.display = count>0?'inline':'none'; } });
-  }); LSNRS.push({ r, keep: true });
+    ['recv-req-badge','mob-recv-badge'].forEach(bid => { const b = $(bid); if (b) { b.textContent = count>0?count:''; b.style.display = count>0?'inline':'none'; } });
+  }); LSNRS.push({ r });
 };
 
 window.recvTab = t => {
@@ -2624,8 +2533,9 @@ window.recvTab = t => {
   const el = $('rnt-'+t); if (el) el.classList.add('sup-on');
   document.querySelectorAll('#mobTabs .mob-tab').forEach(b => b.classList.remove('on','sup-on'));
   const mel = $('rmnt-'+t); if (mel) mel.classList.add('sup-on');
-  clrListeners(true);
-  if (window._recvMap) { try { window._recvMap.remove(); } catch(e) {} window._recvMap = null; }  const body = $('recv-dbody');
+  clrListeners(false);
+  if (window._recvMap) { try { window._recvMap.remove(); } catch(e) {} window._recvMap = null; }
+  const body = $('recv-dbody');
   if      (t==='requests') renderRecvRequests(body);
   else if (t==='map')      renderRecvMap(body);
   else if (t==='add')      renderRecvAdd(body);
@@ -2646,25 +2556,19 @@ const renderRecvRequests = body => {
     if (!snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text4)"><i class="fas fa-inbox" style="font-size:40px;opacity:.2;display:block;margin-bottom:12px"></i><p style="font-size:13px">لا توجد طلبات حالياً</p></div>`; return; }
     const items = Object.entries(snap.val()).sort((a,b) => (b[1].ts||0)-(a[1].ts||0));
     list.innerHTML = items.map(([id,d]) => {
-      const isDone = d.driverStatus === 'done';
       const userBadge = d.fromUser ? `<span style="background:#ECFDF5;color:#059669;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #A7F3D0;margin-right:4px">🌐 مستخدم</span>` : '';
-      return `<div class="recv-req-card" style="${isDone?'opacity:.7;background:var(--green-l);border-color:var(--green-m)':''}">
+      return `<div class="recv-req-card">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:15px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px;${isDone?'text-decoration:line-through':''}"><i class="fas fa-phone" style="color:var(--primary);font-size:12px"></i>${esc(d.phone||'-')}${userBadge}</div>
+          <div style="font-size:15px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px"><i class="fas fa-phone" style="color:var(--primary);font-size:12px"></i>${esc(d.phone||'-')}${userBadge}</div>
           <span style="font-size:10px;color:var(--text4)">${fmt(d.ts||Date.now())}</span>
         </div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;display:flex;align-items:flex-start;gap:6px;${isDone?'text-decoration:line-through':''}"><i class="fas fa-map-marker-alt" style="color:var(--amber);margin-top:3px;flex-shrink:0"></i>${esc(d.details||'-')}</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;display:flex;align-items:flex-start;gap:6px"><i class="fas fa-map-marker-alt" style="color:var(--amber);margin-top:3px;flex-shrink:0"></i>${esc(d.details||'-')}</div>
         ${d.addedBy?`<div style="font-size:10px;color:var(--text4);margin-bottom:8px"><i class="fas fa-user" style="margin-left:3px"></i>${esc(d.addedBy)}</div>`:''}
-        ${isDone ? `
-        <div style="background:var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px"><i class="fas fa-check-circle"></i> تم التوصيل بنجاح ✅</div>
-        <div style="display:flex;gap:7px"><button class="rca rca-red" onclick="recvDelReq('${id}')"><i class="fas fa-trash"></i></button></div>
-        ` : `
         <div style="display:flex;gap:7px;flex-wrap:wrap">
           <button class="rca rca-primary" onclick="recvSendReqToTaxi('${id}','${eAt(d.phone||'')}','${eAt(d.details||'')}')"><i class="fas fa-car-side"></i> إرسال لسائق</button>
           <button class="rca rca-amber"   onclick="recvEditReq('${id}','${eAt(d.phone||'')}','${eAt(d.details||'')}')"><i class="fas fa-pen"></i></button>
           <button class="rca rca-red"     onclick="recvDelReq('${id}')"><i class="fas fa-trash"></i></button>
         </div>
-        `}
       </div>`;
     }).join('');
   }); LSNRS.push({ r });
@@ -2673,12 +2577,8 @@ const renderRecvRequests = body => {
 window.recvSendReqToTaxi = (reqId, phone, details) => {
   selTaxiId = null; selReqData = { id:reqId, phone:phone.replace(/&#39;/g,"'"), details:details.replace(/&#39;/g,"'"), recvReqId:reqId };
   const list  = $('sel-taxi-list');
-  const avail = Object.entries(recvAllDrvs).filter(([,d]) => getTCS(d).monCls === 'st-online');
-  if (!avail.length) {
-    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)"><i class="fas fa-circle-exclamation" style="font-size:26px;color:var(--amber);display:block;margin-bottom:8px"></i>لا يوجد سائقون متاحين حالياً<br><span style="font-size:11px;color:var(--text4)">يجب أن يكون السائق ضاغط "بدء الشيفت" 🟢</span></div>';
-    $('SelTaxiModal').classList.add('on'); $('confirmSelBtn').style.display = 'none'; return;
-  }
-  $('confirmSelBtn').style.display = '';
+  const avail = Object.entries(recvAllDrvs).sort(([,a],[,b]) => { const ao=getTCS(a).monCls==='st-online'?0:1, bo=getTCS(b).monCls==='st-online'?0:1; return ao-bo; });
+  if (!avail.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد سائقون</div>'; $('SelTaxiModal').classList.add('on'); return; }
   list.innerHTML = avail.map(([id,d]) => {
     const cs = getTCS(d);
     return `<div class="sel-taxi-item" id="stitem-${id}" onclick="selectTaxi('${id}')">
@@ -2722,12 +2622,8 @@ const renderRecvMap = body => {
           if (!d.lat || !d.lng) return;
           const cs = getTCS(d);
           const ic = L.divIcon({ html:`<div class="drv-marker-wrap"><div class="drv-marker" style="border-color:${cs.border}">🚕</div><div class="drv-marker-name">${d.name}</div></div>`, className:'', iconSize:[50,50], iconAnchor:[25,50] });
-          const sendBtnHtml = cs.monCls === 'st-online'
-            ? `<button onclick="recvSendToDriver('${id}','${(d.name||'').replace(/'/g,'')}')" style="margin-top:6px;padding:6px 12px;background:var(--primary);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif"><i class="fas fa-paper-plane"></i> إرسال طلب</button>`
-            : `<div style="margin-top:6px;font-size:10px;color:var(--text4)">⏸️ غير متاح لاستقبال طلبات</div>`;
-          const popHtml = `<div style="font-family:Cairo,sans-serif;text-align:center"><b>${d.name}</b><br><span style="color:${cs.dot}">${cs.label}</span><br>${sendBtnHtml}</div>`;
-          if (window._recvMarkers[id]) { window._recvMarkers[id].setLatLng([d.lat,d.lng]); window._recvMarkers[id].setIcon(ic); window._recvMarkers[id].setPopupContent(popHtml); }
-          else { window._recvMarkers[id] = L.marker([d.lat,d.lng],{icon:ic}).addTo(window._recvMap).bindPopup(popHtml); }
+          if (window._recvMarkers[id]) { window._recvMarkers[id].setLatLng([d.lat,d.lng]); window._recvMarkers[id].setIcon(ic); }
+          else { window._recvMarkers[id] = L.marker([d.lat,d.lng],{icon:ic}).addTo(window._recvMap).bindPopup(`<div style="font-family:Cairo,sans-serif;text-align:center"><b>${d.name}</b><br><span style="color:${cs.dot}">${cs.label}</span><br><button onclick="recvSendToDriver('${id}','${(d.name||'').replace(/'/g,'')}')"><i class='fas fa-paper-plane'></i> إرسال طلب</button></div>`); }
         });
       };
       refresh();
@@ -2738,18 +2634,12 @@ const renderRecvMap = body => {
   }));
 };
 window.recvSendToDriver = async (drvId, drvName) => {
-  const drvCheckSnap = await get(tRef(`drivers/${drvId}`)).catch(() => null);
-  if (!drvCheckSnap || !drvCheckSnap.exists() || getTCS(drvCheckSnap.val()).monCls !== 'st-online') {
-    toast('err', '❌ السائق غير متاح الآن', 'لا يمكن إرسال طلب لسائق غير متاح');
-    if (window._recvMap) window._recvMap.closePopup();
-    return;
-  }
   const phone   = prompt('📞 رقم هاتف الزبون:','');   if (!phone?.trim())   return;
   const details = prompt('📍 التفاصيل والموقع:',''); if (!details?.trim()) return;
   try {
     const ts = Date.now();
-    const recvRef = await push(tRef('recvRequests'), { phone:phone.trim(), details:details.trim(), ts: serverTimestamp(), addedBy:CU?CU.name:'المستقبل', assignedTo:drvId });
-    await push(tRef(`driverRequests/${drvId}`), { phone:phone.trim(), details:details.trim(), status:'pending', ts, sentBy:CU?CU.name:'المستقبل', sentAt:ts, recvReqId:recvRef.key });
+    await push(tRef('recvRequests'), { phone:phone.trim(), details:details.trim(), ts, addedBy:CU?CU.name:'المستقبل', assignedTo:drvId });
+    await push(tRef(`driverRequests/${drvId}`), { phone:phone.trim(), details:details.trim(), status:'pending', ts, sentBy:CU?CU.name:'المستقبل', sentAt:ts });
     await push(tRef(`driverPushNotifs/${drvId}`), { title:'📦 طلب جديد', body:`📞 ${phone.trim()}\n📍 ${details.trim()}`, type:'new_request', ts, read:false });
     toast('ok', `✅ تم الإرسال لـ ${drvName}`, ''); playSound('notif');
     if (window._recvMap) window._recvMap.closePopup();
@@ -2771,7 +2661,7 @@ window.addRecvReq = async () => {
   const phone   = ($('recv-phone').value   || '').trim();
   const details = ($('recv-details').value || '').trim();
   if (!phone || !details) return shAl('al-recv-add','err','يرجى ملء جميع الحقول');
-await push(tRef('recvRequests'), { phone, details, ts:serverTimestamp(), addedBy:CU?CU.name:'المستقبل' });
+  await push(tRef('recvRequests'), { phone, details, ts:Date.now(), addedBy:CU?CU.name:'المستقبل' });
   $('recv-phone').value = ''; $('recv-details').value = '';
   shAl('al-recv-add','ok','✅ تم إضافة الطلب'); playSound('notif');
   setTimeout(() => recvTab('requests'), 1200);
@@ -2804,8 +2694,8 @@ const renderRecvHistory = body => {
    LOGOUT
    ══════════════════════════════════════════════════ */
 window.logout = async () => {
-  if (!confirm('هل تريد تسجيل الخروج؟' + (CR === 'driver' ? '\nسيتم إيقاف تتبع موقعك.' : ''))) return;
   stopGPS();
+  releaseWakeLock();
   if (reqCountdownTimer) { clearInterval(reqCountdownTimer); reqCountdownTimer = null; }
   if (monitorInterval)   { clearInterval(monitorInterval);   monitorInterval   = null; }
   stopDriverListener();
@@ -2816,10 +2706,10 @@ window.logout = async () => {
   /* تسجيل خروج من Firebase Auth */
   await signOut(_auth).catch(() => {});
   clrListeners(false);
-CU = null; CR = null; shiftStartTime = null; allDrvs = {}; IS_RECV = false;
+  CU = null; CR = null; shiftStartTime = null; allDrvs = {}; IS_RECV = false;
   TENANT_ID = ''; TENANT_INFO = null;
-  clearSession();
-  $('PD').style.display = 'none'; $('PR').style.display = 'none'; $('PL').style.display = 'none';  $('PTenantGate').style.display = 'block';
+  $('PD').style.display = 'none'; $('PR').style.display = 'none'; $('PL').style.display = 'none';
+  $('PTenantGate').style.display = 'block';
   $('ntabs').innerHTML = '';
   const navav = $('navav'); if (navav) { navav.textContent = '🚕'; navav.classList.remove('sup-av'); }
   const monBtn = $('monitorBtn'); if (monBtn) monBtn.remove();
@@ -2832,7 +2722,6 @@ window.logoutRecv = async () => {
   await signOut(_auth).catch(() => {});
   CU = null; CR = null; IS_RECV = false; recvAllDrvs = {};
   TENANT_ID = ''; TENANT_INFO = null;
-  clearSession();
   if (window._recvMap) { try { window._recvMap.remove(); } catch(e) {} window._recvMap = null; }
   $('PR').style.display  = 'none'; $('PL').style.display = 'none';
   $('PTenantGate').style.display = 'block';
