@@ -20,7 +20,13 @@
 <meta property="og:type" content="website">
 
 <!-- تحسين مظهر الموقع على الهاتف -->
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#0F172A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="منصة الركاب">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
 
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -401,57 +407,12 @@ html, body {
         <div class="gate-title">منصة الركاب</div>
         <div class="gate-subtitle">طولكرم — نظام إدارة مكاتب التكسي</div>
       </div>
-      <div class="gate-card">
-        <div id="tg-role-screen">
-          <div style="text-align:center;margin-bottom:24px">
-            <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:4px">اختر طريقة دخولك</div>
-            <div style="font-size:12px;color:rgba(255,255,255,.5)">أدخل رمز مكتبك أولاً</div>
-          </div>
-          <div style="margin-bottom:20px">
-            <label class="gate-label"><i class="fas fa-building"></i> رمز المكتب</label>
-            <div class="gate-input-group">
-              <input id="gate-office-code" type="text" maxlength="6" placeholder="TLK001" class="gate-input"
-                oninput="this.value=this.value.toLowerCase().trim();gateClearErr()"
-                onkeydown="if(event.key==='Enter')gateCheckCode()">
-              <button onclick="gateCheckCode()" id="gate-check-btn">
-                <i class="fas fa-check"></i> تحقق
-              </button>
-            </div>
-            <div id="gate-verified" style="display:none">
-              <div>🏢</div>
-              <div>
-                <div id="gate-office-name-label">مكتب التكسي</div>
-                <div style="font-size:11px;color:rgba(52,211,153,.7);margin-top:1px">✅ تم التحقق — اختر طريقة دخولك</div>
-              </div>
-              <i class="fas fa-check-circle" style="color:#34D399;font-size:18px;flex-shrink:0"></i>
-            </div>
-            <div id="gate-err"></div>
-          </div>
-          <div id="gate-btns">
-            <button onclick="gateEnter('driver')">
-              <div>🚕</div>
-              <div><div>دخول كسائق</div><div>استقبال الطلبات وتتبع الشيفت</div></div>
-            </button>
-            <button onclick="gateEnter('receiver')">
-              <div>📥</div>
-              <div><div>دخول كمستقبل</div><div>استقبال الطلبات وإرسالها</div></div>
-            </button>
-            <button onclick="gateEnter('supervisor')">
-              <div>👨‍💼</div>
-              <div><div>دخول كمشرف</div><div>إدارة الطلبات والسائقين</div></div>
-            </button>
-            <button onclick="gateReset()" style="justify-content:center;gap:6px">
-              <i class="fas fa-arrow-right"></i> تغيير رمز المكتب
-            </button>
-          </div>
-          <div class="gate-divider"></div>
-          <button class="gate-public-btn" onclick="openPubPageDirect()">
-            <i class="fas fa-map-location-dot"></i> اطلب تكسي — خريطة المكاتب
-          </button>
-          <div style="text-align:center;font-size:11px;color:rgba(255,255,255,.3);margin-top:12px">لا تحتاج حساباً • للمستخدمين العامة</div>
-        </div>
+      <div class="gate-card" style="text-align:center">
+        <div style="font-size:48px;margin-bottom:16px">👈</div>
+        <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:8px">استخدم زر الدخول</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:20px">اضغط على السهم في يسار الشاشة</div>
       </div>
-      <div class="gate-footer">منصة التكسي © 2026 — طولكرم</div>
+            <div class="gate-footer">منصة التكسي © 2026 — طولكرم</div>
     </div>
   </div>
 </div>
@@ -515,10 +476,7 @@ html, body {
       <i class="fas fa-arrow-right"></i> رجوع
     </button>
   </nav>
-  <div class="pub-info-bar">
-    <i class="fas fa-info-circle"></i>
-    اضغط على مكتب التكسي على الخريطة لإرسال طلبك مباشرةً
-  </div>
+
   <div style="flex:1;position:relative;min-height:0">
     <div id="publicMap" style="width:100%;height:calc(100vh - 58px - 40px)"></div>
     <div style="position:absolute;bottom:16px;right:16px;z-index:400;background:rgba(255,255,255,.95);border:1px solid #E2E8F0;border-radius:12px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:11px;box-shadow:0 4px 14px rgba(0,0,0,.1)">
@@ -528,95 +486,78 @@ html, body {
   </div>
 </div>
 
-<!-- ════════ USER VERIFY SCREEN (روبوت + GPS) ════════ -->
+<!-- ════════ USER VERIFY SCREEN (3 خطوات) ════════ -->
 <div class="user-verify-screen" id="UserVerifyScreen">
   <div class="verify-card">
-
-    <!-- الخطوة 1: نظام تحقق خاص — Honeypot + Proof of Work + تحدي سحب تفاعلي -->
-    <div class="verify-step on" id="vstep1">
-      <div class="verify-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🛡️</div>
-      <div class="verify-title">تحقق الأمان</div>
-      <div class="verify-sub">
-        فقط للتأكد أنك مستخدم حقيقي وليس برنامجاً تلقائياً
-      </div>
-
-      <!-- Honeypot: حقل مخفي تماماً عن البشر، لا تلمسه إلا البرامج الآلية التي تملأ كل الحقول -->
-      <div style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
-        <label for="hp-website">اتركه فارغاً</label>
-        <input type="text" id="hp-website" name="website" tabindex="-1" autocomplete="off">
-      </div>
-
-      <!-- مرحلة أ: تحدٍّ حسابي (Proof of Work) يستهلك وقت معالج حقيقي -->
-      <div id="pow-stage">
-        <div class="pow-box">
-          <div id="pow-icon" style="font-size:32px;margin-bottom:6px;animation:powPulse 1.2s ease infinite">⚙️</div>
-          <div id="pow-status" style="font-size:13px;font-weight:800;color:#0EA5E9">جارٍ فحص جهازك...</div>
-          <div class="pow-bar-track"><div class="pow-bar-fill" id="pow-bar"></div></div>
-        </div>
-      </div>
-
-      <!-- مرحلة ب: تحدي سحب تفاعلي (يحتاج حركة فأر/لمس فعلية ومتدرجة بالزمن) -->
-      <div id="drag-stage" style="display:none">
-        <div class="verify-sub" style="margin-bottom:8px">اسحب 🚕 حتى نهاية الخط</div>
-        <div class="drag-track" id="drag-track">
-          <div class="drag-fill" id="drag-fill"></div>
-          <div class="drag-hint">اسحب من اليسار لليمين →</div>
-          <div class="drag-handle" id="drag-handle">🚕</div>
-        </div>
-      </div>
-
-      <div id="hc-err" style="color:#FCA5A5;font-size:12px;font-weight:700;text-align:center;min-height:16px"></div>
-
-      <button class="verify-btn-wa" id="v-human-next-btn" onclick="goToGpsStep()" disabled
-        style="background:linear-gradient(135deg,#0EA5E9,#0284C7);box-shadow:0 8px 20px rgba(14,165,233,.3)">
-        <i class="fas fa-arrow-left"></i> متابعة
-      </button>
+    <div style="display:flex;gap:4px;margin-bottom:20px">
+      <div id="vp1" style="flex:1;height:3px;border-radius:2px;background:#0EA5E9;transition:.3s"></div>
+      <div id="vp2" style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.15);transition:.3s"></div>
+      <div id="vp3" style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.15);transition:.3s"></div>
+    </div>
+    <div id="vStepLabel" style="font-size:11px;color:rgba(255,255,255,.5);font-family:Cairo,sans-serif;text-align:center;margin-bottom:16px">إدخال رقم الهاتف</div>
+    <div id="vErr" style="display:none;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;color:#F87171;font-size:13px;font-family:Cairo,sans-serif"></div>
+    <!-- الخطوة 1: رقم الهاتف -->
+    <div class="verify-step on" id="vStep1" style="display:flex">
+      <div class="verify-icon" style="background:linear-gradient(135deg,#0EA5E9,#0284C7)">📞</div>
+      <div class="verify-title">أدخل رقم هاتفك</div>
+      <div class="verify-sub">سيتم التحقق بسؤال بسيط</div>
+      <input id="v-phone" type="tel" placeholder="05xxxxxxxx" dir="ltr"
+        style="width:100%;padding:13px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:15px;font-family:Cairo,sans-serif;outline:none;text-align:center;box-sizing:border-box"
+        onkeydown="if(event.key==='Enter')window.vGoStep2&&window.vGoStep2()">
+      <button class="verify-btn-wa" onclick="window.vGoStep2&&window.vGoStep2()"
+        style="background:linear-gradient(135deg,#0EA5E9,#0284C7);box-shadow:0 8px 20px rgba(14,165,233,.3)">متابعة ←</button>
       <button onclick="document.getElementById('UserVerifyScreen').classList.remove('on')"
-        style="background:none;border:none;color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif;text-align:center;padding:4px">
-        إلغاء
-      </button>
+        style="background:none;border:none;color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;font-family:Cairo,sans-serif;text-align:center">إلغاء</button>
     </div>
-
-    <!-- الخطوة 2: GPS — إلزامية -->
-    <div class="verify-step" id="vstep3">
-      <div class="verify-icon" style="background:linear-gradient(135deg,#0EA5E9,#0284C7)">📍</div>
-      <div class="verify-title">تفعيل موقعك الجغرافي</div>
-      <div class="verify-sub">
-        موقعك مطلوب لإرسال التاكسي إليك بدقة<br>
-        <span style="color:rgba(239,68,68,.8);font-size:11px;font-weight:700">⚠️ لا يمكن إرسال الطلب بدون تفعيل الموقع</span>
-      </div>
-      <div style="background:rgba(14,165,233,.1);border:1.5px solid rgba(14,165,233,.3);border-radius:14px;padding:16px;text-align:center">
-        <div style="font-size:38px;margin-bottom:8px">🛰️</div>
-        <div id="gps-status-title" style="font-size:13px;font-weight:800;color:#0EA5E9;margin-bottom:4px">في انتظار إذن الموقع...</div>
-        <div id="gps-status-sub" style="font-size:11px;color:rgba(255,255,255,.4)">اضغط الزر أدناه وامنح الإذن</div>
-      </div>
-      <button class="verify-btn-wa" id="v-gps-btn" onclick="askGps()"
+    <!-- الخطوة 2: سؤال رياضي -->
+    <div class="verify-step" id="vStep2" style="display:none">
+      <div class="verify-icon" style="background:linear-gradient(135deg,#8B5CF6,#6D28D9)">🤖</div>
+      <div class="verify-title">تأكيد: لست روبوت</div>
+      <div class="verify-sub">أجب على السؤال التالي</div>
+      <div id="vMathQ" style="text-align:center;font-size:30px;font-weight:900;color:#0EA5E9;font-family:Tajawal,sans-serif;padding:16px;background:rgba(14,165,233,.1);border-radius:12px"></div>
+      <input id="v-math-ans" type="number" placeholder="الجواب" dir="ltr"
+        style="width:100%;padding:13px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:20px;font-family:Cairo,sans-serif;outline:none;text-align:center;box-sizing:border-box"
+        onkeydown="if(event.key==='Enter')window.vCheckMath&&window.vCheckMath()">
+      <button class="verify-btn-wa" onclick="window.vCheckMath&&window.vCheckMath()"
         style="background:linear-gradient(135deg,#0EA5E9,#0284C7);box-shadow:0 8px 20px rgba(14,165,233,.3)">
-        <i class="fas fa-map-location-dot"></i> تفعيل الموقع الجغرافي
-      </button>
-      <div id="gps-denied-box" style="display:none;background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.3);border-radius:12px;padding:14px;text-align:center">
-        <div style="font-size:13px;font-weight:800;color:#FCA5A5;margin-bottom:6px">❌ تم رفض إذن الموقع</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.7">
-          يجب السماح بالموقع الجغرافي لإرسال الطلب<br>
-          افتح إعدادات المتصفح وامنح الإذن ثم أعد المحاولة
-        </div>
-        <button onclick="askGps()" style="margin-top:10px;padding:8px 16px;background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);border-radius:8px;color:#FCA5A5;font-size:12px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif">
-          <i class="fas fa-redo"></i> حاول مرة أخرى
-        </button>
-      </div>
-      <div style="display:flex;justify-content:space-between;gap:8px">
-        <button onclick="showVStep(1)" style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
-          <i class="fas fa-arrow-right"></i> رجوع
-        </button>
-        <button onclick="document.getElementById('UserVerifyScreen').classList.remove('on')"
-          style="background:none;border:none;color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif">
-          إلغاء
-        </button>
-      </div>
+        <i class="fas fa-check"></i> تحقق</button>
+      <button onclick="window.showVStep&&window.showVStep(1)"
+        style="background:none;border:none;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;font-family:Cairo,sans-serif;text-align:center">← رجوع</button>
     </div>
-
+    <!-- الخطوة 3: تفاصيل الطلب -->
+    <div class="verify-step" id="vStep3" style="display:none">
+      <div class="verify-icon" style="background:linear-gradient(135deg,#D97706,#B45309)">🚕</div>
+      <div class="verify-title">تفاصيل الطلب</div>
+      <div id="vOfficeName" style="font-size:12px;color:#0EA5E9;font-family:Cairo,sans-serif;text-align:center;margin-bottom:14px"></div>
+      <input type="hidden" id="ur-office-tenant">
+      <div style="margin-bottom:10px">
+        <label style="display:block;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;margin-bottom:5px;font-family:Cairo,sans-serif">📞 رقم هاتفك <span style="color:#10B981;font-size:10px">(مُعبّأ تلقائياً — يمكنك التعديل)</span></label>
+        <input id="ur-phone" type="tel" dir="ltr" placeholder="05xxxxxxxx" style="width:100%;padding:11px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:14px;font-family:Cairo,sans-serif;outline:none;text-align:center;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;margin-bottom:5px;font-family:Cairo,sans-serif">📍 من أين؟</label>
+        <input id="ur-from" type="text" placeholder="موقعك الحالي..." dir="rtl" style="width:100%;padding:11px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:13px;font-family:Cairo,sans-serif;outline:none;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="display:block;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;margin-bottom:5px;font-family:Cairo,sans-serif">🏁 إلى أين؟</label>
+        <input id="ur-to" type="text" placeholder="وجهتك..." dir="rtl" style="width:100%;padding:11px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:13px;font-family:Cairo,sans-serif;outline:none;box-sizing:border-box">
+      </div>
+      <div id="vGpsStatus" style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,255,255,.05);border-radius:10px;margin-bottom:14px">
+        <div id="vGpsDot" style="width:10px;height:10px;border-radius:50%;background:#64748B;flex-shrink:0"></div>
+        <div id="vGpsTxt" style="font-size:12px;color:rgba(255,255,255,.6);font-family:Cairo,sans-serif;flex:1">جاري تحديد موقعك...</div>
+        <button id="vGpsBtn" onclick="window.vRequestGPS&&window.vRequestGPS()" style="display:none;padding:5px 10px;background:#0EA5E9;border:none;border-radius:7px;color:#fff;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">تفعيل</button>
+      </div>
+      <div id="al-userreq" class="al"></div>
+      <div id="userReqOfficeName" style="display:none"></div>
+      <button onclick="window.showVStep&&window.showVStep(1)" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;font-family:Cairo,sans-serif;text-align:center;margin-bottom:4px">← تغيير رقم الهاتف</button>
+      <button class="verify-btn-wa" onclick="window.submitUserReq&&window.submitUserReq()"
+        style="background:linear-gradient(135deg,#D97706,#B45309);box-shadow:0 8px 20px rgba(217,119,6,.3);font-size:15px">
+        <i class="fas fa-taxi"></i> إرسال الطلب</button>
+    </div>
   </div>
 </div>
+
+
 
 <!-- ════════ USER REQUEST MODAL ════════ -->
 <div class="ov" id="MuserReq" style="z-index:6000">
@@ -927,7 +868,7 @@ html, body {
   <nav class="dnav">
     <div class="logo"><div class="lgic">🚕</div><div><div class="lgn1">منصة الطلبات</div><div class="lgn2">منصة التكسي</div></div></div>
     <div class="ntabs" id="ntabs"></div>
-    <div class="navr" id="navr"><div id="navav" class="navav">🚕</div><button class="bout" onclick="logout()"><i class="fas fa-right-from-bracket"></i> خروج</button></div>
+    <div class="navr" id="navr"><div id="navav" class="navav">🚕</div><button class="bout" onclick="window.logout&&window.logout()"><i class="fas fa-right-from-bracket"></i> خروج</button></div>
   </nav>
   <div class="dbody" id="dbody"></div>
 </div>
@@ -937,7 +878,7 @@ html, body {
   <nav class="dnav">
     <div class="logo"><div class="lgic">🚕</div><div><div class="lgn1">منصة الطلبات</div><div class="lgn2">منصة التكسي</div></div></div>
     <div class="ntabs" id="recv-ntabs"></div>
-    <div class="navr" id="recv-navr"><div id="recv-navav" class="navav sup-av">📥</div><button class="bout" onclick="logoutRecv()"><i class="fas fa-right-from-bracket"></i> خروج</button></div>
+    <div class="navr" id="recv-navr"><div id="recv-navav" class="navav sup-av">📥</div><button class="bout" onclick="window.logoutRecv&&window.logoutRecv()"><i class="fas fa-right-from-bracket"></i> خروج</button></div>
   </nav>
   <div class="dbody" id="recv-dbody"></div>
 </div>
@@ -985,10 +926,12 @@ window.toggleSupPw = function() {
   else { inp.type = 'password'; ico.className = 'fas fa-eye'; }
 };
 
-/* ══ فتح الخريطة مباشرة من Gate ══ */
+/* ══ فتح الخريطة مباشرة ══ */
 window.openPubPageDirect = function() {
+  if (typeof window.initTenantGate === 'function') { window.initTenantGate(); return; }
   document.getElementById('PTenantGate').style.display = 'none';
-  document.getElementById('PL').style.display = 'block';
+  var pu = document.getElementById('PU');
+  if (pu) { pu.style.display = 'flex'; pu.style.flexDirection = 'column'; }
   var tries = 0;
   var interval = setInterval(function() {
     tries++;
@@ -1007,215 +950,124 @@ window.setRating = window.setRating || function(n) {
 };
 
 /* ══════════════════════════════════════════════════
-   نظام التحقق الحقيقي: Google reCAPTCHA v2 + GPS
-   (تم حذف التحقق عبر واتساب بالكامل)
+   نظام التحقق: سؤال رياضي بسيط + GPS اختياري
    ══════════════════════════════════════════════════ */
-var _humanVerified = false;
-var _recaptchaToken = '';
 var _userGpsLat = null, _userGpsLng = null, _gpsOk = false;
 var _pendingTenant = '', _pendingName = '', _pendingDesc = '';
-var _rateLimitMs = 5 * 60 * 1000, _userLocMapObj = null;
+var _rateLimitMs = 5 * 60 * 1000;
+var _vMathAns = 0;
 
-/* ⚠️ ضع هنا رابط Web App بعد نشر سيرفر Apps Script (anonymized.example/exec) */
-var RECAPTCHA_VERIFY_URL = 'PASTE_APPS_SCRIPT_WEB_APP_URL_HERE';
-
-window.showVStep = function(n) {
-  [1, 3].forEach(function(i) {
-    var el = document.getElementById('vstep' + i);
-    if (el) el.classList.toggle('on', i === n);
+window.showVStep = function(step) {
+  ['vStep1','vStep2','vStep3'].forEach(function(id, i) {
+    var el = document.getElementById(id);
+    if (el) { el.classList.toggle('on', i+1 === step); el.style.display = i+1===step?'flex':'none'; }
   });
+  var labels = ['','إدخال رقم الهاتف','التحقق من الهوية','تفاصيل الطلب'];
+  var lbl = document.getElementById('vStepLabel'); if (lbl) lbl.textContent = labels[step]||'';
+  ['vp1','vp2','vp3'].forEach(function(id,i) {
+    var bar = document.getElementById(id); if (bar) bar.style.background = i<step?'#0EA5E9':'rgba(255,255,255,.15)';
+  });
+  var errEl = document.getElementById('vErr'); if (errEl) { errEl.style.display='none'; errEl.textContent=''; }
 };
 
-/* ── تُستدعى تلقائياً من Google عند نجاح ضغط المستخدم على الصندوق
-      (وأي تحدي صور تعرضه Google تلقائياً عند الاشتباه بسلوك المستخدم) ── */
-window.onRecaptchaSuccess = function(token) {
-  _recaptchaToken = token;
-  var err = document.getElementById('hc-err');
-  if (err) err.textContent = '';
-  verifyRecaptchaOnServer(token);
-};
-
-window.onRecaptchaExpired = function() {
-  _recaptchaToken = '';
-  _humanVerified  = false;
-  var nextBtn = document.getElementById('v-human-next-btn');
-  if (nextBtn) nextBtn.disabled = true;
-  var err = document.getElementById('hc-err');
-  if (err) err.textContent = '⏰ انتهت الصلاحية — أعد الضغط على الصندوق';
-};
-
-window.onRecaptchaError = function() {
-  var err = document.getElementById('hc-err');
-  if (err) err.textContent = '⚠️ تعذّر تحميل التحقق — تأكد من اتصالك بالإنترنت';
-};
-
-/* التحقق الحقيقي يتم هنا عبر السيرفر (وليس في المتصفح فقط) —
-   هذا ما يمنع تجاوزه بسطر JS من Developer Console */
-window.verifyRecaptchaOnServer = async function(token) {
-  var nextBtn = document.getElementById('v-human-next-btn');
-  var err = document.getElementById('hc-err');
-  if (nextBtn) {
-    nextBtn.disabled = true;
-    nextBtn.innerHTML = '<span style="width:16px;height:16px;display:inline-block;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite"></span> جاري التحقق...';
+window.vGoStep2 = function() {
+  var ph = (document.getElementById('v-phone')||{value:''}).value.trim();
+  if (!ph || !/^[0-9+]{7,15}$/.test(ph.replace(/\s/g,''))) {
+    var e = document.getElementById('vErr'); if(e){e.textContent='❌ أدخل رقم هاتف صحيح';e.style.display='block';} return;
   }
-  if (err) err.textContent = '';
-
-  try {
-    if (!RECAPTCHA_VERIFY_URL || RECAPTCHA_VERIFY_URL.indexOf('PASTE_') === 0) {
-      throw new Error('لم يتم ضبط رابط سيرفر التحقق بعد');
-    }
-    const resp = await fetch(RECAPTCHA_VERIFY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ token: token })
-    });
-    const result = await resp.json();
-
-    if (result && result.success) {
-      _humanVerified = true;
-      if (nextBtn) { nextBtn.disabled = false; nextBtn.innerHTML = '<i class="fas fa-arrow-left"></i> متابعة'; }
-    } else {
-      throw new Error('فشل التحقق — حاول مرة أخرى');
-    }
-  } catch (e) {
-    _humanVerified = false;
-    if (window.grecaptcha) { try { window.grecaptcha.reset(); } catch(_e) {} }
-    if (nextBtn) { nextBtn.disabled = true; nextBtn.innerHTML = '<i class="fas fa-arrow-left"></i> متابعة'; }
-    if (err) err.textContent = '❌ ' + (e.message || 'فشل التحقق');
-  }
+  window._userVerifiedPhone = ph;
+  var a = Math.floor(Math.random()*15)+5, b = Math.floor(Math.random()*9)+1;
+  var ops = [{s:'+',r:a+b},{s:'×',r:a*b},{s:'−',r:a>b?a-b:b-a}];
+  var op = ops[Math.floor(Math.random()*ops.length)];
+  _vMathAns = op.r;
+  var q = document.getElementById('vMathQ'); if (q) q.textContent = (a>b?a:b)+' '+op.s+' '+(a>b?b:a)+' = ?';
+  window.showVStep(2);
+  setTimeout(function(){ var ans=document.getElementById('v-math-ans'); if(ans)ans.focus(); },100);
 };
 
-window.resetVerifyScreen = function() {
-  _humanVerified  = false;
-  _recaptchaToken = '';
-  if (window.grecaptcha) { try { window.grecaptcha.reset(); } catch(e) {} }
-  var nextBtn = document.getElementById('v-human-next-btn');
-  var err = document.getElementById('hc-err');
-  if (nextBtn) { nextBtn.disabled = true; nextBtn.innerHTML = '<i class="fas fa-arrow-left"></i> متابعة'; }
-  if (err) err.textContent = '';
-  showVStep(1);
-};
-
-window.goToGpsStep = function() {
-  if (!_humanVerified) return;
-  var titleEl  = document.getElementById('gps-status-title');
-  var subEl    = document.getElementById('gps-status-sub');
-  var btnEl    = document.getElementById('v-gps-btn');
-  var deniedEl = document.getElementById('gps-denied-box');
-  if (titleEl)  titleEl.textContent  = 'في انتظار إذن الموقع...';
-  if (subEl)    subEl.textContent    = 'اضغط الزر أدناه';
-  if (btnEl)    { btnEl.innerHTML = '<i class="fas fa-map-location-dot"></i> تفعيل الموقع الجغرافي'; btnEl.disabled = false; btnEl.style.background = 'linear-gradient(135deg,#0EA5E9,#0284C7)'; }
-  if (deniedEl) deniedEl.style.display = 'none';
-  showVStep(3);
-};
-
-window.askGps = function() {
-  var title = document.getElementById('gps-status-title');
-  var sub   = document.getElementById('gps-status-sub');
-  var btn   = document.getElementById('v-gps-btn');
-  var denied = document.getElementById('gps-denied-box');
-  if (!navigator.geolocation) {
-    if (title) title.textContent = '❌ GPS غير مدعوم';
-    if (denied) denied.style.display = 'block';
+window.vCheckMath = function() {
+  var ans = parseInt((document.getElementById('v-math-ans')||{value:''}).value,10);
+  if (isNaN(ans) || ans !== _vMathAns) {
+    var a=Math.floor(Math.random()*15)+5, b=Math.floor(Math.random()*9)+1;
+    var ops=[{s:'+',r:a+b},{s:'×',r:a*b},{s:'−',r:a>b?a-b:b-a}];
+    var op=ops[Math.floor(Math.random()*ops.length)]; _vMathAns=op.r;
+    var q=document.getElementById('vMathQ'); if(q) q.textContent=(a>b?a:b)+' '+op.s+' '+(a>b?b:a)+' = ?';
+    var ae=document.getElementById('v-math-ans'); if(ae){ae.value='';ae.style.borderColor='rgba(248,113,113,.6)';setTimeout(function(){if(ae)ae.style.borderColor='rgba(255,255,255,.15)';},700);ae.focus();}
+    var e=document.getElementById('vErr'); if(e){e.textContent='❌ الجواب خاطئ، سؤال جديد';e.style.display='block';}
     return;
   }
-  if (btn) { btn.innerHTML = '<span class="spin" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:18px;height:18px;display:inline-block;border-radius:50%;border-width:2px;animation:spin .8s linear infinite"></span> جاري التحديد...'; btn.disabled = true; }
+  localStorage.setItem('txUserPhone','1|'+window._userVerifiedPhone);
+  var ph=document.getElementById('ur-phone'); if(ph){ph.value=window._userVerifiedPhone;}
+  var ten=document.getElementById('ur-office-tenant'); if(ten) ten.value=_pendingTenant||'';
+  var onm=document.getElementById('vOfficeName'); if(onm) onm.textContent='🏢 '+(_pendingName||'');
+  var onm2=document.getElementById('userReqOfficeName'); if(onm2) onm2.textContent=_pendingName||'';
+  window.showVStep(3);
+  window.vRequestGPS();
+};
+
+window.vRequestGPS = function() {
+  var dot=document.getElementById('vGpsDot'), txt=document.getElementById('vGpsTxt'), btn=document.getElementById('vGpsBtn');
+  if(dot) dot.style.background='#F59E0B';
+  if(txt) txt.textContent='جاري تحديد موقعك...';
+  if(btn) btn.style.display='none';
+  if(!navigator.geolocation){
+    _gpsOk=false;
+    if(dot) dot.style.background='#64748B';
+    if(txt) txt.textContent='GPS غير مدعوم — يمكنك المتابعة بدونه';
+    return;
+  }
   navigator.geolocation.getCurrentPosition(
-    function(pos) {
-      _userGpsLat = pos.coords.latitude; _userGpsLng = pos.coords.longitude; _gpsOk = true;
-      if (title) title.textContent = '✅ تم تحديد موقعك!';
-      if (sub) sub.textContent = 'دقة: ' + Math.round(pos.coords.accuracy) + ' متر';
-      if (btn) { btn.innerHTML = '<i class="fas fa-check-circle"></i> الموقع محدد ✅'; btn.style.background = 'linear-gradient(135deg,#10B981,#059669)'; }
-      setTimeout(function() { finishVerify(true); }, 800);
+    function(pos){
+      _gpsOk=true; _userGpsLat=pos.coords.latitude; _userGpsLng=pos.coords.longitude;
+      window._userGpsLat=_userGpsLat; window._userGpsLng=_userGpsLng; window._gpsOk=true;
+      if(dot) dot.style.background='#10B981';
+      if(txt) txt.textContent='✅ تم تحديد موقعك';
     },
-    function(err) {
-      var msgs = { 1: 'رفضت إذن الموقع', 2: 'تعذّر التحديد', 3: 'انتهت المهلة' };
-      if (title) title.textContent = '⚠️ ' + (msgs[err.code] || 'خطأ في GPS');
-      if (btn) { btn.innerHTML = '<i class="fas fa-redo"></i> حاول مرة أخرى'; btn.disabled = false; }
-      if (denied) denied.style.display = 'block';
+    function(){
+      _gpsOk=false; window._gpsOk=false;
+      if(dot) dot.style.background='#EF4444';
+      if(txt) txt.textContent='تعذّر تحديد الموقع — يمكنك المتابعة بدونه';
+      if(btn) btn.style.display='block';
     },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    {enableHighAccuracy:false,timeout:10000,maximumAge:60000}
   );
 };
 
-window.finishVerify = function(gpsOk) {
-  document.getElementById('UserVerifyScreen').classList.remove('on');
-  if (!gpsOk) { _gpsOk = false; _userGpsLat = null; _userGpsLng = null; }
-  if (typeof window.toast === 'function')
-    toast('ok', '🚕 جاهز!', gpsOk ? '📍 موقعك محدد' : 'أدخل موقعك يدوياً');
-  if (typeof window._openProtectedModal === 'function') window._openProtectedModal();
+window.resetVerifyScreen = function() {
+  _gpsOk=false; _userGpsLat=null; _userGpsLng=null;
+  window._gpsOk=false; window._userGpsLat=null; window._userGpsLng=null;
+  var ph=document.getElementById('v-phone'); if(ph) ph.value='';
+  var ans=document.getElementById('v-math-ans'); if(ans) ans.value='';
+  window.showVStep(1);
 };
 
 window.openUserReqModal = function(tenantId, name, desc) {
-  _pendingTenant = tenantId; _pendingName = name; _pendingDesc = desc;
-  var last = parseInt(localStorage.getItem('txLastReq') || '0', 10);
-  if (last && Date.now() - last < _rateLimitMs) {
-    var rem = Math.ceil((_rateLimitMs - (Date.now() - last)) / 1000);
-    showRateLimitAlert(rem); return;
+  _pendingTenant=tenantId; _pendingName=name; _pendingDesc=desc;
+  window._pendingTenant=tenantId; window._pendingName=name; window._pendingDesc=desc;
+  var last=parseInt(localStorage.getItem('txLastReq')||'0',10);
+  if(last && Date.now()-last<_rateLimitMs){
+    var rem=Math.ceil((_rateLimitMs-(Date.now()-last))/1000);
+    if(typeof window.showRateLimitAlert==='function') window.showRateLimitAlert(rem); return;
   }
-  /* في كل مرة: تحقق روبوت جديد + GPS جديد */
-  _gpsOk = false; _userGpsLat = null; _userGpsLng = null;
-  resetVerifyScreen();
-  document.getElementById('UserVerifyScreen').classList.add('on');
-};
-
-window._openProtectedModal = function() {
-  var offId   = document.getElementById('ur-office-id');
-  var offTen  = document.getElementById('ur-office-tenant');
-  var offName = document.getElementById('userReqOfficeName');
-  var offAddr = document.getElementById('userReqOfficeAddr');
-  if (offId)   offId.value   = _pendingTenant;
-  if (offTen)  offTen.value  = _pendingTenant;
-  if (offName) offName.textContent = _pendingName  || 'مكتب تاكسي';
-  if (offAddr) offAddr.textContent = _pendingDesc || 'أدخل بياناتك';
-
-  /* رقم الهاتف — يكتبه المستخدم بنفسه (بدون قفل) */
-  var phoneEl = document.getElementById('ur-phone');
-  if (phoneEl) {
-    phoneEl.value    = '';
-    phoneEl.readOnly = false;
-    phoneEl.style.cssText = 'width:100%;padding:11px 14px;border-radius:10px;font-size:15px;font-family:Cairo,sans-serif;direction:ltr;text-align:center;letter-spacing:1px;background:rgba(15,23,42,.7);border:1.5px solid rgba(255,255,255,.1);color:var(--text);outline:none';
-  }
-
-  /* حقل "أين أنت" — نظّف دائماً عند الفتح */
-  var fromEl = document.getElementById('ur-from');
-  var toEl   = document.getElementById('ur-to');
-  if (fromEl) fromEl.value = '';
-  if (toEl)   toEl.value   = '';
-
-  /* خريطة مصغرة إذا GPS متاح — حقل "أين أنت" يبقى فارغاً ليكتب فيه الزبون */
-  if (_gpsOk && _userGpsLat) {
-    addUserMiniMap();
+  var saved=localStorage.getItem('txUserPhone')||'';
+  if(saved.startsWith('1|')) {
+    window._userVerifiedPhone=saved.slice(2);
+    var ph=document.getElementById('ur-phone'); if(ph) ph.value=window._userVerifiedPhone;
+    var ten=document.getElementById('ur-office-tenant'); if(ten) ten.value=tenantId;
+    var onm=document.getElementById('vOfficeName'); if(onm) onm.textContent='🏢 '+(name||'');
+    var onm2=document.getElementById('userReqOfficeName'); if(onm2) onm2.textContent=name||'';
+    _gpsOk=false; _userGpsLat=null; _userGpsLng=null;
+    window._gpsOk=false; window._userGpsLat=null; window._userGpsLng=null;
+    document.getElementById('UserVerifyScreen').classList.add('on');
+    window.showVStep(3);
+    window.vRequestGPS();
   } else {
-    var mc = document.getElementById('user-mini-map-container');
-    if (mc) mc.style.display = 'none';
+    _gpsOk=false; _userGpsLat=null; _userGpsLng=null;
+    window._gpsOk=false; window._userGpsLat=null; window._userGpsLng=null;
+    window.resetVerifyScreen();
+    document.getElementById('UserVerifyScreen').classList.add('on');
   }
-
-  var modal = document.getElementById('MuserReq');
-  if (modal) modal.classList.add('on');
-  if (window._pubMap) window._pubMap.closePopup();
-
-  setTimeout(function() { if (phoneEl) phoneEl.focus(); }, 150);
-};
-
-window.addUserMiniMap = function() {
-  if (!window.L || !_userGpsLat) return;
-  var container = document.getElementById('user-mini-map-container');
-  if (container) container.style.display = 'block';
-
-  setTimeout(function() {
-    try {
-      if (_userLocMapObj) { _userLocMapObj.remove(); _userLocMapObj = null; }
-      _userLocMapObj = L.map('user-mini-map', { zoomControl: false, attributionControl: false }).setView([_userGpsLat, _userGpsLng], 16);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_userLocMapObj);
-      var icon = L.divIcon({
-        html: '<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div class="user-loc-dot-marker"></div><div style="background:#10B981;color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;white-space:nowrap;font-family:Cairo,sans-serif">موقعك</div></div>',
-        className: '', iconSize: [50, 45], iconAnchor: [25, 45]
-      });
-      /* ثابت — غير قابل للسحب */
-      L.marker([_userGpsLat, _userGpsLng], { icon: icon, draggable: false }).addTo(_userLocMapObj);
-    } catch(e) {}
-  }, 300);
+  if(window._pubMap) window._pubMap.closePopup();
 };
 
 window.showRateLimitAlert = function(remSec) {
@@ -1243,7 +1095,7 @@ window.showRateLimitAlert = function(remSec) {
 </script>
 
 <!-- زر الدخول للموظفين — عائم على اليمين -->
-<button id="staffEntryBtn" onclick="openStaffPanel()" style="
+<button id="staffEntryBtn" onclick="window.openStaffPanel&&window.openStaffPanel()" style="
   position:fixed;left:0;top:50%;transform:translateY(-50%);
   z-index:8000;background:linear-gradient(135deg,#0EA5E9,#0284C7);
   border:none;border-radius:0 12px 12px 0;padding:14px 10px;
@@ -1274,7 +1126,7 @@ window.showRateLimitAlert = function(remSec) {
           <div style="font-size:11px;color:rgba(255,255,255,.5);font-family:Cairo,sans-serif">بوابة الموظفين</div>
         </div>
       </div>
-      <button onclick="closeStaffPanel()" style="background:rgba(255,255,255,.1);border:none;border-radius:8px;width:34px;height:34px;color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+      <button onclick="window.closeStaffPanel&&window.closeStaffPanel()" style="background:rgba(255,255,255,.1);border:none;border-radius:8px;width:34px;height:34px;color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
 
     <!-- حقل رمز المكتب -->
@@ -1323,6 +1175,91 @@ window.showRateLimitAlert = function(remSec) {
     </div>
   </div>
 </div>
+
+
+<script>
+/* ══ ربط دوال app.js (module) مع HTML ══ */
+/* app.js يُحمّل كـ module لذا الدوال ما تكون global مباشرة */
+/* نستخدم MutationObserver + تكرار للانتظار حتى تتحمل الدوال */
+(function() {
+  function bindAll() {
+    /* ── staffPanel: إصلاح زر تحقق رمز المكتب ── */
+    /* المشكلة: staffPanel يحتوي على IDs مكررة، نستهدفها بالـ parent */
+    var panel = document.getElementById('staffPanelInner');
+    if (panel) {
+      var checkBtn = panel.querySelector('#gate-check-btn, [onclick*="gateCheckCode"]');
+      if (checkBtn && !checkBtn._bound) {
+        checkBtn._bound = true;
+        checkBtn.removeAttribute('onclick');
+        checkBtn.addEventListener('click', function() {
+          if (typeof window.gateCheckCode === 'function') window.gateCheckCode();
+          else console.warn('gateCheckCode not ready yet');
+        });
+      }
+      var codeInput = panel.querySelector('#gate-office-code');
+      if (codeInput && !codeInput._bound) {
+        codeInput._bound = true;
+        codeInput.removeAttribute('oninput');
+        codeInput.removeAttribute('onkeydown');
+        codeInput.addEventListener('input', function() {
+          if (typeof window.gateClearErr === 'function') window.gateClearErr();
+        });
+        codeInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' && typeof window.gateCheckCode === 'function') window.gateCheckCode();
+        });
+      }
+      /* أزرار الدخول */
+['supervisor','driver','receiver'].forEach(function(role) {
+        var btns = panel.querySelectorAll(`[onclick*="gateEnter('${role}'"]`);
+        btns.forEach(function(btn) {
+          if (!btn._bound) {
+            btn._bound = true;
+            btn.removeAttribute('onclick');
+            btn.addEventListener('click', function() {
+              if (typeof window.gateEnter === 'function') window.gateEnter(role);
+            });
+          }
+        });
+      });
+
+      /* openStaffPanel / closeStaffPanel */
+      var staffBtn = document.getElementById('staffEntryBtn');
+      if (staffBtn && !staffBtn._bound) {
+        staffBtn._bound = true;
+        staffBtn.removeAttribute('onclick');
+        staffBtn.addEventListener('click', function() {
+          if (typeof window.openStaffPanel === 'function') window.openStaffPanel();
+        });
+      }
+      var closeBtn = panel.querySelector('[onclick*="closeStaffPanel"]');
+      if (closeBtn && !closeBtn._bound) {
+        closeBtn._bound = true;
+        closeBtn.removeAttribute('onclick');
+        closeBtn.addEventListener('click', function() {
+          if (typeof window.closeStaffPanel === 'function') window.closeStaffPanel();
+        });
+      }
+    }
+  }
+
+  /* نحاول ربط الدوال كل 300ms حتى app.js يكون جاهزاً */
+  var tries = 0;
+  var interval = setInterval(function() {
+    tries++;
+    if (typeof window.gateCheckCode === 'function') {
+      bindAll();
+      clearInterval(interval);
+    } else if (tries > 30) {
+      clearInterval(interval);
+      console.warn('app.js لم يكتمل التحميل');
+    }
+  }, 300);
+
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(bindAll, 500);
+  });
+})();
+</script>
 
 </body>
 </html>
