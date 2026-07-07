@@ -4,7 +4,7 @@
    ══════════════════════════════════════════════════ */
 
 import { initializeApp }          from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getDatabase, ref, set, get, push, onValue, update, remove, off }
+import { getDatabase, ref, set, get, push, onValue, update, remove, off, serverTimestamp }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
                                    from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
@@ -284,21 +284,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide',     stopGPS);
 window.addEventListener('beforeunload', stopGPS);
 
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    if (_gpsSendTimer) { clearInterval(_gpsSendTimer); _gpsSendTimer = null; }
-  } else if (CU && CR === 'driver' && CU.status !== 'offline' && !_gpsSendTimer) {
-    _gpsSendTimer = setInterval(() => {
-      if (Date.now() - _gpsLastSent >= GPS_INTERVAL)
-        navigator.geolocation.getCurrentPosition(
-          pos => sendGPS(CU.id, pos.coords.latitude, pos.coords.longitude, false),
-          () => {}, { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-        );
-    }, GPS_INTERVAL);
-  }
-});
-window.addEventListener('pagehide',      stopGPS);
-window.addEventListener('beforeunload',  stopGPS);
+
 
 /* ══════════════════════════════════════════════════
    SHARED DRIVER CACHE
@@ -475,11 +461,35 @@ let _lastTrackStatus = '';
    TENANT GATE — بوابة الدخول
    ══════════════════════════════════════════════════ */
 const initTenantGate = () => {
-  /* افتح الخريطة العامة مباشرة */
+  /* أخفِ كل الصفحات */
   $('PTenantGate').style.display = 'none';
   $('PL').style.display          = 'none';
   const pu = $('PU');
   if (pu) { pu.style.display = 'flex'; pu.style.flexDirection = 'column'; }
+
+  /* أخفِ جملة "اضغط على مكتب التكسي" إن وجدت */
+  document.querySelectorAll('.pub-map-hint, .map-hint, [data-hint="map"]').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('p, div, span').forEach(el => {
+    if (el.children.length === 0 && el.textContent.includes('اضغط على مكتب التكسي على الخريطة')) el.style.display = 'none';
+  });
+
+  /* أضف أزرار تنزيل التطبيق إن لم تكن موجودة */
+  if (!$('pwaInstallBtns')) {
+    const wrap = document.createElement('div');
+    wrap.id = 'pwaInstallBtns';
+    wrap.style.cssText = 'display:flex;gap:10px;justify-content:center;padding:12px 16px;flex-wrap:wrap;flex-shrink:0;background:rgba(15,23,42,.8);border-top:1px solid rgba(255,255,255,.08)';
+    wrap.innerHTML = `
+      <button onclick="window.installPWA_android()" style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;box-shadow:0 4px 12px rgba(5,150,105,.3)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.523 15.341a5 5 0 01-3.523 1.46 5 5 0 01-3.523-1.46L4 9.341V18a2 2 0 002 2h12a2 2 0 002-2V9.341l-2.477 6zM12 3a5 5 0 015 5H7a5 5 0 015-5zm-7 5l7 8 7-8H5z"/></svg>
+        تنزيل لـ أندرويد
+      </button>
+      <button onclick="window.installPWA_ios()" style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:linear-gradient(135deg,#0EA5E9,#0284C7);border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;box-shadow:0 4px 12px rgba(14,165,233,.3)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        تنزيل لـ آيفون
+      </button>`;
+    if (pu) pu.appendChild(wrap);
+  }
+
   /* شغّل الخريطة */
   setTimeout(() => {
     if (typeof window.openPubPage === 'function') window.openPubPage();
@@ -496,6 +506,58 @@ const initTenantGate = () => {
   }, 100);
   /* أظهر زر الموظفين */
   const btn = $('staffEntryBtn'); if (btn) btn.style.display = 'flex';
+};
+
+/* ── منطق تنزيل التطبيق ── */
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _deferredInstallPrompt = e; });
+
+window.installPWA_android = async () => {
+  if (_deferredInstallPrompt) {
+    _deferredInstallPrompt.prompt();
+    const { outcome } = await _deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') { toast('ok','✅ تم التثبيت!','التطبيق جاهز على شاشتك'); _deferredInstallPrompt = null; }
+    return;
+  }
+  /* إظهار تعليمات يدوية */
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;justify-content:center;padding:16px';
+  m.innerHTML = `<div style="background:#1E293B;border-radius:20px 20px 16px 16px;padding:24px;width:100%;max-width:400px;font-family:Cairo,sans-serif;direction:rtl">
+    <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="#059669"><path d="M17.523 15.341a5 5 0 01-3.523 1.46 5 5 0 01-3.523-1.46L4 9.341V18a2 2 0 002 2h12a2 2 0 002-2V9.341l-2.477 6zM12 3a5 5 0 015 5H7a5 5 0 015-5zm-7 5l7 8 7-8H5z"/></svg>
+      تثبيت على أندرويد
+    </div>
+    <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:16px;margin-bottom:14px">
+      <div style="color:rgba(255,255,255,.8);font-size:13px;line-height:2">
+        <div style="margin-bottom:8px">1️⃣ اضغط على قائمة المتصفح <b style="color:#0EA5E9">⋮</b> (ثلاث نقاط)</div>
+        <div style="margin-bottom:8px">2️⃣ اختر <b style="color:#0EA5E9">"إضافة إلى الشاشة الرئيسية"</b></div>
+        <div>3️⃣ اضغط <b style="color:#059669">إضافة</b> وتم ✅</div>
+      </div>
+    </div>
+    <button onclick="this.closest('div[style]').remove()" style="width:100%;padding:13px;background:#0EA5E9;border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">فهمت 👍</button>
+  </div>`;
+  document.body.appendChild(m);
+};
+
+window.installPWA_ios = () => {
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;justify-content:center;padding:16px';
+  m.innerHTML = `<div style="background:#1E293B;border-radius:20px 20px 16px 16px;padding:24px;width:100%;max-width:400px;font-family:Cairo,sans-serif;direction:rtl">
+    <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="#0EA5E9"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+      تثبيت على آيفون
+    </div>
+    <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:16px;margin-bottom:14px">
+      <div style="color:rgba(255,255,255,.8);font-size:13px;line-height:2">
+        <div style="margin-bottom:8px">1️⃣ افتح الموقع في <b style="color:#0EA5E9">Safari</b> (ليس Chrome)</div>
+        <div style="margin-bottom:8px">2️⃣ اضغط زر المشاركة <b style="color:#0EA5E9">⬆️</b> في الأسفل</div>
+        <div style="margin-bottom:8px">3️⃣ اختر <b style="color:#0EA5E9">"Add to Home Screen"</b></div>
+        <div>4️⃣ اضغط <b style="color:#059669">Add</b> وتم ✅</div>
+      </div>
+    </div>
+    <button onclick="this.closest('div[style]').remove()" style="width:100%;padding:13px;background:#0EA5E9;border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">فهمت 👍</button>
+  </div>`;
+  document.body.appendChild(m);
 };
 
 window.openStaffPanel = () => {
@@ -525,24 +587,29 @@ document.addEventListener('click', e => {
 
 /* مسح الخطأ عند الكتابة فقط */
 window.gateClearErr = () => {
-  const err = $('gate-err'); if (err) err.textContent = '';
-  const inp = $('gate-office-code');
+  const panel = document.getElementById('staffPanelInner');
+  const err = (panel ? panel.querySelector('#gate-err') : null) || $('gate-err');
+  if (err) err.textContent = '';
+  const inp = (panel ? panel.querySelector('#gate-office-code') : null) || $('gate-office-code');
   if (inp) inp.style.borderColor = 'rgba(255,255,255,.2)';
-  /* أخفِ الأزرار والتحقق إذا غيّر الرمز */
-  const btns     = $('gate-btns');     if (btns)     btns.style.display = 'none';
-  const verified = $('gate-verified'); if (verified) verified.style.display = 'none';
+  const btns = (panel ? panel.querySelector('#gate-btns') : null) || $('gate-btns');
+  if (btns) btns.style.display = 'none';
+  const verified = (panel ? panel.querySelector('#gate-verified') : null) || $('gate-verified');
+  if (verified) verified.style.display = 'none';
   TENANT_ID = ''; TENANT_INFO = null;
 };
 
 /* زر "تحقق" */
 window.gateCheckCode = () => {
-  const inp  = $('gate-office-code');
+  /* نقرأ من staffPanel لأنه يحتوي على الـ IDs الصحيحة المرئية */
+  const panel = document.getElementById('staffPanelInner');
+  const inp  = (panel ? panel.querySelector('#gate-office-code') : null) || $('gate-office-code');
   const code = (inp ? inp.value : '').toLowerCase().trim();
-  const err  = $('gate-err');
-  const verified = $('gate-verified');
-  const btns     = $('gate-btns');
-  const label    = $('gate-office-name-label');
-  const btn      = $('gate-check-btn');
+  const err  = (panel ? panel.querySelector('#gate-err') : null) || $('gate-err');
+  const verified = (panel ? panel.querySelector('#gate-verified') : null) || $('gate-verified');
+  const btns = (panel ? panel.querySelector('#gate-btns') : null) || $('gate-btns');
+  const label = (panel ? panel.querySelector('#gate-office-name-label') : null) || $('gate-office-name-label');
+  const btn  = (panel ? panel.querySelector('#gate-check-btn') : null) || $('gate-check-btn');
 
   if (!code) {
     if (err) err.textContent = '❌ يرجى إدخال رمز المكتب';
@@ -585,19 +652,90 @@ window.gateCheckCode = () => {
 /* الضغط على زر الدخول */
 window.gateEnter = role => {
   if (!TENANT_ID || !TENANT_INFO) {
-    const err = $('gate-err');
+    const panel = document.getElementById('staffPanelInner');
+    const err = (panel ? panel.querySelector('#gate-err') : null) || $('gate-err');
     if (err) err.textContent = '❌ يرجى التحقق من رمز المكتب أولاً';
     return;
   }
   tenantEnter(role);
 };
 
-document.addEventListener('DOMContentLoaded', initTenantGate);
+/* ══════════════════════════════════════════════════
+   SESSION RESTORE
+   ══════════════════════════════════════════════════ */
+const SESSION_KEYS = { tenant:'txTenantId', role:'txRole', driverKey:'txDriverKey' };
+const saveSession = (role, driverKey = '') => {
+  try {
+    localStorage.setItem(SESSION_KEYS.tenant, TENANT_ID);
+    localStorage.setItem(SESSION_KEYS.role, role);
+    if (driverKey) localStorage.setItem(SESSION_KEYS.driverKey, driverKey);
+    else localStorage.removeItem(SESSION_KEYS.driverKey);
+  } catch(e) {}
+};
+const clearSession = () => {
+  try {
+    Object.values(SESSION_KEYS).forEach(k => localStorage.removeItem(k));
+  } catch(e) {}
+};
+
+const restoreSession = () => new Promise(resolve => {
+  let settled = false;
+  const done = v => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); };
+  const timer = setTimeout(() => done(false), 6000);
+  let unsub;
+  unsub = onAuthStateChanged(_auth, async user => {
+    if (settled) return;
+    if (typeof unsub === 'function') { try { unsub(); } catch(e) {} }
+    if (!user) return done(false);
+    try {
+      const savedTenant = localStorage.getItem(SESSION_KEYS.tenant) || localStorage.getItem('txOfficeCode') || '';
+      const savedRole   = localStorage.getItem(SESSION_KEYS.role) || '';
+      const savedDrvKey = localStorage.getItem(SESSION_KEYS.driverKey) || '';
+      if (savedRole === 'driver' && savedDrvKey && savedTenant && TENANT_NAMES[savedTenant]) {
+        TENANT_ID = savedTenant; TENANT_INFO = { name: TENANT_NAMES[savedTenant] };
+        const snap = await get(ref(_db, `tenants/${savedTenant}/drivers/${savedDrvKey}`)).catch(() => null);
+        if (!snap || !snap.exists()) return done(false);
+        const found = snap.val();
+        if (found.approvalStatus === 'pending' || found.approvalStatus === 'rejected') return done(false);
+        CU = { ...found, id: savedDrvKey }; CR = 'driver'; IS_RECV = false;
+        if (found.shiftStart && !found.shiftEnd) shiftStartTime = found.shiftStart;
+        document.querySelectorAll('.lgn1').forEach(el => el.textContent = TENANT_INFO.name);
+        await update(ref(_db, `tenants/${savedTenant}/drivers/${savedDrvKey}`), { status:'online', lastSeen: Date.now(), taxiColor:'green' }).catch(() => {});
+        await registerSW(); await reqPushPerm();
+        startGPS(savedDrvKey); initDash();
+        listenDriverRequests(savedDrvKey); listenSosBroadcast(); listenDriverPushNotifs(savedDrvKey);
+        return done(true);
+      }
+      if (savedRole === 'supervisor' || savedRole === 'receiver') {
+        const tenantId = EMAIL_TO_TENANT[(user.email||'').toLowerCase()] || savedTenant;
+        if (!tenantId || !TENANT_NAMES[tenantId]) return done(false);
+        TENANT_ID = tenantId; TENANT_INFO = { name: TENANT_NAMES[tenantId] };
+        document.querySelectorAll('.lgn1').forEach(el => el.textContent = TENANT_INFO.name);
+        document.title = TENANT_INFO.name + ' — منصة التاكسي';
+        const supId = 'admin_' + tenantId;
+        const supSnap = await get(ref(_db, `tenants/${tenantId}/supervisors/${supId}`)).catch(() => null);
+        CU = { id: supId, name: supSnap&&supSnap.exists() ? supSnap.val().name : TENANT_NAMES[tenantId], role:'admin', officeId: tenantId };
+        CR = 'supervisor'; IS_RECV = savedRole === 'receiver';
+        if (IS_RECV) initRecvDash();
+        else { initDash(); listenSupNotifs(); startDriverListener(); }
+        return done(true);
+      }
+      return done(false);
+    } catch(e) { return done(false); }
+  });
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const restored = await restoreSession();
+  if (!restored) initTenantGate();
+});
 
 /* من أي زر دخل المستخدم (مشرف / مستقبل / سائق) */
 window.tenantEnter = role => {
-  $('PTenantGate').style.display = 'none';
-  $('PL').style.display          = 'block';
+  closeStaffPanel();
+  const pu = $('PU'); if (pu) pu.style.display = 'none';
+  $('PL').style.display = 'block';
+  const staffBtn = $('staffEntryBtn'); if (staffBtn) staffBtn.style.display = 'none';
 
   if (role === 'driver') {
     setTimeout(() => OM('Mdriver'), 80);
@@ -692,6 +830,7 @@ window.sLogin = async () => {
     }
     CU = { id: supId, name: TENANT_NAMES[tenantId], role:'admin', officeId: tenantId };
     CR = 'supervisor';
+    saveSession(IS_RECV ? 'receiver' : 'supervisor');
 
     CM('Msup');
 
@@ -764,7 +903,7 @@ window.dReg = async () => {
 
     await signOut(_auth);
 
-    await push(tRef('notifications'), { type:'new_driver', msg:`🆕 سائق جديد: ${nm} (${ph})`, ts: Date.now(), read: false, driverId: phKey });
+    await push(tRef('notifications'), { type:'new_driver', msg:`🆕 سائق جديد: ${nm} (${ph})`, ts: serverTimestamp(), read: false, driverId: phKey });
     shAl('al-drv', 'ok', '✅ تم التسجيل! انتظر موافقة المشرف');
     ['dr-nm','dr-ph','dr-car','dr-pw','dr-pw2','dr-invite'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     setTimeout(() => dtab('li'), 2500);
@@ -823,6 +962,7 @@ window.dLogin = async () => {
 
     CU = { ...found, id: phKey };
     CR = 'driver'; IS_RECV = false;
+    saveSession('driver', phKey);
     if (found.shiftStart && !found.shiftEnd) shiftStartTime = found.shiftStart;
 
     CM('Mdriver');
@@ -953,7 +1093,7 @@ const showDriverReq = (rid, rd) => {
       clearInterval(reqCountdownTimer);
       if ($('ReqNotif').classList.contains('on')) {
         await update(tRef(`driverRequests/${CU.id}/${rid}`), { status: 'no_response' });
-        await push(tRef('notifications'), { type:'timeout', driverId:CU.id, driverName:CU.name, reqId:rid, msg:`⏰ السائق ${CU.name} لم يرد`, ts:Date.now(), read:false });
+        await push(tRef('notifications'), { type:'timeout', driverId:CU.id, driverName:CU.name, reqId:rid, msg:`⏰ السائق ${CU.name} لم يرد`, ts:serverTimestamp(), read:false });
         const rdSnap = await get(tRef(`driverRequests/${CU.id}/${rid}`)).catch(() => null);
         if (rdSnap && rdSnap.exists()) {
           const rdv = rdSnap.val();
@@ -1000,7 +1140,7 @@ window.submitReject = async () => {
   clearInterval(reqCountdownTimer);
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${rid}`), 'rejected');
   await update(tRef(`driverRequests/${CU.id}/${rid}`), { status:'rejected', rejectedAt:Date.now(), reason });
-  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:rid, reason, msg:`❌ السائق ${CU.name} رفض — ${reason}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:rid, reason, msg:`❌ السائق ${CU.name} رفض — ${reason}`, ts:serverTimestamp(), read:false });
   $('ReqNotif').classList.remove('on'); vibrate([100,50,100]); playSound('reject'); toast('info','تم رفض الطلب','');
 };
 
@@ -1026,7 +1166,7 @@ window.inlineReject = async id => {
   const rd   = snap && snap.exists() ? snap.val() : {};
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'rejected', rejectedAt:Date.now(), reason:reason.trim() });
   if ($('currentReqId').value === id) { clearInterval(reqCountdownTimer); $('ReqNotif').classList.remove('on'); $('currentReqId').value = ''; }
-  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:id, reason:reason.trim(), msg:`❌ السائق ${CU.name} رفض — ${reason.trim()}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'reject', driverId:CU.id, driverName:CU.name, reqId:id, reason:reason.trim(), msg:`❌ السائق ${CU.name} رفض — ${reason.trim()}`, ts:serverTimestamp(), read:false });
   if (rd.fromUser && rd.userReqRef) await update(ref(_db, rd.userReqRef), { driverStatus:'rejected' }).catch(() => {});
   vibrate([100,50,100]); playSound('reject'); toast('info','تم رفض الطلب','');
 };
@@ -1107,6 +1247,7 @@ const initDash = () => {
     if (mobNav && mobTabs) {
       mobNav.style.display = 'block';
       mobTabs.innerHTML = cfg.map((t,i) => `<button class="mob-tab${i===0?' on':''}" id="mnt-${t.id}" onclick="nTab('${t.id}')"><i class="${t.icon}"></i><span class="mob-label">${t.label}</span></button>`).join('');
+      mobTabs.innerHTML += `<button class="mob-tab" onclick="logout()" style="color:#F87171"><i class="fas fa-right-from-bracket"></i><span class="mob-label">خروج</span></button>`;
     }
     renderDriverReqs();
   } else {
@@ -1144,6 +1285,7 @@ const initDash = () => {
         </button>`
       ).join('');
       mobTabs.innerHTML += `<button class="mob-tab" onclick="openMonitor()"><i class="fas fa-tv"></i><span class="mob-label">مراقبة</span></button>`;
+      mobTabs.innerHTML += `<button class="mob-tab" onclick="logout()" style="color:#F87171"><i class="fas fa-right-from-bracket"></i><span class="mob-label">خروج</span></button>`;
     }
     renderSupReqs();
   }
@@ -1309,14 +1451,14 @@ window.setDrvWaiting = async id => {
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'waiting', waitingAt:Date.now() });
   await updStatus('waiting');
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${id}`), 'waiting');
-  await push(tRef('notifications'), { type:'waiting', driverId:CU.id, driverName:CU.name, reqId:id, msg:`🕐 السائق ${CU.name} بالانتظار`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'waiting', driverId:CU.id, driverName:CU.name, reqId:id, msg:`🕐 السائق ${CU.name} بالانتظار`, ts:serverTimestamp(), read:false });
   toast('ok','بالانتظار 🟠',''); playSound('notif');
 };
 window.setDrvNear = async id => {
   await update(tRef(`driverRequests/${CU.id}/${id}`), { status:'near', nearAt:Date.now() });
   await updStatus('near');
   await _notifyUserReq(tRef(`driverRequests/${CU.id}/${id}`), 'near');
-  await push(tRef('notifications'), { type:'near', driverId:CU.id, driverName:CU.name, reqId:id, msg:`⚠️ السائق ${CU.name} قريب`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'near', driverId:CU.id, driverName:CU.name, reqId:id, msg:`⚠️ السائق ${CU.name} قريب`, ts:serverTimestamp(), read:false });
   toast('ok','قريب ⚠️',''); playSound('notif');
 };
 window.confirmMod = async id => { await update(tRef(`driverRequests/${CU.id}/${id}`), { driverConfirmed:true, status:'accepted' }); toast('ok','تم التأكيد',''); };
@@ -1339,7 +1481,7 @@ window.doneDelivery = async id => {
   const snap  = await get(lRef).catch(() => null);
   const prev  = snap && snap.exists() ? snap.val() : { deliveries:0 };
   await set(lRef, { ...prev, deliveries:(prev.deliveries||0)+1, lastUpdate:Date.now() });
-  await push(tRef('notifications'), { type:'done', driverId:CU.id, driverName:CU.name, msg:`📦 السائق ${CU.name} أتم التوصيل — إجمالي: ${count}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'done', driverId:CU.id, driverName:CU.name, msg:`📦 السائق ${CU.name} أتم التوصيل — إجمالي: ${count}`, ts:serverTimestamp(), read:false });
   toast('ok', `تم التوصيل! 🎉`, `إجمالي: ${count} توصيلة`); playSound('accept');
   const b  = $('drvStatusBadge'); if (b) b.innerHTML = getStatusBadge(CU);
   const db = document.querySelector('.deliv-badge'); if (db) db.innerHTML = `<i class="fas fa-box"></i> ${count} توصيلة`;
@@ -1383,18 +1525,18 @@ window.drvAct = async t => {
     toast('ok','انتهى الشيفت 🏁', `مدة: ${dur} دقيقة`);
   } else toast('ok','تم الإرسال ✅','');
   const b = $('drvStatusBadge'); if (b) b.innerHTML = getStatusBadge(CU);
-  await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`${msgs[t]} — ${CU.name}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`${msgs[t]} — ${CU.name}`, ts:serverTimestamp(), read:false });
 };
 
 window.sendExcuse = async () => {
   const e = ($('custom-excuse').value || '').trim(); if (!e) return;
-  await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`📝 ${e} — ${CU.name}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'info', driverId:CU.id, driverName:CU.name, msg:`📝 ${e} — ${CU.name}`, ts:serverTimestamp(), read:false });
   $('custom-excuse').value = ''; toast('ok','تم الإرسال','');
 };
 
 window.doDriverSOS = async () => {
   if (!confirm('إرسال نداء طوارئ للمشرف؟')) return;
-  await push(tRef('notifications'), { type:'sos', driverId:CU.id, driverName:CU.name, msg:`🆘 SOS! السائق ${CU.name} يحتاج مساعدة!`, ts:Date.now(), read:false, urgent:true });
+  await push(tRef('notifications'), { type:'sos', driverId:CU.id, driverName:CU.name, msg:`🆘 SOS! السائق ${CU.name} يحتاج مساعدة!`, ts:serverTimestamp(), read:false, urgent:true });
   vibrate([500,100,500,100,500]); playSound('sos'); toast('err','🆘 SOS أُرسل','');
 };
 
@@ -1568,7 +1710,7 @@ window.addReqItem = async () => {
   const btn = $('MaddReq').querySelector('.bp'), origText = btn ? btn.innerHTML : '';
   if (btn) { btn.innerHTML = '<span class="spin"></span> جار...'; btn.disabled = true; }
   try {
-    await push(tRef('recvRequests'), { phone, details, ts:Date.now(), addedBy:CU?.name||'المشرف' });
+    await push(tRef('recvRequests'), { phone, details, ts:serverTimestamp(), addedBy:CU?.name||'المشرف' });
     $('req-phone').value = ''; $('req-details').value = '';
     toast('ok','✅ تم إضافة الطلب',''); playSound('notif'); CM('MaddReq');
   } catch(err) { shAl('al-req','err','خطأ: '+(err.message||'')); }
@@ -1600,7 +1742,7 @@ window.saveReqEdit  = async () => {
       });
     });
   }
-  await push(tRef('notifications'), { type:'edit', msg:`✏️ تعديل طلب: ${np} — ${nd}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'edit', msg:`✏️ تعديل طلب: ${np} — ${nd}`, ts:serverTimestamp(), read:false });
   CM('MeditReq'); toast('ok','تم التعديل',''); playSound('edit');
 };
 
@@ -1621,14 +1763,14 @@ window.cancelReq = async id => {
     }
   }
   if (old.userReqRef) await update(ref(_db, old.userReqRef), { driverStatus:'cancelled', cancelledAt:Date.now() }).catch(() => {});
-  await push(tRef('notifications'), { type:'cancel', msg:`🚫 إلغاء: ${old.phone||id}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'cancel', msg:`🚫 إلغاء: ${old.phone||id}`, ts:serverTimestamp(), read:false });
   await remove(tRef(`recvRequests/${id}`)); toast('ok','تم الإلغاء',''); playSound('cancel');
 };
 
 window.sendSosBroadcast = async () => {
   const msg = ($('sos-sup-msg').value||'').trim(); if (!msg) return toast('warn','يرجى كتابة رسالة الطوارئ','');
   await update(tRef('sosActive'), { msg, senderName:CU.name, ts:Date.now(), acked:{} });
-  await push(tRef('notifications'), { type:'sos', msg:`🆘 SOS من المشرف: ${msg}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'sos', msg:`🆘 SOS من المشرف: ${msg}`, ts:serverTimestamp(), read:false });
   $('SosSupModal').classList.remove('on'); $('sos-sup-msg').value = '';
   toast('err','🆘 SOS أُرسل لجميع السائقين',''); playSound('sos'); vibrate([400,100,400,100,400]);
 };
@@ -1814,14 +1956,14 @@ const loadPendingDrivers = async () => {
 window.approveDriver = async drvId => {
   if (!confirm('قبول هذا السائق؟')) return;
   await update(tRef(`drivers/${drvId}`), { approvalStatus:'approved', status:'online', taxiColor:'green', approvedBy:CU.name, approvedAt:Date.now() });
-  await push(tRef('notifications'), { type:'accept', msg:`✅ تم قبول السائق: ${drvId}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'accept', msg:`✅ تم قبول السائق: ${drvId}`, ts:serverTimestamp(), read:false });
   await push(tRef(`driverPushNotifs/${drvId}`), { title:'✅ تم قبول حسابك!', body:'يمكنك الآن الدخول والعمل', type:'info', ts:Date.now(), read:false });
   toast('ok','تم قبول السائق ✅',''); playSound('accept'); loadPendingDrivers();
 };
 window.rejectDriver = async (drvId, drvName) => {
   const reason = prompt(`سبب رفض "${drvName}" (اختياري):`,''); if (reason === null) return;
   await update(tRef(`drivers/${drvId}`), { approvalStatus:'rejected', status:'offline', rejectedBy:CU.name, rejectedAt:Date.now(), rejectionReason:reason||'-' });
-  await push(tRef('notifications'), { type:'reject', msg:`❌ رفض: ${drvId}`, ts:Date.now(), read:false });
+  await push(tRef('notifications'), { type:'reject', msg:`❌ رفض: ${drvId}`, ts:serverTimestamp(), read:false });
   toast('info','تم الرفض',''); loadPendingDrivers();
 };
 
@@ -2045,7 +2187,7 @@ const renderSupport = async role => {
 window.reportBug = async () => {
   const msg = prompt('صف المشكلة التي واجهتها:',''); if (!msg||!msg.trim()) return;
   window.open(`https://wa.me/972595125423?text=${encodeURIComponent(`🐛 بلاغ مشكلة:\n${msg.trim()}`)}`, '_blank');
-  await push(tRef('errorLogs'), { msg:msg.trim(), userId:CU?.id||'anon', userName:CU?.name||'زائر', role:CR||'unknown', officeId:TENANT_ID||'-', ts:Date.now() }).catch(() => {});
+  await push(tRef('errorLogs'), { msg:msg.trim(), userId:CU?.id||'anon', userName:CU?.name||'زائر', role:CR||'unknown', officeId:TENANT_ID||'-', ts:serverTimestamp() }).catch(() => {});
   toast('ok','✅ تم فتح واتساب','');
 };
 
@@ -2253,9 +2395,9 @@ window.openPubPage = () => {
 };
 
 window.closePubPage = () => {
-  $('PU').style.display          = 'none';
-  $('PL').style.display          = 'none';
-  $('PTenantGate').style.display = 'block';
+  const pu = $('PU'); if (pu) pu.style.display = 'none';
+  $('PL').style.display = 'none';
+  initTenantGate();
 };
 
 const loadPublicOffices = async () => {
@@ -2303,6 +2445,175 @@ const addOfficeMarkerToMap = async (tenantId, office) => {
   L.marker([office.lat, office.lng], { icon }).addTo(_pubMap).bindPopup(popup, { maxWidth:260, minWidth:200 });
 };
 
+
+/* ══════════════════════════════════════════════════
+   USER VERIFY SCREEN — بناء شاشة التحقق برمجياً
+   ══════════════════════════════════════════════════ */
+(function buildVerifyScreen() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', buildVerifyScreen);
+    return;
+  }
+  if (document.getElementById('UserVerifyScreen')) {
+    /* الشاشة موجودة بالـ HTML، تأكد من وجود الدوال */
+    ensureVerifyFunctions();
+    return;
+  }
+  const el = document.createElement('div');
+  el.id = 'UserVerifyScreen';
+  el.className = 'mdl';
+  el.innerHTML = `
+  <div class="mdl-box" style="max-width:400px;padding:0;overflow:hidden;border-radius:20px">
+    <div style="background:linear-gradient(135deg,#0F172A,#1E293B);padding:20px 24px;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:38px;height:38px;background:linear-gradient(135deg,#D97706,#B45309);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px">🚕</div>
+        <div>
+          <div style="font-size:14px;font-weight:900;color:#fff;font-family:Tajawal,sans-serif">طلب تكسي</div>
+          <div id="vStepLabel" style="font-size:11px;color:rgba(255,255,255,.5);font-family:Cairo,sans-serif">التحقق من هويتك</div>
+        </div>
+      </div>
+      <button onclick="document.getElementById('UserVerifyScreen').classList.remove('on')" style="background:rgba(255,255,255,.1);border:none;border-radius:8px;width:32px;height:32px;color:#fff;cursor:pointer;font-size:15px">✕</button>
+    </div>
+    <div style="display:flex;gap:4px;padding:14px 24px 0;background:#0F172A">
+      <div id="vp1" style="flex:1;height:3px;border-radius:2px;background:#0EA5E9;transition:.3s"></div>
+      <div id="vp2" style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.15);transition:.3s"></div>
+      <div id="vp3" style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.15);transition:.3s"></div>
+    </div>
+    <div style="padding:20px 24px 24px;background:#0F172A">
+      <div id="vErr" style="display:none;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;color:#F87171;font-size:13px;font-family:Cairo,sans-serif"></div>
+      <div id="vStep1">
+        <div style="font-size:15px;font-weight:800;color:#fff;font-family:Tajawal,sans-serif;margin-bottom:6px">📞 أدخل رقم هاتفك</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.5);font-family:Cairo,sans-serif;margin-bottom:16px">سيتم التحقق بسؤال بسيط</div>
+        <input id="v-phone" type="tel" placeholder="05xxxxxxxx" dir="ltr" style="width:100%;box-sizing:border-box;padding:13px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:15px;font-family:Cairo,sans-serif;outline:none;text-align:center">
+        <button onclick="window.vGoStep2()" style="width:100%;margin-top:12px;padding:13px;background:#0EA5E9;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">متابعة ←</button>
+      </div>
+      <div id="vStep2" style="display:none">
+        <div style="font-size:15px;font-weight:800;color:#fff;font-family:Tajawal,sans-serif;margin-bottom:6px">🤖 تأكيد: لست روبوت</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.5);font-family:Cairo,sans-serif;margin-bottom:16px">أجب على السؤال</div>
+        <div id="vMathQ" style="text-align:center;font-size:28px;font-weight:900;color:#0EA5E9;font-family:Tajawal,sans-serif;margin-bottom:16px;padding:16px;background:rgba(14,165,233,.1);border-radius:12px"></div>
+        <input id="v-math-ans" type="number" placeholder="الجواب" dir="ltr" style="width:100%;box-sizing:border-box;padding:13px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:20px;font-family:Cairo,sans-serif;outline:none;text-align:center">
+        <button onclick="window.vCheckMath()" style="width:100%;margin-top:12px;padding:13px;background:#0EA5E9;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">تحقق ✓</button>
+        <button onclick="window.showVStep(1)" style="width:100%;margin-top:8px;padding:10px;background:transparent;border:1px solid rgba(255,255,255,.15);border-radius:10px;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">← رجوع</button>
+      </div>
+      <div id="vStep3" style="display:none">
+        <div style="font-size:15px;font-weight:800;color:#fff;font-family:Tajawal,sans-serif;margin-bottom:4px">🚕 تفاصيل الطلب</div>
+        <div id="vOfficeName" style="font-size:12px;color:#0EA5E9;font-family:Cairo,sans-serif;margin-bottom:14px"></div>
+        <input type="hidden" id="ur-office-tenant">
+        <div style="margin-bottom:10px">
+          <label style="display:block;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;margin-bottom:5px;font-family:Cairo,sans-serif">📞 رقم هاتفك</label>
+          <input id="ur-phone" type="tel" dir="ltr" readonly style="width:100%;box-sizing:border-box;padding:11px 14px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:#94A3B8;font-size:14px;font-family:Cairo,sans-serif;outline:none;text-align:center">
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="display:block;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;margin-bottom:5px;font-family:Cairo,sans-serif">📍 من أين؟</label>
+          <input id="ur-from" type="text" placeholder="موقعك الحالي..." dir="rtl" style="width:100%;box-sizing:border-box;padding:11px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:13px;font-family:Cairo,sans-serif;outline:none">
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="display:block;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;margin-bottom:5px;font-family:Cairo,sans-serif">🏁 إلى أين؟</label>
+          <input id="ur-to" type="text" placeholder="وجهتك..." dir="rtl" style="width:100%;box-sizing:border-box;padding:11px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:13px;font-family:Cairo,sans-serif;outline:none">
+        </div>
+        <div id="vGpsStatus" style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,255,255,.05);border-radius:10px;margin-bottom:14px">
+          <div id="vGpsDot" style="width:10px;height:10px;border-radius:50%;background:#64748B;flex-shrink:0"></div>
+          <div id="vGpsTxt" style="font-size:12px;color:rgba(255,255,255,.6);font-family:Cairo,sans-serif;flex:1">جاري تحديد موقعك...</div>
+          <button id="vGpsBtn" onclick="window.vRequestGPS()" style="display:none;padding:5px 10px;background:#0EA5E9;border:none;border-radius:7px;color:#fff;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">تفعيل</button>
+        </div>
+        <div id="al-userreq" class="al"></div>
+        <div id="userReqOfficeName" style="display:none"></div>
+        <button class="bp" onclick="window.submitUserReq()" style="width:100%;padding:14px;background:linear-gradient(135deg,#D97706,#B45309);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:Tajawal,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px">
+          <i class="fas fa-taxi"></i> إرسال الطلب
+        </button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+  ensureVerifyFunctions();
+})();
+
+function ensureVerifyFunctions() {
+  let _vMathAns = 0;
+
+  window.showVStep = step => {
+    ['vStep1','vStep2','vStep3'].forEach((id,i) => {
+      const el = document.getElementById(id); if (el) el.style.display = i+1===step?'block':'none';
+    });
+    const labels = ['','إدخال رقم الهاتف','التحقق من الهوية','تفاصيل الطلب'];
+    const lbl = document.getElementById('vStepLabel'); if (lbl) lbl.textContent = labels[step]||'';
+    ['vp1','vp2','vp3'].forEach((id,i) => {
+      const bar = document.getElementById(id); if (bar) bar.style.background = i<step?'#0EA5E9':'rgba(255,255,255,.15)';
+    });
+    const errEl = document.getElementById('vErr'); if (errEl) { errEl.style.display='none'; errEl.textContent=''; }
+  };
+
+  window.resetVerifyScreen = () => {
+    const ph = document.getElementById('v-phone'); if (ph) ph.value='';
+    const ans = document.getElementById('v-math-ans'); if (ans) ans.value='';
+    window._gpsOk=false; window._userGpsLat=null; window._userGpsLng=null;
+    window.showVStep(1);
+  };
+
+  window.vGoStep2 = () => {
+    const ph = (document.getElementById('v-phone')?.value||'').trim();
+    if (!ph||!/^[0-9+]{7,15}$/.test(ph.replace(/\s/g,''))) {
+      const e=document.getElementById('vErr'); if(e){e.textContent='❌ أدخل رقم هاتف صحيح';e.style.display='block';} return;
+    }
+    window._userVerifiedPhone = ph;
+    const a=Math.floor(Math.random()*15)+5, b=Math.floor(Math.random()*9)+1;
+    const ops=[{s:'+',r:a+b},{s:'×',r:a*b},{s:'−',r:a-b>0?a-b:b-a}];
+    const op=ops[Math.floor(Math.random()*ops.length)];
+    _vMathAns=op.r;
+    const q=document.getElementById('vMathQ'); if(q) q.textContent=`${a} ${op.s} ${b} = ?`;
+    window.showVStep(2);
+    setTimeout(()=>document.getElementById('v-math-ans')?.focus(),100);
+  };
+
+  window.vCheckMath = () => {
+    const ans=parseInt(document.getElementById('v-math-ans')?.value||'',10);
+    if(isNaN(ans)||ans!==_vMathAns){
+      const a=Math.floor(Math.random()*15)+5, b=Math.floor(Math.random()*9)+1;
+      const ops=[{s:'+',r:a+b},{s:'×',r:a*b},{s:'−',r:a-b>0?a-b:b-a}];
+      const op=ops[Math.floor(Math.random()*ops.length)];
+      _vMathAns=op.r;
+      const q=document.getElementById('vMathQ'); if(q) q.textContent=`${a} ${op.s} ${b} = ?`;
+      const ae=document.getElementById('v-math-ans'); if(ae){ae.value='';ae.style.borderColor='rgba(248,113,113,.6)';setTimeout(()=>{if(ae)ae.style.borderColor='rgba(255,255,255,.15)';},700);ae.focus();}
+      const e=document.getElementById('vErr'); if(e){e.textContent='❌ الجواب خاطئ، سؤال جديد';e.style.display='block';}
+      return;
+    }
+    localStorage.setItem('txUserPhone','1|'+window._userVerifiedPhone);
+    const ph=document.getElementById('ur-phone'); if(ph) ph.value=window._userVerifiedPhone;
+    const ten=document.getElementById('ur-office-tenant'); if(ten) ten.value=window._pendingTenant||'';
+    const onm=document.getElementById('vOfficeName'); if(onm) onm.textContent='🏢 '+(window._pendingName||'');
+    const onm2=document.getElementById('userReqOfficeName'); if(onm2) onm2.textContent=window._pendingName||'';
+    window.showVStep(3);
+    window.vRequestGPS();
+  };
+
+  window.vRequestGPS = () => {
+    const dot=document.getElementById('vGpsDot'), txt=document.getElementById('vGpsTxt'), btn=document.getElementById('vGpsBtn');
+    if(dot) dot.style.background='#F59E0B';
+    if(txt) txt.textContent='جاري تحديد موقعك...';
+    if(btn) btn.style.display='none';
+    if(!navigator.geolocation){
+      window._gpsOk=false;
+      if(dot) dot.style.background='#64748B';
+      if(txt) txt.textContent='GPS غير مدعوم — يمكنك المتابعة بدونه';
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        window._gpsOk=true; window._userGpsLat=pos.coords.latitude; window._userGpsLng=pos.coords.longitude;
+        if(dot) dot.style.background='#10B981';
+        if(txt) txt.textContent='✅ تم تحديد موقعك';
+      },
+      ()=>{
+        window._gpsOk=false;
+        if(dot) dot.style.background='#EF4444';
+        if(txt) txt.textContent='تعذّر تحديد الموقع — يمكنك المتابعة بدونه';
+        if(btn) btn.style.display='block';
+      },
+      {enableHighAccuracy:false,timeout:10000,maximumAge:60000}
+    );
+  };
+}
+
 /* ── User Request Modal ── */
 window.openUserReqModal = (tenantId, name, desc) => {
   window._pendingTenant = tenantId;
@@ -2320,6 +2631,7 @@ window.openUserReqModal = (tenantId, name, desc) => {
     document.getElementById('UserVerifyScreen').classList.add('on');
     if (typeof window.resetVerifyScreen === 'function') window.resetVerifyScreen();
     else if (window.showVStep) window.showVStep(1);
+    if (typeof window.showVStep === 'function') window.showVStep(1);
   } else {
     window._gpsOk = false; window._userGpsLat = null; window._userGpsLng = null;
     document.getElementById('UserVerifyScreen').classList.add('on');
@@ -2334,34 +2646,57 @@ window.submitUserReq = async () => {
     if(typeof window.showRateLimitAlert==='function') window.showRateLimitAlert(rem);
     return;
   }
-  if(!window._gpsOk){ toast('err','📍 الموقع مطلوب','يجب تفعيل GPS لإرسال الطلب'); return; }
-  
-  const phone    = (window._userVerifiedPhone || ($('ur-phone').value || '')).trim();
-  const from     = ($('ur-from').value  || '').trim();   // ← "أين أنت"
-  const to       = ($('ur-to').value    || '').trim();   // ← "وجهتك"
-  const tenantId =  $('ur-office-tenant').value;
-  
-  if (!phone || !from || !to) return shAl('al-userreq','err','يرجى ملء جميع الحقول');
-  if (!/^[0-9+]{7,15}$/.test(phone.replace(/\s/g,''))) return shAl('al-userreq','err','رقم الهاتف غير صحيح');
-  
-  const btn = $('MuserReq').querySelector('.bp'), orig = btn.innerHTML;
-  btn.innerHTML = '<span class="spin"></span> جار الإرسال...'; btn.disabled = true;
+
+  /* قراءة الحقول من UserVerifyScreen (vStep3) أو MuserReq */
+  const uvs   = document.getElementById('UserVerifyScreen');
+  const scope = uvs || document;
+  const phoneEl    = scope.querySelector('#ur-phone');
+  const fromEl     = scope.querySelector('#ur-from');
+  const toEl       = scope.querySelector('#ur-to');
+  const tenantEl   = scope.querySelector('#ur-office-tenant');
+  const offNameEl  = scope.querySelector('#userReqOfficeName') || scope.querySelector('#vOfficeName');
+  const errEl      = scope.querySelector('#al-userreq');
+
+  const phone    = (window._userVerifiedPhone || (phoneEl ? phoneEl.value : '') || '').trim();
+  const from     = (fromEl    ? fromEl.value    : '').trim();
+  const to       = (toEl      ? toEl.value      : '').trim();
+  const tenantId = (tenantEl  ? tenantEl.value  : '') || window._pendingTenant || '';
+
+  const showErr = msg => {
+    if (errEl) { errEl.textContent = '⚠️ ' + msg; errEl.style.color='#EF4444'; }
+    else if (typeof shAl === 'function') shAl('al-userreq','err', msg);
+  };
+
+  if (!phone)    return showErr('أدخل رقم هاتفك');
+  if (!from)     return showErr('أدخل موقعك الحالي (من أين؟)');
+  if (!to)       return showErr('أدخل وجهتك (إلى أين؟)');
+  if (!tenantId) return showErr('خطأ: لم يتم تحديد المكتب — أغلق وأعد المحاولة');
+  if (!/^[0-9+]{7,15}$/.test(phone.replace(/\s/g,''))) return showErr('رقم الهاتف غير صحيح');
+
+  /* زر الإرسال — نستهدف الزر الظاهر في vStep3 */
+  const sendBtn = uvs ? uvs.querySelector('button.verify-btn-wa:last-of-type, button[onclick*="submitUserReq"]') : null;
+  const origTxt = sendBtn ? sendBtn.innerHTML : '';
+  if (sendBtn) { sendBtn.innerHTML = '<span class="spin"></span> جار الإرسال...'; sendBtn.disabled = true; }
+
   try {
     const details = `من: ${from} ← إلى: ${to}`;
     const reqRef  = await push(ref(_db, `tenants/${tenantId}/recvRequests`), {
-      phone, details, ts:Date.now(), addedBy:'مستخدم عام 🌐', fromUser:true,
+      phone, details, ts: serverTimestamp(), addedBy:'مستخدم عام 🌐', fromUser:true,
       userFrom:from, userTo:to, userReqRef:null,
       ...(window._gpsOk && window._userGpsLat ? { userLat:window._userGpsLat, userLng:window._userGpsLng, hasGps:true } : { hasGps:false }),
     });
     const userReqRefPath = `tenants/${tenantId}/recvRequests/${reqRef.key}`;
     await update(reqRef, { userReqRef: userReqRefPath });
     _userReqId = reqRef.key; _userReqTenantId = tenantId;
-    CM('MuserReq');
+    if (uvs) uvs.classList.remove('on');
     localStorage.setItem('txLastReq', String(Date.now()));
-    openTrackScreen(phone, details, $('userReqOfficeName').textContent);
+    const officeName = (offNameEl ? offNameEl.textContent : '') || window._pendingName || '';
+    openTrackScreen(phone, details, officeName);
     listenUserReqStatus(tenantId, reqRef.key);
-  } catch(err) { shAl('al-userreq','err','خطأ: '+(err.message||'')); }
-  btn.innerHTML = orig; btn.disabled = false;
+  } catch(err) {
+    showErr('خطأ في الإرسال: '+(err.message||'تأكد من الاتصال'));
+    if (sendBtn) { sendBtn.innerHTML = origTxt; sendBtn.disabled = false; }
+  }
 };
 
 /* ── Tracking Screen ── */
@@ -2427,7 +2762,7 @@ const updateTrackUI = req => {
   }
   _lastTrackStatus = ds;
   if (ds==='cancelled'||ds==='rejected') {
-    setTimeout(() => { if ($('UserTrackScreen').classList.contains('on')) { $('UserTrackScreen').classList.remove('on'); $('PTenantGate').style.display='block'; } }, 4000);
+    setTimeout(() => { if ($('UserTrackScreen').classList.contains('on')) { $('UserTrackScreen').classList.remove('on'); } }, 4000);
   }
   if (ds==='done' && $('trackRatingSection').style.display==='none') $('trackArrivedSection').style.display = 'block';
 };
@@ -2437,8 +2772,9 @@ window.userCancelReq = async () => {
   if (!confirm('هل تريد إلغاء الطلب؟')) return;
   try {
     await update(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`), { status:'cancelled', cancelledAt:Date.now(), cancelledBy:'user' });
-    await push(ref(_db,  `tenants/${_userReqTenantId}/notifications`), { type:'cancel', msg:`🚫 مستخدم ألغى الطلب: ${$('trackPhone').textContent}`, ts:Date.now(), read:false });
-    $('UserTrackScreen').classList.remove('on'); toast('info','تم إلغاء الطلب','');
+    await push(ref(_db,  `tenants/${_userReqTenantId}/notifications`), { type:'cancel', msg:`🚫 مستخدم ألغى الطلب: ${$('trackPhone').textContent}`, ts:serverTimestamp(), read:false });
+    $('UserTrackScreen').classList.remove('on');
+    toast('info','تم إلغاء الطلب','');
     if (_pubReqListener) { try { off(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`)); } catch(e) {} _pubReqListener = null; }
     _userReqId = null; _userReqTenantId = null;
   } catch(err) { toast('err','خطأ',err.message||''); }
@@ -2469,7 +2805,7 @@ window.confirmTaxiArrived = async () => {
             const lSnap = await get(lRef).catch(() => null);
             const prev  = lSnap && lSnap.exists() ? lSnap.val() : { deliveries:0 };
             await set(lRef, { ...prev, deliveries:(prev.deliveries||0)+1, lastUpdate:Date.now() }).catch(() => {});
-            await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'done', driverId:drvId, driverName:drvData.name||drvId, msg:`📦 تأكد المستخدم وصول التكسي — ${drvData.name||drvId} — إجمالي: ${newCount}`, ts:Date.now(), read:false }).catch(() => {});
+            await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'done', driverId:drvId, driverName:drvData.name||drvId, msg:`📦 تأكد المستخدم وصول التكسي — ${drvData.name||drvId} — إجمالي: ${newCount}`, ts:serverTimestamp(), read:false }).catch(() => {});
             break;
           }
         }
@@ -2489,8 +2825,8 @@ window.submitRating = async () => {
   if (_userRating === 0) return toast('warn','يرجى اختيار تقييم','');
   const comment = ($('ratingComment').value||'').trim();
   if (_userReqTenantId) {
-    await push(ref(_db, `tenants/${_userReqTenantId}/ratings`), { stars:_userRating, comment, reqId:_userReqId, phone:$('trackPhone').textContent, ts:Date.now() }).catch(() => {});
-    await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'rating', msg:`⭐ تقييم جديد: ${'⭐'.repeat(_userRating)} — ${comment||'بدون تعليق'}`, ts:Date.now(), read:false }).catch(() => {});
+    await push(ref(_db, `tenants/${_userReqTenantId}/ratings`), { stars:_userRating, comment, reqId:_userReqId, phone:$('trackPhone').textContent, ts:serverTimestamp() }).catch(() => {});
+    await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type:'rating', msg:`⭐ تقييم جديد: ${'⭐'.repeat(_userRating)} — ${comment||'بدون تعليق'}`, ts:serverTimestamp(), read:false }).catch(() => {});
   }
   toast('ok','✅ شكراً على تقييمك!','');
   closeTrackScreen();
@@ -2501,8 +2837,8 @@ window.closeTrackScreen = () => {
   $('UserTrackScreen').classList.remove('on');
   _lastTrackStatus = ''; _userReqId = null; _userReqTenantId = null; _userRating = 0;
   if (_pubReqListener) { try { off(_pubReqListener); } catch(e) {} _pubReqListener = null; }
-  if ($('PU').style.display === 'flex') { /* الخريطة مفتوحة */ }
-  else { $('PL').style.display = 'none'; $('PTenantGate').style.display = 'block'; }
+  const pu = $('PU');
+  if (!pu || pu.style.display !== 'flex') { $('PL').style.display = 'none'; initTenantGate(); }
 };
 
 
@@ -2689,7 +3025,7 @@ window.addRecvReq = async () => {
   const phone   = ($('recv-phone').value   || '').trim();
   const details = ($('recv-details').value || '').trim();
   if (!phone || !details) return shAl('al-recv-add','err','يرجى ملء جميع الحقول');
-  await push(tRef('recvRequests'), { phone, details, ts:Date.now(), addedBy:CU?CU.name:'المستقبل' });
+  await push(tRef('recvRequests'), { phone, details, ts:serverTimestamp(), addedBy:CU?CU.name:'المستقبل' });
   $('recv-phone').value = ''; $('recv-details').value = '';
   shAl('al-recv-add','ok','✅ تم إضافة الطلب'); playSound('notif');
   setTimeout(() => recvTab('requests'), 1200);
@@ -2739,10 +3075,17 @@ window.logout = async () => {
   CU = null; CR = null; shiftStartTime = null; allDrvs = {}; IS_RECV = false;
   TENANT_ID = ''; TENANT_INFO = null;
 
+  clearSession();
   $('PD').style.display = 'none';
   $('PR').style.display = 'none';
   $('PL').style.display = 'none';
+  const puEl = $('PU'); if (puEl) puEl.style.display = 'none';
   $('PTenantGate').style.display = 'block';
+  TENANT_ID = ''; TENANT_INFO = null;
+  /* أخفِ staffPanel لو كان مفتوحاً */
+  if (typeof closeStaffPanel === 'function') closeStaffPanel();
+  const sp = $('staffPanel'); if (sp) sp.style.display = 'none';
+  const si = $('staffPanelInner'); if (si) si.style.transform = 'translateX(-100%)';
 
   $('ntabs').innerHTML = '';
   const navav = $('navav');
@@ -2768,9 +3111,14 @@ window.logoutRecv = async () => {
   CU = null; CR = null; IS_RECV = false; recvAllDrvs = {};
   TENANT_ID = ''; TENANT_INFO = null;
   if (window._recvMap) { try { window._recvMap.remove(); } catch(e) {} window._recvMap = null; }
+  clearSession();
   $('PR').style.display  = 'none'; $('PL').style.display = 'none';
+  const puElR = $('PU'); if (puElR) puElR.style.display = 'none';
   $('PTenantGate').style.display = 'block';
   $('recv-ntabs').innerHTML = '';
+  TENANT_ID = ''; TENANT_INFO = null;
+  const spR = $('staffPanel'); if (spR) spR.style.display = 'none';
+  const siR = $('staffPanelInner'); if (siR) siR.style.transform = 'translateX(-100%)';
   const mn = $('mobileNav'); if (mn) mn.style.display = 'none';
   const mb = $('mobTabs');   if (mb) mb.innerHTML = '';
 };
