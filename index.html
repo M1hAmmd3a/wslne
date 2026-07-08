@@ -25,6 +25,20 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="منصة الركاب">
+<script>
+/* التقاط حدث PWA قبل تحميل أي module */
+window._deferredInstall = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  window._deferredInstall = e;
+  /* أظهر أزرار التنزيل إن وجدت */
+  var btns = document.querySelectorAll('.pwa-android-btn');
+  btns.forEach(function(b) { b.style.display = 'flex'; });
+});
+window.addEventListener('appinstalled', function() {
+  window._deferredInstall = null;
+});
+</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 
@@ -314,6 +328,7 @@ html, body {
 .ba, .bp { width:100%; padding:13px 16px; background:linear-gradient(135deg,var(--primary),var(--secondary)); border:none; border-radius:12px; color:white; font-size:14px; font-weight:800; cursor:pointer; font-family:'Cairo',sans-serif; transition:all .3s; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 10px 25px rgba(14,165,233,.3); }
 .ba:hover, .bp:hover { transform:translateY(-2px); box-shadow:0 15px 35px rgba(14,165,233,.4); }
 .h { display:none; }
+.user-track-screen.on { display:flex !important; }
 .user-track-screen { display:none; position:fixed; inset:0; background:linear-gradient(135deg,var(--bg-darker),var(--bg-dark)); z-index:4000; padding:24px; overflow-y:auto; flex-direction:column; }
 .rating-star { font-size:32px; cursor:pointer; opacity:.3; transition:all .2s; }
 .rating-star.on { opacity:1; }
@@ -407,10 +422,24 @@ html, body {
         <div class="gate-title">منصة الركاب</div>
         <div class="gate-subtitle">طولكرم — نظام إدارة مكاتب التكسي</div>
       </div>
-      <div class="gate-card" style="text-align:center">
-        <div style="font-size:48px;margin-bottom:16px">👈</div>
-        <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:8px">استخدم زر الدخول</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:20px">اضغط على السهم في يسار الشاشة</div>
+      <div class="gate-card" style="text-align:center;padding:24px">
+        <div style="font-size:52px;margin-bottom:10px">🚕</div>
+        <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:6px;font-family:Tajawal,sans-serif">منصة الركاب</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:24px">نظام إدارة مكاتب التكسي</div>
+        <!-- أزرار تنزيل التطبيق -->
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button onclick="window._installAndroid()" class="pwa-android-btn"
+            style="display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 20px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;box-shadow:0 4px 16px rgba(5,150,105,.4)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M1 12c0 5.514 4.486 10 10 10s10-4.486 10-10S16.514 2 11 2 1 6.486 1 12zm10 8c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-5h2v2h-2zm0-8h2v6h-2z"/></svg>
+            تثبيت التطبيق — أندرويد
+          </button>
+          <button onclick="window._installIOS()"
+            style="display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 20px;background:linear-gradient(135deg,#0EA5E9,#0284C7);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;box-shadow:0 4px 16px rgba(14,165,233,.4)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            تثبيت التطبيق — آيفون
+          </button>
+        </div>
+        <div style="margin-top:16px;font-size:11px;color:rgba(255,255,255,.3)">للدخول كموظف أو سائق اضغط الزر في يسار الشاشة</div>
       </div>
             <div class="gate-footer">منصة التكسي © 2026 — طولكرم</div>
     </div>
@@ -486,77 +515,165 @@ html, body {
   </div>
 </div>
 
-<!-- ════════ USER VERIFY SCREEN (3 خطوات) ════════ -->
-<div class="user-verify-screen" id="UserVerifyScreen">
-  <div class="verify-card">
-    <div style="display:flex;gap:4px;margin-bottom:20px">
-      <div id="vp1" style="flex:1;height:3px;border-radius:2px;background:#0EA5E9;transition:.3s"></div>
-      <div id="vp2" style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.15);transition:.3s"></div>
-      <div id="vp3" style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.15);transition:.3s"></div>
+<!-- ════════════════════════════════════════════════════════
+     نظام طلب التاكسي — 4 شاشات نظيفة
+     ════════════════════════════════════════════════════════ -->
+<div id="taxiFlow" style="display:none;position:fixed;inset:0;z-index:5000;font-family:Cairo,sans-serif">
+
+  <!-- ══ شاشة 1: GPS ══ -->
+  <div id="tf1" style="display:none;flex-direction:column;align-items:center;justify-content:center;inset:0;position:absolute;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);padding:32px 24px;text-align:center">
+    <div style="width:100px;height:100px;background:rgba(14,165,233,.15);border:2px solid rgba(14,165,233,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:24px;animation:gpsPulse 2s ease infinite">
+      <i class="fas fa-map-location-dot" style="font-size:44px;color:#0EA5E9"></i>
     </div>
-    <div id="vStepLabel" style="font-size:11px;color:rgba(255,255,255,.5);font-family:Cairo,sans-serif;text-align:center;margin-bottom:16px">إدخال رقم الهاتف</div>
-    <div id="vErr" style="display:none;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;color:#F87171;font-size:13px;font-family:Cairo,sans-serif"></div>
-    <!-- الخطوة 1: رقم الهاتف -->
-    <div class="verify-step on" id="vStep1" style="display:flex">
-      <div class="verify-icon" style="background:linear-gradient(135deg,#0EA5E9,#0284C7)">📞</div>
-      <div class="verify-title">أدخل رقم هاتفك</div>
-      <div class="verify-sub">سيتم التحقق بسؤال بسيط</div>
-      <input id="v-phone" type="tel" placeholder="05xxxxxxxx" dir="ltr"
-        style="width:100%;padding:13px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:15px;font-family:Cairo,sans-serif;outline:none;text-align:center;box-sizing:border-box"
-        onkeydown="if(event.key==='Enter')window.vGoStep2&&window.vGoStep2()">
-      <button class="verify-btn-wa" onclick="window.vGoStep2&&window.vGoStep2()"
-        style="background:linear-gradient(135deg,#0EA5E9,#0284C7);box-shadow:0 8px 20px rgba(14,165,233,.3)">متابعة ←</button>
-      <button onclick="document.getElementById('UserVerifyScreen').classList.remove('on')"
-        style="background:none;border:none;color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;font-family:Cairo,sans-serif;text-align:center">إلغاء</button>
+    <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:10px;font-family:Tajawal,sans-serif">تحديد موقعك</div>
+    <div style="font-size:14px;color:rgba(255,255,255,.5);margin-bottom:32px;line-height:1.8">نحتاج موقعك لإرسال التاكسي إليك بدقة<br>اضغط الزر وامنح إذن الموقع</div>
+    <button id="tf1Btn" onclick="window._tfRequestGPS()"
+      style="padding:16px 40px;background:linear-gradient(135deg,#0EA5E9,#0284C7);border:none;border-radius:16px;color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:Cairo,sans-serif;box-shadow:0 8px 24px rgba(14,165,233,.4);display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <i class="fas fa-location-crosshairs"></i> تحديد موقعي الآن
+    </button>
+    <div id="tf1Status" style="font-size:13px;color:rgba(255,255,255,.4);min-height:20px"></div>
+    <button onclick="window._tfClose()" style="margin-top:24px;background:none;border:none;color:rgba(255,255,255,.25);font-size:12px;cursor:pointer;font-family:Cairo,sans-serif">إلغاء</button>
+    <style>
+      @keyframes gpsPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.08);opacity:.8} }
+    </style>
+  </div>
+
+  <!-- ══ شاشة 2: تفاصيل الطلب ══ -->
+  <div id="tf2" style="display:none;flex-direction:column;inset:0;position:absolute;background:#F8FAFC;overflow-y:auto">
+    <!-- رأس -->
+    <div style="background:linear-gradient(135deg,#0F172A,#1E293B);padding:20px 20px 16px;display:flex;align-items:center;gap:12px">
+      <button onclick="window._tfGo(1)" style="background:rgba(255,255,255,.1);border:none;border-radius:10px;width:36px;height:36px;color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas fa-arrow-right"></i>
+      </button>
+      <div>
+        <div style="font-size:16px;font-weight:900;color:#fff;font-family:Tajawal,sans-serif">تفاصيل الطلب</div>
+        <div id="tf2OfficeName" style="font-size:12px;color:#0EA5E9;margin-top:2px"></div>
+      </div>
     </div>
-    <!-- الخطوة 2: سؤال رياضي -->
-    <div class="verify-step" id="vStep2" style="display:none">
-      <div class="verify-icon" style="background:linear-gradient(135deg,#8B5CF6,#6D28D9)">🤖</div>
-      <div class="verify-title">تأكيد: لست روبوت</div>
-      <div class="verify-sub">أجب على السؤال التالي</div>
-      <div id="vMathQ" style="text-align:center;font-size:30px;font-weight:900;color:#0EA5E9;font-family:Tajawal,sans-serif;padding:16px;background:rgba(14,165,233,.1);border-radius:12px"></div>
-      <input id="v-math-ans" type="number" placeholder="الجواب" dir="ltr"
-        style="width:100%;padding:13px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:20px;font-family:Cairo,sans-serif;outline:none;text-align:center;box-sizing:border-box"
-        onkeydown="if(event.key==='Enter')window.vCheckMath&&window.vCheckMath()">
-      <button class="verify-btn-wa" onclick="window.vCheckMath&&window.vCheckMath()"
-        style="background:linear-gradient(135deg,#0EA5E9,#0284C7);box-shadow:0 8px 20px rgba(14,165,233,.3)">
-        <i class="fas fa-check"></i> تحقق</button>
-      <button onclick="window.showVStep&&window.showVStep(1)"
-        style="background:none;border:none;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;font-family:Cairo,sans-serif;text-align:center">← رجوع</button>
+    <!-- بطاقة الموقع -->
+    <div style="margin:16px;background:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,.08);display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;background:#EFF6FF;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas fa-location-dot" style="color:#0EA5E9;font-size:18px"></i>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#94A3B8;font-weight:700">موقعك الحالي</div>
+        <div id="tf2GpsLabel" style="font-size:13px;color:#0F172A;font-weight:800">تم تحديد موقعك ✅</div>
+      </div>
     </div>
-    <!-- الخطوة 3: تفاصيل الطلب -->
-    <div class="verify-step" id="vStep3" style="display:none">
-      <div class="verify-icon" style="background:linear-gradient(135deg,#D97706,#B45309)">🚕</div>
-      <div class="verify-title">تفاصيل الطلب</div>
-      <div id="vOfficeName" style="font-size:12px;color:#0EA5E9;font-family:Cairo,sans-serif;text-align:center;margin-bottom:14px"></div>
-      <input type="hidden" id="ur-office-tenant">
-      <div style="margin-bottom:10px">
-        <label style="display:block;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;margin-bottom:5px;font-family:Cairo,sans-serif">📞 رقم هاتفك <span style="color:#10B981;font-size:10px">(مُعبّأ تلقائياً — يمكنك التعديل)</span></label>
-        <input id="ur-phone" type="tel" dir="ltr" placeholder="05xxxxxxxx" style="width:100%;padding:11px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:14px;font-family:Cairo,sans-serif;outline:none;text-align:center;box-sizing:border-box">
+    <!-- الحقول -->
+    <div style="margin:0 16px;display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:800;color:#64748B;margin-bottom:6px"><i class="fas fa-phone" style="color:#0EA5E9;margin-left:4px"></i>رقم هاتفك</label>
+        <input id="tf2Phone" type="tel" placeholder="05xxxxxxxx" dir="ltr"
+          style="width:100%;box-sizing:border-box;padding:13px 14px;background:#fff;border:2px solid #E2E8F0;border-radius:12px;font-size:15px;font-family:Cairo,sans-serif;outline:none;text-align:center;color:#0F172A;transition:.2s"
+          onfocus="this.style.borderColor='#0EA5E9'" onblur="this.style.borderColor='#E2E8F0'">
       </div>
-      <div style="margin-bottom:10px">
-        <label style="display:block;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;margin-bottom:5px;font-family:Cairo,sans-serif">📍 من أين؟</label>
-        <input id="ur-from" type="text" placeholder="موقعك الحالي..." dir="rtl" style="width:100%;padding:11px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:13px;font-family:Cairo,sans-serif;outline:none;box-sizing:border-box">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:800;color:#64748B;margin-bottom:6px"><i class="fas fa-map-marker-alt" style="color:#10B981;margin-left:4px"></i>أين أنت؟ (من أين تريد التاكسي)</label>
+        <input id="tf2From" type="text" placeholder="مثال: شارع الشهداء، أمام البنك" dir="rtl"
+          style="width:100%;box-sizing:border-box;padding:13px 14px;background:#fff;border:2px solid #E2E8F0;border-radius:12px;font-size:14px;font-family:Cairo,sans-serif;outline:none;color:#0F172A;transition:.2s"
+          onfocus="this.style.borderColor='#10B981'" onblur="this.style.borderColor='#E2E8F0'">
       </div>
-      <div style="margin-bottom:14px">
-        <label style="display:block;color:rgba(255,255,255,.6);font-size:11px;font-weight:700;margin-bottom:5px;font-family:Cairo,sans-serif">🏁 إلى أين؟</label>
-        <input id="ur-to" type="text" placeholder="وجهتك..." dir="rtl" style="width:100%;padding:11px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:13px;font-family:Cairo,sans-serif;outline:none;box-sizing:border-box">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:800;color:#64748B;margin-bottom:6px"><i class="fas fa-flag-checkered" style="color:#F59E0B;margin-left:4px"></i>إلى أين تريد الذهاب؟</label>
+        <input id="tf2To" type="text" placeholder="مثال: مستشفى طولكرم" dir="rtl"
+          style="width:100%;box-sizing:border-box;padding:13px 14px;background:#fff;border:2px solid #E2E8F0;border-radius:12px;font-size:14px;font-family:Cairo,sans-serif;outline:none;color:#0F172A;transition:.2s"
+          onfocus="this.style.borderColor='#F59E0B'" onblur="this.style.borderColor='#E2E8F0'">
       </div>
-      <div id="vGpsStatus" style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,255,255,.05);border-radius:10px;margin-bottom:14px">
-        <div id="vGpsDot" style="width:10px;height:10px;border-radius:50%;background:#64748B;flex-shrink:0"></div>
-        <div id="vGpsTxt" style="font-size:12px;color:rgba(255,255,255,.6);font-family:Cairo,sans-serif;flex:1">جاري تحديد موقعك...</div>
-        <button id="vGpsBtn" onclick="window.vRequestGPS&&window.vRequestGPS()" style="display:none;padding:5px 10px;background:#0EA5E9;border:none;border-radius:7px;color:#fff;font-size:11px;cursor:pointer;font-family:Cairo,sans-serif">تفعيل</button>
-      </div>
-      <div id="al-userreq" class="al"></div>
-      <div id="userReqOfficeName" style="display:none"></div>
-      <button onclick="window.showVStep&&window.showVStep(1)" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;font-family:Cairo,sans-serif;text-align:center;margin-bottom:4px">← تغيير رقم الهاتف</button>
-      <button class="verify-btn-wa" onclick="window.submitUserReq&&window.submitUserReq()"
-        style="background:linear-gradient(135deg,#D97706,#B45309);box-shadow:0 8px 20px rgba(217,119,6,.3);font-size:15px">
-        <i class="fas fa-taxi"></i> إرسال الطلب</button>
+      <div id="tf2Err" style="display:none;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;padding:10px 14px;color:#EF4444;font-size:13px"></div>
+    </div>
+    <!-- زر الإرسال -->
+    <div style="padding:20px 16px;margin-top:auto">
+      <button id="tf2SendBtn" onclick="window._tfSend()"
+        style="width:100%;padding:16px;background:linear-gradient(135deg,#D97706,#B45309);border:none;border-radius:16px;color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:Tajawal,sans-serif;box-shadow:0 6px 20px rgba(217,119,6,.35);display:flex;align-items:center;justify-content:center;gap:10px">
+        <i class="fas fa-taxi"></i> إرسال الطلب
+      </button>
     </div>
   </div>
-</div>
 
+  <!-- ══ شاشة 3: التتبع (بيضاء) ══ -->
+  <div id="tf3" style="display:none;flex-direction:column;inset:0;position:absolute;background:#F8FAFC;overflow:hidden">
+    <!-- شريط الحالة - فوق -->
+    <div id="tf3StatusBar" style="padding:18px 20px;background:#fff;border-bottom:2px solid #E2E8F0;display:flex;align-items:center;gap:14px">
+      <div id="tf3StatusIcon" style="width:48px;height:48px;border-radius:14px;background:#EFF6FF;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px">⏳</div>
+      <div style="flex:1">
+        <div id="tf3StatusTitle" style="font-size:15px;font-weight:900;color:#0F172A;font-family:Tajawal,sans-serif">تم إرسال الطلب</div>
+        <div id="tf3StatusSub" style="font-size:12px;color:#64748B;margin-top:2px">في انتظار قبول الطلب من المشرف...</div>
+      </div>
+    </div>
+    <!-- خطوات التقدم -->
+    <div style="padding:14px 20px;background:#fff;border-bottom:1px solid #F1F5F9;display:flex;align-items:center;gap:0">
+      <div class="_tfStep" id="tfs0" style="display:flex;flex-direction:column;align-items:center;flex:1">
+        <div id="tfsi0" style="width:28px;height:28px;border-radius:50%;background:#0EA5E9;display:flex;align-items:center;justify-content:center">
+          <i class="fas fa-paper-plane" style="color:#fff;font-size:11px"></i>
+        </div>
+        <div style="font-size:9px;color:#64748B;margin-top:4px;text-align:center;font-weight:700">أُرسل</div>
+      </div>
+      <div id="tfl1" style="flex:1;height:2px;background:#E2E8F0;margin-bottom:14px"></div>
+      <div class="_tfStep" style="display:flex;flex-direction:column;align-items:center;flex:1">
+        <div id="tfsi1" style="width:28px;height:28px;border-radius:50%;background:#E2E8F0;display:flex;align-items:center;justify-content:center">
+          <i class="fas fa-check" style="color:#94A3B8;font-size:11px"></i>
+        </div>
+        <div style="font-size:9px;color:#94A3B8;margin-top:4px;text-align:center;font-weight:700">قُبل</div>
+      </div>
+      <div id="tfl2" style="flex:1;height:2px;background:#E2E8F0;margin-bottom:14px"></div>
+      <div class="_tfStep" style="display:flex;flex-direction:column;align-items:center;flex:1">
+        <div id="tfsi2" style="width:28px;height:28px;border-radius:50%;background:#E2E8F0;display:flex;align-items:center;justify-content:center">
+          <i class="fas fa-map-pin" style="color:#94A3B8;font-size:11px"></i>
+        </div>
+        <div style="font-size:9px;color:#94A3B8;margin-top:4px;text-align:center;font-weight:700">قريب</div>
+      </div>
+      <div id="tfl3" style="flex:1;height:2px;background:#E2E8F0;margin-bottom:14px"></div>
+      <div class="_tfStep" style="display:flex;flex-direction:column;align-items:center;flex:1">
+        <div id="tfsi3" style="width:28px;height:28px;border-radius:50%;background:#E2E8F0;display:flex;align-items:center;justify-content:center">
+          <i class="fas fa-taxi" style="color:#94A3B8;font-size:11px"></i>
+        </div>
+        <div style="font-size:9px;color:#94A3B8;margin-top:4px;text-align:center;font-weight:700">وصل</div>
+      </div>
+    </div>
+    <!-- خريطة الموقع - المربع الأخضر -->
+    <div id="tf3Map" style="flex:1;min-height:0;position:relative">
+      <div id="tf3MapEl" style="width:100%;height:100%"></div>
+      <div id="tf3MapOverlay" style="position:absolute;inset:0;background:linear-gradient(135deg,#0F172A,#1E293B);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+        <i class="fas fa-map" style="font-size:48px;color:rgba(255,255,255,.2)"></i>
+        <div style="color:rgba(255,255,255,.4);font-size:13px;font-family:Cairo,sans-serif">خريطة موقعك</div>
+      </div>
+    </div>
+    <!-- زر التراجع -->
+    <div id="tf3CancelBox" style="padding:12px 16px;background:#fff;border-top:1px solid #F1F5F9">
+      <button onclick="window._tfCancel()"
+        style="width:100%;padding:12px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:12px;color:#EF4444;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">
+        <i class="fas fa-times"></i> تراجع عن الطلب
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ شاشة 4: التقييم ══ -->
+  <div id="tf4" style="display:none;flex-direction:column;align-items:center;justify-content:center;inset:0;position:absolute;background:#F8FAFC;padding:32px 24px;text-align:center">
+    <div style="font-size:60px;margin-bottom:8px">🎉</div>
+    <div style="font-size:22px;font-weight:900;color:#0F172A;margin-bottom:8px;font-family:Tajawal,sans-serif">تم التوصيل بنجاح!</div>
+    <div style="font-size:14px;color:#64748B;margin-bottom:28px">كيف كانت تجربتك؟ قيّم خدمة المكتب</div>
+    <!-- نجوم -->
+    <div style="display:flex;gap:12px;margin-bottom:12px;direction:ltr">
+      <span id="tfStar1" onclick="window._tfRate(1)" style="font-size:42px;cursor:pointer;transition:transform .15s;filter:grayscale(1)">⭐</span>
+      <span id="tfStar2" onclick="window._tfRate(2)" style="font-size:42px;cursor:pointer;transition:transform .15s;filter:grayscale(1)">⭐</span>
+      <span id="tfStar3" onclick="window._tfRate(3)" style="font-size:42px;cursor:pointer;transition:transform .15s;filter:grayscale(1)">⭐</span>
+      <span id="tfStar4" onclick="window._tfRate(4)" style="font-size:42px;cursor:pointer;transition:transform .15s;filter:grayscale(1)">⭐</span>
+      <span id="tfStar5" onclick="window._tfRate(5)" style="font-size:42px;cursor:pointer;transition:transform .15s;filter:grayscale(1)">⭐</span>
+    </div>
+    <div id="tfRateLabel" style="font-size:15px;font-weight:800;color:#F59E0B;min-height:22px;margin-bottom:16px"></div>
+    <textarea id="tfComment" placeholder="تعليق اختياري..." dir="rtl" rows="3"
+      style="width:100%;box-sizing:border-box;padding:12px 14px;background:#fff;border:2px solid #E2E8F0;border-radius:12px;font-size:14px;font-family:Cairo,sans-serif;outline:none;resize:none;color:#0F172A;margin-bottom:16px"
+      onfocus="this.style.borderColor='#F59E0B'" onblur="this.style.borderColor='#E2E8F0'"></textarea>
+    <button onclick="window._tfSubmitRating()"
+      style="width:100%;padding:15px;background:linear-gradient(135deg,#F59E0B,#D97706);border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:Tajawal,sans-serif;box-shadow:0 6px 16px rgba(245,158,11,.3);margin-bottom:10px">
+      <i class="fas fa-star"></i> إرسال التقييم
+    </button>
+    <button onclick="window._tfClose()"
+      style="background:none;border:none;color:#94A3B8;font-size:13px;cursor:pointer;font-family:Cairo,sans-serif">تخطي</button>
+  </div>
+
+</div>
 
 
 <!-- ════════ USER REQUEST MODAL ════════ -->
@@ -609,61 +726,6 @@ html, body {
 </div>
 
 <!-- ════════ USER TRACKING SCREEN ════════ -->
-<div class="user-track-screen" id="UserTrackScreen">
-  <div class="track-header">
-    <div>
-      <div style="font-family:'Tajawal',sans-serif;font-size:18px;font-weight:900;color:var(--text)">تتبع طلبك 🚕</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px" id="trackOfficeLabel">جاري التحميل...</div>
-    </div>
-    <button id="trackCancelBtn" onclick="userCancelReq()"
-      style="padding:9px 16px;background:var(--red-l);border:1.5px solid var(--red-m);border-radius:10px;color:var(--red);font-size:12px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif;display:flex;align-items:center;gap:6px">
-      <i class="fas fa-times"></i> تراجع عن الطلب
-    </button>
-  </div>
-  <div class="track-steps">
-    <div class="track-step"><div class="track-step-icon" id="ts-icon-0"><i class="fas fa-paper-plane"></i></div><div class="track-step-label">تم الإرسال</div></div>
-    <div class="track-step"><div class="track-step-line" id="ts-line-1"></div><div class="track-step-icon" id="ts-icon-1"><i class="fas fa-check"></i></div><div class="track-step-label">قُبل الطلب</div></div>
-    <div class="track-step"><div class="track-step-line" id="ts-line-2"></div><div class="track-step-icon" id="ts-icon-2"><i class="fas fa-map-pin"></i></div><div class="track-step-label">التكسي قريب</div></div>
-    <div class="track-step"><div class="track-step-line" id="ts-line-3"></div><div class="track-step-icon" id="ts-icon-3"><i class="fas fa-taxi"></i></div><div class="track-step-label">وصل التكسي</div></div>
-  </div>
-  <div class="track-status-banner tsb-waiting" id="trackStatusBanner">⏳ في انتظار قبول الطلب...</div>
-  <div class="track-info-box">
-    <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;font-family:'Tajawal',sans-serif">تفاصيل طلبك</div>
-    <div style="font-size:12px;color:var(--text2);display:flex;flex-direction:column;gap:7px">
-      <div style="display:flex;gap:8px;align-items:center"><i class="fas fa-phone" style="color:var(--primary);width:16px;text-align:center"></i><span id="trackPhone">-</span></div>
-      <div style="display:flex;gap:8px;align-items:flex-start"><i class="fas fa-map-marker-alt" style="color:var(--amber);width:16px;text-align:center;margin-top:2px"></i><span id="trackDetails">-</span></div>
-    </div>
-  </div>
-  <div id="trackArrivedSection" style="display:none;padding:0 20px 16px">
-    <div style="background:var(--amber-l);border:1px solid var(--amber-m);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--amber);font-weight:700;margin-bottom:10px;text-align:center">
-      <i class="fas fa-exclamation-circle"></i> اضغط فقط عند وصول التكسي إليك فعلياً
-    </div>
-    <button onclick="confirmTaxiArrived()"
-      style="width:100%;padding:16px;background:var(--green);border:none;border-radius:var(--rl);color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:'Cairo',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 14px rgba(5,150,105,.3)">
-      <i class="fas fa-check-circle"></i> ✅ وصل التكسي — تم!
-    </button>
-  </div>
-  <div id="trackRatingSection" style="display:none;padding:0 20px 24px">
-    <div style="text-align:center;margin-bottom:12px">
-      <div style="font-family:'Tajawal',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:4px">🎉 شكراً لاستخدامك خدمتنا!</div>
-      <div style="font-size:13px;color:var(--text3)">كيف كانت تجربتك مع هذا المكتب؟</div>
-    </div>
-    <div style="display:flex;gap:8px;justify-content:center;margin:16px 0;direction:ltr">
-      <span class="rating-star" onclick="setRating(1)">⭐</span>
-      <span class="rating-star" onclick="setRating(2)">⭐</span>
-      <span class="rating-star" onclick="setRating(3)">⭐</span>
-      <span class="rating-star" onclick="setRating(4)">⭐</span>
-      <span class="rating-star" onclick="setRating(5)">⭐</span>
-    </div>
-    <div id="ratingLabel" style="text-align:center;font-size:13px;font-weight:700;color:var(--amber);min-height:22px;margin-bottom:10px"></div>
-    <div class="fg"><textarea class="fi" id="ratingComment" rows="2" placeholder="تعليق اختياري..."></textarea></div>
-    <button onclick="submitRating()"
-      style="width:100%;padding:13px;background:var(--amber);border:none;border-radius:var(--r);color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;margin-bottom:8px">
-      <i class="fas fa-star"></i> إرسال التقييم
-    </button>
-    <button onclick="closeTrackScreen()"
-      style="width:100%;padding:10px;background:transparent;border:none;color:var(--text4);font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif">تخطي</button>
-  </div>
 </div>
 
 <!-- ════════ MODAL: SUPERVISOR / RECEIVER LOGIN ════════ -->
@@ -1209,19 +1271,20 @@ window.showRateLimitAlert = function(remSec) {
         });
       }
       /* أزرار الدخول */
-['supervisor','driver','receiver'].forEach(function(role) {
-        var btns = panel.querySelectorAll(`[onclick*="gateEnter('${role}'"]`);
-        btns.forEach(function(btn) {
-          if (!btn._bound) {
-            btn._bound = true;
-            btn.removeAttribute('onclick');
-            btn.addEventListener('click', function() {
-              if (typeof window.gateEnter === 'function') window.gateEnter(role);
-            });
-          }
-        });
+['supervisor', 'driver', 'receiver'].forEach(function(role) {
+  var btns = panel.querySelectorAll('[onclick*="gateEnter(\'' + role + '\'"]');
+  btns.forEach(function(btn) {
+    if (!btn._bound) {
+      btn._bound = true;
+      btn.removeAttribute('onclick');
+      btn.addEventListener('click', function() {
+        if (typeof window.gateEnter === 'function') {
+          window.gateEnter(role);
+        }
       });
-
+    }
+  });
+});
       /* openStaffPanel / closeStaffPanel */
       var staffBtn = document.getElementById('staffEntryBtn');
       if (staffBtn && !staffBtn._bound) {
