@@ -1658,9 +1658,9 @@ const loadSupReqList = () => {
         ${d.addedBy ? `<div style="font-size:10px;color:var(--text4);margin-bottom:6px"><i class="fas fa-user" style="margin-left:3px"></i>${esc(d.addedBy)}</div>` : ''}
         <div class="reqacts">
           <button class="rca rca-primary" onclick="openTaxiSel('${id}','${eAt(d.phone || '')}','${eAt(d.details || '')}','${id}')"><i class="fas fa-car-side"></i> إرسال لسائق</button>
-          ${d.hasGps && d.userLat && d.userLng ? `
-  <button class="rca rca-green" onclick="showUserGpsOnMap('${id}',${d.userLat},${d.userLng},'${esc(d.phone || '')}')">
-    <i class="fas fa-map-location-dot"></i> خريطة الزبون
+          ${(d.lat && d.lng) || (d.hasGps && d.userLat && d.userLng) ? `
+  <button class="rca rca-green" onclick="showUserGpsOnMap('${id}',${d.lat || d.userLat},${d.lng || d.userLng},'${esc(d.phone || '')}')">
+    <i class="fas fa-map-location-dot"></i> موقع الزبون
   </button>
 `: ''}
           <button class="rca rca-amber"   onclick="openEditReq('${id}','${eAt(d.phone || '')}','${eAt(d.details || '')}')"><i class="fas fa-pen"></i></button>
@@ -2589,7 +2589,7 @@ window._showDataScreen = () => {
       <!-- رقم الهاتف -->
       <div>
         <label style="display:block;font-size:12px;font-weight:700;color:#0F172A;margin-bottom:6px">📞 رقم الهاتف *</label>
-        <input id="reqPhone" type="tel" placeholder="05xxxxxxxxx" 
+        <input id="taxiReqPhone" type="tel" placeholder="05xxxxxxxxx" 
           style="width:100%;padding:13px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:14px;font-family:Cairo,sans-serif;outline:none;transition:all .2s"
           onmouseover="this.style.borderColor='#0EA5E9'" onmouseout="this.style.borderColor='#E2E8F0'"
           onfocus="this.style.borderColor='#0EA5E9';this.style.boxShadow='0 0 0 3px rgba(14,165,233,.1)'" onblur="this.style.boxShadow='none'"/>
@@ -2606,17 +2606,17 @@ window._showDataScreen = () => {
       <!-- الوجهة -->
       <div>
         <label style="display:block;font-size:12px;font-weight:700;color:#0F172A;margin-bottom:6px">🎯 أين تريد الذهاب؟ *</label>
-        <textarea id="reqDestination" placeholder="حدد الموقع أو اكتب العنوان..." 
+        <textarea id="taxiReqDestination" placeholder="حدد الموقع أو اكتب العنوان..." 
           style="width:100%;padding:13px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;font-family:Cairo,sans-serif;resize:vertical;min-height:70px;outline:none;transition:all .2s"
           onmouseover="this.style.borderColor='#0EA5E9'" onmouseout="this.style.borderColor='#E2E8F0'"
           onfocus="this.style.borderColor='#0EA5E9';this.style.boxShadow='0 0 0 3px rgba(14,165,233,.1)'" onblur="this.style.boxShadow='none'"></textarea>
       </div>
 
-      <!-- ملاحظات -->
+<!-- ملاحظات -->
       <div>
         <label style="display:block;font-size:12px;font-weight:700;color:#0F172A;margin-bottom:6px">💬 ملاحظات (اختياري)</label>
-        <textarea id="reqNotes" placeholder="مثلاً: بجانب المسجد، حمراء، إلخ..." 
-          style="width:100%;padding:13px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;font-family:Cairo,sans-serif;resize:vertical;min-height:60px;outline:none;transition:all .2s"
+        <textarea id="taxiReqNotes" placeholder="مثلاً: بجانب المسجد، حمراء، إلخ..."
+                  style="width:100%;padding:13px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;font-family:Cairo,sans-serif;resize:vertical;min-height:60px;outline:none;transition:all .2s"
           onmouseover="this.style.borderColor='#0EA5E9'" onmouseout="this.style.borderColor='#E2E8F0'"
           onfocus="this.style.borderColor='#0EA5E9';this.style.boxShadow='0 0 0 3px rgba(14,165,233,.1)'" onblur="this.style.boxShadow='none'"></textarea>
       </div>
@@ -2636,20 +2636,16 @@ window._showDataScreen = () => {
 
 // === إرسال الطلب ===
 window._submitRequest = async () => {
-  const phoneEl = $('reqPhone');
-  const destEl = $('reqDestination');
-  const notesEl = $('reqNotes');
+  const phoneEl = $('taxiReqPhone');
+  const destEl = $('taxiReqDestination');
+  const notesEl = $('taxiReqNotes');
 
   const phone = (phoneEl?.value || '').trim();
   const destination = (destEl?.value || '').trim();
   const notes = (notesEl?.value || '').trim();
 
-  // Debug logging
-  console.log('Phone:', phone, 'Dest:', destination, 'phoneEl:', phoneEl, 'destEl:', destEl);
-
   if (!phone || !destination) {
     toast('warn', '⚠️ مطلوب', 'الرجاء إدخال رقم الهاتف والوجهة');
-    console.error('Validation failed - phone empty:', !phone, 'dest empty:', !destination);
     return;
   }
 
@@ -2677,6 +2673,7 @@ window._submitRequest = async () => {
 
     const reqRef = await push(ref(_db, `tenants/${_reqSystem.tenantId}/recvRequests`), reqData);
     _reqSystem.reqRef = reqRef;
+    await update(reqRef, { userReqRef: `tenants/${_reqSystem.tenantId}/recvRequests/${reqRef.key}` });
 
     await push(ref(_db, `tenants/${_reqSystem.tenantId}/notifications`), {
       type: 'new_request',
@@ -2687,82 +2684,163 @@ window._submitRequest = async () => {
       read: false
     }).catch(() => { });
 
-    // الانتقال للشاشة 3
-    setTimeout(() => window._showConfirmScreen(), 300);
+    setTimeout(() => window._showTrackingScreen(), 300);
   } catch (e) {
     console.error('Submit error:', e);
     toast('err', '❌ خطأ', 'حدث خطأ في إرسال الطلب');
   }
 };
 
-// === الشاشة 3: تأكيد الإرسال مع الخريطة ===
-window._showConfirmScreen = () => {
+  // === الشاشة 3: تأكيد الإرسال مع الخريطة ===
+ window._showTrackingScreen = () => {
   const container = $('reqSystemContainer');
   if (!container) return;
-
   container.innerHTML = `
-  <div style="display:flex;flex-direction:column;height:100%;background:#fff;align-items:center;justify-content:space-between">
-    
-    <!-- الخريطة -->
-    <div id="confirmMap" style="width:100%;height:55%;min-height:250px;background:#f0f0f0;position:relative;flex-shrink:0"></div>
-    
-    <!-- الرسالة والزر -->
-    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;width:100%">
-      <div style="width:80px;height:80px;background:linear-gradient(135deg,#10B981,#059669);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:20px;box-shadow:0 8px 20px rgba(16,185,129,.2)">✓</div>
-      <div style="font-size:22px;font-weight:900;color:#0F172A;margin-bottom:8px;font-family:Tajawal,sans-serif">تم الإرسال بنجاح! 🎉</div>
-      <div style="font-size:14px;color:#64748B;margin-bottom:24px;line-height:1.8">
-        تم إرسال طلبك إلى مشرف المكتب<br>سيتم الرد عليك قريباً جداً ✨
-      </div>
-      <div style="background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:12px;padding:14px;margin-bottom:24px;width:100%;font-size:13px;color:#0F172A;text-align:right;direction:rtl">
-        <div style="font-weight:700;margin-bottom:6px">📞 رقم الهاتف:</div>
-        <div style="color:#64748B">${esc(_reqSystem.userPhone)}</div>
-        <div style="font-weight:700;margin-top:10px;margin-bottom:6px">🎯 الوجهة:</div>
-        <div style="color:#64748B">${esc(_reqSystem.userDestination)}</div>
-      </div>
-      <button onclick="window._closeReqSystem()" 
-        style="width:100%;padding:16px;background:linear-gradient(135deg,#0EA5E9,#0284C7);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;box-shadow:0 6px 20px rgba(14,165,233,.3)">
-        👍 حسناً
+  <div style="display:flex;flex-direction:column;height:100%;background:#F8FAFC">
+    <div id="trkBanner" style="padding:20px;background:#0EA5E9;color:#fff;text-align:center;font-family:Tajawal,sans-serif;font-weight:900;font-size:16px;flex-shrink:0;transition:background .3s">
+      ⏳ بانتظار قبول الطلب
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;gap:16px">
+      <div id="trkIcon" style="font-size:64px">⏳</div>
+      <div id="trkMsg" style="font-size:15px;color:#334155;line-height:1.8;max-width:300px">تم إرسال طلبك، ننتظر رد المكتب...</div>
+    </div>
+    <div style="padding:16px 20px;background:#fff;border-top:1px solid #E2E8F0">
+      <button id="trkCancelBtn" onclick="window._reqSystemCancel()" style="width:100%;padding:14px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:12px;color:#EF4444;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">
+        <i class="fas fa-times"></i> إلغاء الطلب
       </button>
     </div>
   </div>`;
-
-  setTimeout(() => {
-    try {
-      const mapEl = $('confirmMap');
-      if (mapEl && !_reqSystem.localMap) {
-        _reqSystem.localMap = L.map('confirmMap', { zoom: 15, dragging: false, zoomControl: false, scrollWheelZoom: false }).setView([_reqSystem.userLat, _reqSystem.userLng], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(_reqSystem.localMap);
-
-        // مؤشر موقع المستخدم (مربع أخضر)
-        const userIcon = L.divIcon({
-          html: `<div style="width:40px;height:40px;background:linear-gradient(135deg,#10B981,#059669);border:3px solid #fff;border-radius:50%;box-shadow:0 4px 12px rgba(16,185,129,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px">📍</div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40]
-        });
-
-        L.marker([_reqSystem.userLat, _reqSystem.userLng], { icon: userIcon }).addTo(_reqSystem.localMap);
-      }
-    } catch (e) { console.warn('Map error:', e); }
-  }, 100);
+  _reqSystemListenStatus();
 };
 
-// === إغلاق النظام ===
-window._closeReqSystem = () => {
-  const container = $('reqSystemContainer');
-  if (container) container.remove();
-  if (_reqSystem.localMap) {
-    try { _reqSystem.localMap.remove(); } catch (e) { }
-    _reqSystem.localMap = null;
+const _reqSystemListenStatus = () => {
+  if (_reqSystem.statusRef) { try { off(_reqSystem.statusRef); } catch (e) { } }
+  const r = ref(_db, `tenants/${_reqSystem.tenantId}/recvRequests/${_reqSystem.reqRef.key}`);
+  _reqSystem.statusRef = r;
+  let lastStatus = '';
+  onValue(r, snap => {
+    if (!snap.exists()) return;
+    const d = snap.val();
+    const ds = d.driverStatus || d.status || 'pending';
+    if (ds === lastStatus) return;
+    lastStatus = ds;
+    _reqSystemUpdateBanner(ds);
+  });
+};
+
+const _reqSystemUpdateBanner = ds => {
+  const banner = $('trkBanner'), icon = $('trkIcon'), msg = $('trkMsg'), cancelBtn = $('trkCancelBtn');
+  const cfg = {
+    pending: { color: '#0EA5E9', icon: '⏳', title: 'بانتظار قبول الطلب', msg: 'تم إرسال طلبك، ننتظر رد المكتب...' },
+    sent: { color: '#0EA5E9', icon: '🚕', title: 'تم إرسال طلبك إلى سائق', msg: 'ننتظر رد السائق...' },
+    accepted: { color: '#10B981', icon: '✅', title: 'تم قبول طلبك', msg: 'السائق في الطريق إليك 🚕' },
+    waiting: { color: '#F59E0B', icon: '🕐', title: 'السائق بالانتظار', msg: 'السائق بالانتظار قريباً منك' },
+    near: { color: '#F59E0B', icon: '⚠️', title: 'السائق قريب منك!', msg: 'ترقّب وصول السائق الآن' },
+    done: { color: '#10B981', icon: '🎉', title: 'تم التوصيل!', msg: 'شكراً لاستخدامك خدمتنا' },
+    cancelled: { color: '#EF4444', icon: '🚫', title: 'تم إلغاء الطلب', msg: 'تم إلغاء طلبك' },
+    rejected: { color: '#EF4444', icon: '❌', title: 'تم رفض الطلب', msg: 'جاري إيجاد سائق بديل' },
+    no_response: { color: '#EF4444', icon: '⏰', title: 'لم يتم الرد', msg: 'جاري إيجاد سائق بديل' },
+  }[ds] || { color: '#0EA5E9', icon: '⏳', title: 'جاري المعالجة', msg: '' };
+
+  if (banner) { banner.style.background = cfg.color; banner.textContent = cfg.icon + ' ' + cfg.title; }
+  if (icon) icon.textContent = cfg.icon;
+  if (msg) msg.textContent = cfg.msg;
+  if (cancelBtn) cancelBtn.style.display = (ds === 'done' || ds === 'cancelled') ? 'none' : 'block';
+
+  if (ds === 'accepted') playSound('accept');
+  else if (ds === 'near') playSound('notif');
+  else if (ds === 'done') playSound('shift');
+  else if (ds === 'cancelled' || ds === 'rejected') playSound('cancel');
+  showPushNotif(cfg.title, cfg.msg, 'info');
+
+  if (ds === 'done') {
+    if (_reqSystem.statusRef) { try { off(_reqSystem.statusRef); } catch (e) { } _reqSystem.statusRef = null; }
+    setTimeout(() => { window.showRatingScreen('السائق', _reqSystem.officeName); }, 1200);
   }
 };
 
-// === الشاشة 4: التقييم (تستدعى من Firebase عند انتهاء التوصيل) ===
-window.showRatingScreen = (driverName, officeName) => {
-  let selectedStars = 0;
+window._reqSystemCancel = async () => {
+  if (!confirm('هل تريد إلغاء الطلب؟')) return;
+  try {
+    await update(ref(_db, `tenants/${_reqSystem.tenantId}/recvRequests/${_reqSystem.reqRef.key}`), { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'user' });
+  } catch (e) { }
+  window._closeReqSystem();
+};
 
-  const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-family:Cairo,sans-serif;direction:rtl;padding:20px';
-  container.innerHTML = `
+    setTimeout(() => {
+  try {
+    const mapEl = $('confirmMap');
+    if (!mapEl) return;
+
+    if (!_reqSystem.localMap) {
+      _reqSystem.localMap = L.map('confirmMap', {
+        zoom: 15,
+        dragging: false,
+        zoomControl: false,
+        scrollWheelZoom: false
+      }).setView([_reqSystem.userLat, _reqSystem.userLng], 15);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(_reqSystem.localMap);
+
+      const userIcon = L.divIcon({
+        html: `
+          <div style="
+            width:40px;
+            height:40px;
+            background:linear-gradient(135deg,#10B981,#059669);
+            border:3px solid #fff;
+            border-radius:50%;
+            box-shadow:0 4px 12px rgba(16,185,129,.3);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#fff;
+            font-size:18px;
+          ">📍</div>
+        `,
+        iconSize: [40, 40],
+        iconAnchor: [20, 40]
+      });
+
+      L.marker([_reqSystem.userLat, _reqSystem.userLng], {
+        icon: userIcon
+      }).addTo(_reqSystem.localMap);
+    } else {
+      _reqSystem.localMap.setView(
+        [_reqSystem.userLat, _reqSystem.userLng],
+        15
+      );
+    }
+
+    // إصلاح مشكلة ظهور الخريطة عند فتح النافذة
+    setTimeout(() => {
+      _reqSystem.localMap.invalidateSize();
+    }, 100);
+
+  } catch (e) {
+    console.warn('Map error:', e);
+  }
+}, 100);
+
+  // === إغلاق النظام ===
+window._closeReqSystem = () => {
+    const container = $('reqSystemContainer');
+    if (container) container.remove();
+    if (_reqSystem.localMap) {
+      try { _reqSystem.localMap.remove(); } catch (e) { }
+      _reqSystem.localMap = null;
+    }
+  };
+
+  // === الشاشة 4: التقييم (تستدعى من Firebase عند انتهاء التوصيل) ===
+  window.showRatingScreen = (driverName, officeName) => {
+    let selectedStars = 0;
+
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-family:Cairo,sans-serif;direction:rtl;padding:20px';
+    container.innerHTML = `
   <div style="background:#fff;border-radius:20px;padding:32px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
     <div style="font-size:48px;margin-bottom:16px">⭐</div>
     <div style="font-size:22px;font-weight:900;color:#0F172A;margin-bottom:8px;font-family:Tajawal,sans-serif">كيف كانت الخدمة؟</div>
@@ -2791,68 +2869,68 @@ window.showRatingScreen = (driverName, officeName) => {
     </div>
   </div>`;
 
-  document.body.appendChild(container);
+    document.body.appendChild(container);
 
-  window.selectStars = (count) => {
-    selectedStars = count;
-    for (let i = 1; i <= 5; i++) {
-      const star = $(`star${i}`);
-      if (!star) continue;
-      if (i <= count) {
-        star.style.opacity = '1';
-        star.style.transform = 'scale(1.2)';
-      } else {
-        star.style.opacity = '.3';
-        star.style.transform = 'scale(1)';
+    window.selectStars = (count) => {
+      selectedStars = count;
+      for (let i = 1; i <= 5; i++) {
+        const star = $(`star${i}`);
+        if (!star) continue;
+        if (i <= count) {
+          star.style.opacity = '1';
+          star.style.transform = 'scale(1.2)';
+        } else {
+          star.style.opacity = '.3';
+          star.style.transform = 'scale(1)';
+        }
       }
-    }
-    const btn = $('submitRatingBtn');
-    if (btn) btn.disabled = false;
-  };
-
-  window._submitRating = async () => {
-    const comment = ($('ratingComment')?.value || '').trim();
-    const btn = $('submitRatingBtn');
-    if (btn) btn.disabled = true;
-
-    try {
-      await push(ref(_db, `tenants/${_reqSystem.tenantId}/ratings`), {
-        stars: selectedStars,
-        comment: comment,
-        timestamp: serverTimestamp()
-      }).catch(() => { });
-
-      toast('ok', '✅ شكراً!', 'تقييمك مهم لنا');
-      container.remove();
-    } catch (e) {
-      console.error('Rating error:', e);
+      const btn = $('submitRatingBtn');
       if (btn) btn.disabled = false;
-    }
+    };
+
+    window._submitRating = async () => {
+      const comment = ($('ratingComment')?.value || '').trim();
+      const btn = $('submitRatingBtn');
+      if (btn) btn.disabled = true;
+
+      try {
+        await push(ref(_db, `tenants/${_reqSystem.tenantId}/ratings`), {
+          stars: selectedStars,
+          comment: comment,
+          timestamp: serverTimestamp()
+        }).catch(() => { });
+
+        toast('ok', '✅ شكراً!', 'تقييمك مهم لنا');
+        container.remove();
+      } catch (e) {
+        console.error('Rating error:', e);
+        if (btn) btn.disabled = false;
+      }
+    };
   };
-};
 
-window.openUserReqModal = (tenantId, officeName, officeDesc) => {
-  window.showGPSScreen(tenantId, officeName, officeDesc);
-};
+  window.openUserReqModal = (tenantId, officeName, officeDesc) => {
+    window.showGPSScreen(tenantId, officeName, officeDesc);
+  };
 
 
-/* ══════════════════════════════════════════════════
-   USER VERIFY SCREEN — بناء شاشة التحقق برمجياً
-   ══════════════════════════════════════════════════ */
-(function buildVerifyScreen() {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', buildVerifyScreen);
-    return;
-  }
-  if (document.getElementById('UserVerifyScreen')) {
-    /* الشاشة موجودة بالـ HTML، تأكد من وجود الدوال */
-    ensureVerifyFunctions();
-    return;
-  }
-  const el = document.createElement('div');
-  el.id = 'UserVerifyScreen';
-  el.className = 'mdl';
-  el.innerHTML = `
+  /* ══════════════════════════════════════════════════
+     USER VERIFY SCREEN — بناء شاشة التحقق برمجياً
+     ══════════════════════════════════════════════════ */
+  (function buildVerifyScreen() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', buildVerifyScreen);
+      return;
+    }
+    if (document.getElementById('UserVerifyScreen')) {
+      /* الشاشة موجودة بالـ HTML، تأكد من وجود الدوال */
+      ensureVerifyFunctions();
+      return;
+    }
+    const el = document.createElement('div');
+    el.id = 'UserVerifyScreen';
+    el.className = 'mdl';
+    el.innerHTML = `
   <div class="mdl-box" style="max-width:400px;padding:0;overflow:hidden;border-radius:20px">
     <div style="background:linear-gradient(135deg,#0F172A,#1E293B);padding:20px 24px;display:flex;align-items:center;justify-content:space-between">
       <div style="display:flex;align-items:center;gap:10px">
@@ -2914,486 +2992,486 @@ window.openUserReqModal = (tenantId, officeName, officeDesc) => {
       </div>
     </div>
   </div>`;
-  document.body.appendChild(el);
-  ensureVerifyFunctions();
-})();
+    document.body.appendChild(el);
+    ensureVerifyFunctions();
+  })();
 
-function ensureVerifyFunctions() { }
-let _vMathAns = 0;
+  function ensureVerifyFunctions() { }
+  let _vMathAns = 0;
 
-window.showVStep = step => {
-  ['vStep1', 'vStep2', 'vStep3'].forEach((id, i) => {
-    const el = document.getElementById(id); if (el) el.style.display = i + 1 === step ? 'block' : 'none';
-  });
-  const labels = ['', 'إدخال رقم الهاتف', 'التحقق من الهوية', 'تفاصيل الطلب'];
-  const lbl = document.getElementById('vStepLabel'); if (lbl) lbl.textContent = labels[step] || '';
-  ['vp1', 'vp2', 'vp3'].forEach((id, i) => {
-    const bar = document.getElementById(id); if (bar) bar.style.background = i < step ? '#0EA5E9' : 'rgba(255,255,255,.15)';
-  });
-  const errEl = document.getElementById('vErr'); if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
-};
-
-window.resetVerifyScreen = () => {
-  const ph = document.getElementById('v-phone'); if (ph) ph.value = '';
-  const ans = document.getElementById('v-math-ans'); if (ans) ans.value = '';
-  window._gpsOk = false; window._userGpsLat = null; window._userGpsLng = null;
-  window.showVStep(1);
-};
-
-window.vGoStep2 = () => {
-  const ph = (document.getElementById('v-phone')?.value || '').trim();
-  if (!ph || !/^[0-9+]{7,15}$/.test(ph.replace(/[^0-9+]/g, ''))) {
-    const e = document.getElementById('vErr'); if (e) { e.textContent = '❌ أدخل رقم هاتف صحيح'; e.style.display = 'block'; } return;
-  }
-  window._userVerifiedPhone = ph;
-  window.showVStep(2);
-  setTimeout(() => initDragSlider(), 100);
-};
-
-function initDragSlider() {
-  const handle = document.getElementById('dragHandle');
-  const fill = document.getElementById('dragFill');
-  const txt = document.getElementById('dragText');
-  const wrap = document.getElementById('dragSliderWrap');
-  const errEl = document.getElementById('dragErr');
-  if (!handle || !wrap) return;
-  let dragging = false, startX = 0, curX = 0;
-  const maxMove = () => wrap.clientWidth - handle.offsetWidth - 8;
-
-  function onStart(e) {
-    dragging = true; startX = (e.touches ? e.touches[0].clientX : e.clientX);
-    handle.style.transition = 'none'; fill.style.transition = 'none';
-    if (txt) txt.style.opacity = '0'; e.preventDefault();
-  }
-  function onMove(e) {
-    if (!dragging) return;
-    const x = (e.touches ? e.touches[0].clientX : e.clientX);
-    const delta = startX - x;
-    curX = Math.max(0, Math.min(delta, maxMove()));
-    handle.style.right = (4 + curX) + 'px';
-    const pct = curX / maxMove();
-    fill.style.width = (60 + curX) + 'px';
-    fill.style.background = 'linear-gradient(90deg,rgba(14,165,233,' + (pct * .6) + '),rgba(14,165,233,.4))';
-    if (pct >= 0.95) onSuccess(); e.preventDefault();
-  }
-  function onEnd() {
-    if (!dragging) return; dragging = false;
-    const pct = curX / maxMove();
-    if (pct < 0.95) {
-      handle.style.transition = 'right .3s ease'; fill.style.transition = 'width .3s ease';
-      handle.style.right = '4px'; fill.style.width = '60px';
-      fill.style.background = 'linear-gradient(90deg,rgba(14,165,233,0),rgba(14,165,233,.3))';
-      if (txt) { txt.style.opacity = '1'; } curX = 0;
-      if (errEl) { errEl.textContent = 'اسحب حتى النهاية'; setTimeout(() => { if (errEl) errEl.textContent = ''; }, 1500); }
-    }
-  }
-  function removeListeners() {
-    handle.removeEventListener('mousedown', onStart); handle.removeEventListener('touchstart', onStart);
-    document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onEnd);
-    document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd);
-  }
-  function onSuccess() {
-    dragging = false; removeListeners();
-    handle.style.transition = 'right .2s ease';
-    handle.style.right = (wrap.clientWidth - handle.offsetWidth - 4) + 'px';
-    handle.style.background = 'linear-gradient(135deg,#10B981,#059669)';
-    fill.style.background = 'rgba(16,185,129,.4)';
-    handle.innerHTML = '<i class="fas fa-check" style="color:#fff;font-size:18px"></i>';
-    if (txt) { txt.textContent = '✅ تم التأكيد'; txt.style.opacity = '1'; txt.style.color = '#10B981'; }
-    setTimeout(() => {
-      localStorage.setItem('txUserPhone', '1|' + window._userVerifiedPhone);
-      const phEl = document.getElementById('ur-phone'); if (phEl) phEl.value = window._userVerifiedPhone;
-      const tenEl = document.getElementById('ur-office-tenant'); if (tenEl) tenEl.value = _pendingTenant || '';
-      const onm = document.getElementById('vOfficeName'); if (onm) onm.textContent = '🏢 ' + (_pendingName || '');
-      const onm2 = document.getElementById('userReqOfficeName'); if (onm2) onm2.textContent = _pendingName || '';
-      window.showVStep(3); window.vRequestGPS();
-    }, 600);
-  }
-  /* إعادة تعيين */
-  handle.style.right = '4px'; fill.style.width = '60px';
-  handle.style.background = 'linear-gradient(135deg,#0EA5E9,#0284C7)';
-  handle.innerHTML = '<i class="fas fa-arrow-left" style="color:#fff;font-size:18px"></i>';
-  if (txt) { txt.textContent = '← اسحب للتأكيد'; txt.style.opacity = '1'; txt.style.color = 'rgba(255,255,255,.4)'; }
-  curX = 0;
-  handle.addEventListener('mousedown', onStart);
-  handle.addEventListener('touchstart', onStart, { passive: false });
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onEnd);
-  document.addEventListener('touchmove', onMove, { passive: false });
-  document.addEventListener('touchend', onEnd);
-}
-
-
-window.vCheckMath = () => {
-  const ans = parseInt(document.getElementById('v-math-ans')?.value || '', 10);
-  if (isNaN(ans) || ans !== _vMathAns) {
-    const a = Math.floor(Math.random() * 15) + 5, b = Math.floor(Math.random() * 9) + 1;
-    const ops = [{ s: '+', r: a + b }, { s: '×', r: a * b }, { s: '−', r: a - b > 0 ? a - b : b - a }];
-    const op = ops[Math.floor(Math.random() * ops.length)];
-    _vMathAns = op.r;
-    const q = document.getElementById('vMathQ'); if (q) q.textContent = `${a} ${op.s} ${b} = ?`;
-    const ae = document.getElementById('v-math-ans'); if (ae) { ae.value = ''; ae.style.borderColor = 'rgba(248,113,113,.6)'; setTimeout(() => { if (ae) ae.style.borderColor = 'rgba(255,255,255,.15)'; }, 700); ae.focus(); }
-    const e = document.getElementById('vErr'); if (e) { e.textContent = '❌ الجواب خاطئ، سؤال جديد'; e.style.display = 'block'; }
-    return;
-  }
-  localStorage.setItem('txUserPhone', '1|' + window._userVerifiedPhone);
-  const ph = document.getElementById('ur-phone'); if (ph) ph.value = window._userVerifiedPhone;
-  const ten = document.getElementById('ur-office-tenant'); if (ten) ten.value = window._pendingTenant || '';
-  const onm = document.getElementById('vOfficeName'); if (onm) onm.textContent = '🏢 ' + (window._pendingName || '');
-  const onm2 = document.getElementById('userReqOfficeName'); if (onm2) onm2.textContent = window._pendingName || '';
-  window.showVStep(3);
-  window.vRequestGPS();
-};
-
-window.vRequestGPS = () => {
-  const waiting = document.getElementById('vGpsWaiting');
-  const okBox = document.getElementById('vGpsOkBox');
-  const denied = document.getElementById('vGpsDenied');
-  const txt = document.getElementById('vGpsTxt');
-  const sendBtn = document.getElementById('vSendBtn');
-  if (waiting) { waiting.style.display = 'flex'; waiting.style.flexDirection = 'column'; }
-  if (okBox) okBox.style.display = 'none';
-  if (denied) denied.style.display = 'none';
-  if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '.5'; sendBtn.style.cursor = 'not-allowed'; }
-  if (!navigator.geolocation) {
-    if (waiting) waiting.style.display = 'none';
-    if (denied) denied.style.display = 'flex';
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      _gpsOk = true; _userGpsLat = pos.coords.latitude; _userGpsLng = pos.coords.longitude;
-      window._gpsOk = true; window._userGpsLat = _userGpsLat; window._userGpsLng = _userGpsLng;
-      if (waiting) waiting.style.display = 'none';
-      if (okBox) okBox.style.display = 'flex';
-      if (txt) txt.textContent = 'دقة: ' + Math.round(pos.coords.accuracy) + ' متر';
-      if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; sendBtn.style.cursor = 'pointer'; }
-    },
-    () => {
-      _gpsOk = false; window._gpsOk = false;
-      if (waiting) waiting.style.display = 'none';
-      if (denied) denied.style.display = 'flex';
-      if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '.5'; }
-    },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-  );
-};
-
-window.submitUserReq = async () => {
-  const lastReq = parseInt(localStorage.getItem('txLastReq') || '0', 10);
-  if (lastReq && Date.now() - lastReq < 5 * 60 * 1000) {
-    const rem = Math.ceil((5 * 60 * 1000 - (Date.now() - lastReq)) / 1000);
-    if (typeof window.showRateLimitAlert === 'function') window.showRateLimitAlert(rem);
-    return;
-  }
-
-  /* قراءة الحقول من UserVerifyScreen (vStep3) أو MuserReq */
-  const uvs = document.getElementById('UserVerifyScreen');
-  const scope = uvs || document;
-  const phoneEl = scope.querySelector('#ur-phone');
-  const fromEl = scope.querySelector('#ur-from');
-  const toEl = scope.querySelector('#ur-to');
-  const tenantEl = scope.querySelector('#ur-office-tenant');
-  const offNameEl = scope.querySelector('#userReqOfficeName') || scope.querySelector('#vOfficeName');
-  const errEl = scope.querySelector('#al-userreq');
-
-  const phone = (window._userVerifiedPhone || (phoneEl ? phoneEl.value : '') || '').trim();
-  const from = (fromEl ? fromEl.value : '').trim();
-  const to = (toEl ? toEl.value : '').trim();
-  const tenantId = (tenantEl ? tenantEl.value : '') || window._pendingTenant || '';
-
-  const showErr = msg => {
-    if (errEl) { errEl.textContent = '⚠️ ' + msg; errEl.style.color = '#EF4444'; }
-    else if (typeof shAl === 'function') shAl('al-userreq', 'err', msg);
+  window.showVStep = step => {
+    ['vStep1', 'vStep2', 'vStep3'].forEach((id, i) => {
+      const el = document.getElementById(id); if (el) el.style.display = i + 1 === step ? 'block' : 'none';
+    });
+    const labels = ['', 'إدخال رقم الهاتف', 'التحقق من الهوية', 'تفاصيل الطلب'];
+    const lbl = document.getElementById('vStepLabel'); if (lbl) lbl.textContent = labels[step] || '';
+    ['vp1', 'vp2', 'vp3'].forEach((id, i) => {
+      const bar = document.getElementById(id); if (bar) bar.style.background = i < step ? '#0EA5E9' : 'rgba(255,255,255,.15)';
+    });
+    const errEl = document.getElementById('vErr'); if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
   };
 
-  if (!phone) return showErr('أدخل رقم هاتفك');
-  if (!from) return showErr('أدخل موقعك الحالي (من أين؟)');
-  if (!to) return showErr('أدخل وجهتك (إلى أين؟)');
-  if (!tenantId) return showErr('خطأ: لم يتم تحديد المكتب — أغلق وأعد المحاولة');
-  if (!/^[0-9+]{7,15}$/.test(phone.replace(/\s/g, ''))) return showErr('رقم الهاتف غير صحيح');
-  if (!window._gpsOk || !window._userGpsLat) return showErr('⚠️ الموقع الجغرافي مطلوب — فعّله أولاً');
+  window.resetVerifyScreen = () => {
+    const ph = document.getElementById('v-phone'); if (ph) ph.value = '';
+    const ans = document.getElementById('v-math-ans'); if (ans) ans.value = '';
+    window._gpsOk = false; window._userGpsLat = null; window._userGpsLng = null;
+    window.showVStep(1);
+  };
 
-  /* زر الإرسال — نستهدف الزر الظاهر في vStep3 */
-  const sendBtn = uvs ? uvs.querySelector('button.verify-btn-wa:last-of-type, button[onclick*="submitUserReq"]') : null;
-  const origTxt = sendBtn ? sendBtn.innerHTML : '';
-  if (sendBtn) { sendBtn.innerHTML = '<span class="spin"></span> جار الإرسال...'; sendBtn.disabled = true; }
-
-  try {
-    const details = `من: ${from} ← إلى: ${to}`;
-    const reqRef = await push(ref(_db, `tenants/${tenantId}/recvRequests`), {
-      phone, details, ts: serverTimestamp(), addedBy: 'مستخدم عام 🌐', fromUser: true,
-      userFrom: from, userTo: to, userReqRef: null,
-      ...(window._gpsOk && window._userGpsLat ? { userLat: window._userGpsLat, userLng: window._userGpsLng, hasGps: true } : { hasGps: false }),
-    });
-    const userReqRefPath = `tenants/${tenantId}/recvRequests/${reqRef.key}`;
-    await update(reqRef, { userReqRef: userReqRefPath });
-    _userReqId = reqRef.key; _userReqTenantId = tenantId;
-    if (uvs) uvs.classList.remove('on');
-    localStorage.setItem('txLastReq', String(Date.now()));
-    const officeName = (offNameEl ? offNameEl.textContent : '') || window._pendingName || '';
-    openTrackScreen(phone, details, officeName);
-    listenUserReqStatus(tenantId, reqRef.key);
-  } catch (err) {
-    showErr('خطأ في الإرسال: ' + (err.message || 'تأكد من الاتصال'));
-    if (sendBtn) { sendBtn.innerHTML = origTxt; sendBtn.disabled = false; }
-  }
-};
-
-/* ── Tracking Screen ── */
-let _trackUserMapObj = null;
-const openTrackScreen = (phone, details, officeName) => {
-  $('trackPhone').textContent = phone;
-  $('trackDetails').textContent = details;
-  $('trackOfficeLabel').textContent = officeName || '';
-  [0, 1, 2, 3].forEach(i => {
-    const ic = $(`ts-icon-${i}`); if (ic) ic.className = 'track-step-icon';
-    const ln = $(`ts-line-${i}`); if (ln) ln.className = 'track-step-line';
-  });
-  setTrackStep(0); updateTrackBanner('waiting');
-  $('trackArrivedSection').style.display = 'none';
-  $('trackRatingSection').style.display = 'none';
-  $('trackCancelBtn').style.display = 'inline-flex';
-  _lastTrackStatus = '';
-  $('UserTrackScreen').classList.add('on');
-
-  /* خريطة موقع المستخدم */
-  const lat = window._userGpsLat, lng = window._userGpsLng;
-  const placeholder = $('trackMapPlaceholder');
-  if (lat && lng && window.L) {
-    if (placeholder) placeholder.style.display = 'none';
-    setTimeout(() => {
-      try {
-        if (_trackUserMapObj) { _trackUserMapObj.remove(); _trackUserMapObj = null; }
-        _trackUserMapObj = L.map('trackUserMap', { zoomControl: true, attributionControl: false })
-          .setView([lat, lng], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_trackUserMapObj);
-        const icon = L.divIcon({
-          html: '<div style="background:#0EA5E9;width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(14,165,233,.6)"></div>',
-          className: '', iconSize: [18, 18], iconAnchor: [9, 9]
-        });
-        L.marker([lat, lng], { icon }).addTo(_trackUserMapObj)
-          .bindPopup('<b style="font-family:Cairo,sans-serif">موقعك الحالي 📍</b>').openPopup();
-      } catch (e) { }
-    }, 400);
-  } else {
-    if (placeholder) placeholder.style.display = 'flex';
-  }
-};
-const setTrackStep = step => {
-  [0, 1, 2, 3].forEach(i => {
-    const ic = $(`ts-icon-${i}`); if (!ic) return;
-    ic.className = 'track-step-icon' + (i < step ? ' done' : i === step ? ' active' : '');
-    const ln = $(`ts-line-${i}`); if (ln) ln.className = 'track-step-line' + (i <= step ? ' done' : '');
-  });
-};
-const updateTrackBanner = status => {
-  const banner = $('trackStatusBanner'); if (!banner) return;
-  const cfg = {
-    waiting: { cls: 'tsb-waiting', msg: '⏳ في انتظار قبول الطلب...' },
-    accepted: { cls: 'tsb-accepted', msg: '✅ تم قبول طلبك! التاكسي في الطريق إليك 🚕' },
-    waiting2: { cls: 'tsb-accepted', msg: '🕐 التاكسي بالانتظار قريباً منك' },
-    near: { cls: 'tsb-near', msg: '⚠️ التاكسي اقترب منك! ترقّب الآن' },
-    done: { cls: 'tsb-done', msg: '🎉 وصل التاكسي! شكراً لاستخدامك خدمتنا' },
-    cancelled: { cls: 'tsb-cancelled', msg: '🚫 تم إلغاء الطلب' },
-    no_response: { cls: 'tsb-cancelled', msg: '⏰ لم يستجب السائق — جاري البحث عن بديل' },
-    rejected: { cls: 'tsb-cancelled', msg: '❌ السائق رفض الطلب — جاري البحث عن بديل' },
-  }[status] || { cls: 'tsb-waiting', msg: '⏳ جاري المعالجة...' };
-  banner.className = `track-status-banner ${cfg.cls}`;
-  banner.textContent = cfg.msg;
-};
-
-const listenUserReqStatus = (tenantId, reqId) => {
-  if (_pubReqListener) { try { off(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`)); } catch (e) { } _pubReqListener = null; }
-  const r = ref(_db, `tenants/${tenantId}/recvRequests/${reqId}`);
-  _pubReqListener = onValue(r, snap => { if (!snap || !snap.exists()) return; updateTrackUI(snap.val()); });
-};
-
-const updateTrackUI = req => {
-  const ds = req.driverStatus || req.status || 'pending';
-  if (ds === _lastTrackStatus) return;
-  const stepMap = { pending: 0, accepted: 1, waiting: 1, near: 2, done: 3, cancelled: 0, no_response: 0, rejected: 0 };
-  setTrackStep(stepMap[ds] ?? 0);
-  const bannerMap = { pending: 'waiting', accepted: 'accepted', waiting: 'waiting2', near: 'near', done: 'done', cancelled: 'cancelled', no_response: 'no_response', rejected: 'rejected' };
-  updateTrackBanner(bannerMap[ds] || 'waiting');
-  $('trackArrivedSection').style.display = (ds === 'near' || ds === 'accepted') ? 'block' : 'none';
-  $('trackCancelBtn').style.display = (ds === 'done' || ds === 'cancelled') ? 'none' : 'inline-flex';
-  if (_lastTrackStatus !== ds) {
-    if (ds === 'accepted') { playSound('accept'); vibrate([200, 100, 200]); showPushNotif('✅ تم قبول طلبك!', 'التاكسي في الطريق إليك 🚕', 'info'); }
-    else if (ds === 'waiting') { playSound('notif'); vibrate([200]); showPushNotif('🕐 التاكسي بالانتظار قريباً', 'ترقّب وصوله', 'info'); }
-    else if (ds === 'near') { playSound('notif'); vibrate([300, 100, 300]); showPushNotif('⚠️ التاكسي اقترب منك!', 'اضغط «وصل» عند وصوله', 'info'); }
-    else if (ds === 'done') { playSound('shift'); vibrate([200, 100, 200, 100, 200]); }
-    else if (ds === 'cancelled' || ds === 'rejected') { playSound('cancel'); vibrate([400]); }
-  }
-  _lastTrackStatus = ds;
-  if (ds === 'cancelled' || ds === 'rejected') {
-    setTimeout(() => { if ($('UserTrackScreen').classList.contains('on')) { $('UserTrackScreen').classList.remove('on'); } }, 4000);
-  }
-  if (ds === 'done') {
-    $('trackArrivedSection').style.display = 'none';
-    if ($('trackRatingSection').style.display === 'none') {
-      $('trackRatingSection').style.display = 'block';
-      /* إخفاء زر التراجع */
-      $('trackCancelBtn').style.display = 'none';
+  window.vGoStep2 = () => {
+    const ph = (document.getElementById('v-phone')?.value || '').trim();
+    if (!ph || !/^[0-9+]{7,15}$/.test(ph.replace(/[^0-9+]/g, ''))) {
+      const e = document.getElementById('vErr'); if (e) { e.textContent = '❌ أدخل رقم هاتف صحيح'; e.style.display = 'block'; } return;
     }
+    window._userVerifiedPhone = ph;
+    window.showVStep(2);
+    setTimeout(() => initDragSlider(), 100);
+  };
+
+  function initDragSlider() {
+    const handle = document.getElementById('dragHandle');
+    const fill = document.getElementById('dragFill');
+    const txt = document.getElementById('dragText');
+    const wrap = document.getElementById('dragSliderWrap');
+    const errEl = document.getElementById('dragErr');
+    if (!handle || !wrap) return;
+    let dragging = false, startX = 0, curX = 0;
+    const maxMove = () => wrap.clientWidth - handle.offsetWidth - 8;
+
+    function onStart(e) {
+      dragging = true; startX = (e.touches ? e.touches[0].clientX : e.clientX);
+      handle.style.transition = 'none'; fill.style.transition = 'none';
+      if (txt) txt.style.opacity = '0'; e.preventDefault();
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      const x = (e.touches ? e.touches[0].clientX : e.clientX);
+      const delta = startX - x;
+      curX = Math.max(0, Math.min(delta, maxMove()));
+      handle.style.right = (4 + curX) + 'px';
+      const pct = curX / maxMove();
+      fill.style.width = (60 + curX) + 'px';
+      fill.style.background = 'linear-gradient(90deg,rgba(14,165,233,' + (pct * .6) + '),rgba(14,165,233,.4))';
+      if (pct >= 0.95) onSuccess(); e.preventDefault();
+    }
+    function onEnd() {
+      if (!dragging) return; dragging = false;
+      const pct = curX / maxMove();
+      if (pct < 0.95) {
+        handle.style.transition = 'right .3s ease'; fill.style.transition = 'width .3s ease';
+        handle.style.right = '4px'; fill.style.width = '60px';
+        fill.style.background = 'linear-gradient(90deg,rgba(14,165,233,0),rgba(14,165,233,.3))';
+        if (txt) { txt.style.opacity = '1'; } curX = 0;
+        if (errEl) { errEl.textContent = 'اسحب حتى النهاية'; setTimeout(() => { if (errEl) errEl.textContent = ''; }, 1500); }
+      }
+    }
+    function removeListeners() {
+      handle.removeEventListener('mousedown', onStart); handle.removeEventListener('touchstart', onStart);
+      document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onEnd);
+      document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd);
+    }
+    function onSuccess() {
+      dragging = false; removeListeners();
+      handle.style.transition = 'right .2s ease';
+      handle.style.right = (wrap.clientWidth - handle.offsetWidth - 4) + 'px';
+      handle.style.background = 'linear-gradient(135deg,#10B981,#059669)';
+      fill.style.background = 'rgba(16,185,129,.4)';
+      handle.innerHTML = '<i class="fas fa-check" style="color:#fff;font-size:18px"></i>';
+      if (txt) { txt.textContent = '✅ تم التأكيد'; txt.style.opacity = '1'; txt.style.color = '#10B981'; }
+      setTimeout(() => {
+        localStorage.setItem('txUserPhone', '1|' + window._userVerifiedPhone);
+        const phEl = document.getElementById('ur-phone'); if (phEl) phEl.value = window._userVerifiedPhone;
+        const tenEl = document.getElementById('ur-office-tenant'); if (tenEl) tenEl.value = _pendingTenant || '';
+        const onm = document.getElementById('vOfficeName'); if (onm) onm.textContent = '🏢 ' + (_pendingName || '');
+        const onm2 = document.getElementById('userReqOfficeName'); if (onm2) onm2.textContent = _pendingName || '';
+        window.showVStep(3); window.vRequestGPS();
+      }, 600);
+    }
+    /* إعادة تعيين */
+    handle.style.right = '4px'; fill.style.width = '60px';
+    handle.style.background = 'linear-gradient(135deg,#0EA5E9,#0284C7)';
+    handle.innerHTML = '<i class="fas fa-arrow-left" style="color:#fff;font-size:18px"></i>';
+    if (txt) { txt.textContent = '← اسحب للتأكيد'; txt.style.opacity = '1'; txt.style.color = 'rgba(255,255,255,.4)'; }
+    curX = 0;
+    handle.addEventListener('mousedown', onStart);
+    handle.addEventListener('touchstart', onStart, { passive: false });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
   }
-};
 
-window.userCancelReq = async () => {
-  if (!_userReqId || !_userReqTenantId) return;
-  if (!confirm('هل تريد إلغاء الطلب؟')) return;
-  try {
-    await update(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`), { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'user' });
-    await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type: 'cancel', msg: `🚫 مستخدم ألغى الطلب: ${$('trackPhone').textContent}`, ts: serverTimestamp(), read: false });
-    $('UserTrackScreen').classList.remove('on');
-    toast('info', 'تم إلغاء الطلب', '');
+
+  window.vCheckMath = () => {
+    const ans = parseInt(document.getElementById('v-math-ans')?.value || '', 10);
+    if (isNaN(ans) || ans !== _vMathAns) {
+      const a = Math.floor(Math.random() * 15) + 5, b = Math.floor(Math.random() * 9) + 1;
+      const ops = [{ s: '+', r: a + b }, { s: '×', r: a * b }, { s: '−', r: a - b > 0 ? a - b : b - a }];
+      const op = ops[Math.floor(Math.random() * ops.length)];
+      _vMathAns = op.r;
+      const q = document.getElementById('vMathQ'); if (q) q.textContent = `${a} ${op.s} ${b} = ?`;
+      const ae = document.getElementById('v-math-ans'); if (ae) { ae.value = ''; ae.style.borderColor = 'rgba(248,113,113,.6)'; setTimeout(() => { if (ae) ae.style.borderColor = 'rgba(255,255,255,.15)'; }, 700); ae.focus(); }
+      const e = document.getElementById('vErr'); if (e) { e.textContent = '❌ الجواب خاطئ، سؤال جديد'; e.style.display = 'block'; }
+      return;
+    }
+    localStorage.setItem('txUserPhone', '1|' + window._userVerifiedPhone);
+    const ph = document.getElementById('ur-phone'); if (ph) ph.value = window._userVerifiedPhone;
+    const ten = document.getElementById('ur-office-tenant'); if (ten) ten.value = window._pendingTenant || '';
+    const onm = document.getElementById('vOfficeName'); if (onm) onm.textContent = '🏢 ' + (window._pendingName || '');
+    const onm2 = document.getElementById('userReqOfficeName'); if (onm2) onm2.textContent = window._pendingName || '';
+    window.showVStep(3);
+    window.vRequestGPS();
+  };
+
+  window.vRequestGPS = () => {
+    const waiting = document.getElementById('vGpsWaiting');
+    const okBox = document.getElementById('vGpsOkBox');
+    const denied = document.getElementById('vGpsDenied');
+    const txt = document.getElementById('vGpsTxt');
+    const sendBtn = document.getElementById('vSendBtn');
+    if (waiting) { waiting.style.display = 'flex'; waiting.style.flexDirection = 'column'; }
+    if (okBox) okBox.style.display = 'none';
+    if (denied) denied.style.display = 'none';
+    if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '.5'; sendBtn.style.cursor = 'not-allowed'; }
+    if (!navigator.geolocation) {
+      if (waiting) waiting.style.display = 'none';
+      if (denied) denied.style.display = 'flex';
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        _gpsOk = true; _userGpsLat = pos.coords.latitude; _userGpsLng = pos.coords.longitude;
+        window._gpsOk = true; window._userGpsLat = _userGpsLat; window._userGpsLng = _userGpsLng;
+        if (waiting) waiting.style.display = 'none';
+        if (okBox) okBox.style.display = 'flex';
+        if (txt) txt.textContent = 'دقة: ' + Math.round(pos.coords.accuracy) + ' متر';
+        if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; sendBtn.style.cursor = 'pointer'; }
+      },
+      () => {
+        _gpsOk = false; window._gpsOk = false;
+        if (waiting) waiting.style.display = 'none';
+        if (denied) denied.style.display = 'flex';
+        if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '.5'; }
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
+
+  window.submitUserReq = async () => {
+    const lastReq = parseInt(localStorage.getItem('txLastReq') || '0', 10);
+    if (lastReq && Date.now() - lastReq < 5 * 60 * 1000) {
+      const rem = Math.ceil((5 * 60 * 1000 - (Date.now() - lastReq)) / 1000);
+      if (typeof window.showRateLimitAlert === 'function') window.showRateLimitAlert(rem);
+      return;
+    }
+
+    /* قراءة الحقول من UserVerifyScreen (vStep3) أو MuserReq */
+    const uvs = document.getElementById('UserVerifyScreen');
+    const scope = uvs || document;
+    const phoneEl = scope.querySelector('#ur-phone');
+    const fromEl = scope.querySelector('#ur-from');
+    const toEl = scope.querySelector('#ur-to');
+    const tenantEl = scope.querySelector('#ur-office-tenant');
+    const offNameEl = scope.querySelector('#userReqOfficeName') || scope.querySelector('#vOfficeName');
+    const errEl = scope.querySelector('#al-userreq');
+
+    const phone = (window._userVerifiedPhone || (phoneEl ? phoneEl.value : '') || '').trim();
+    const from = (fromEl ? fromEl.value : '').trim();
+    const to = (toEl ? toEl.value : '').trim();
+    const tenantId = (tenantEl ? tenantEl.value : '') || window._pendingTenant || '';
+
+    const showErr = msg => {
+      if (errEl) { errEl.textContent = '⚠️ ' + msg; errEl.style.color = '#EF4444'; }
+      else if (typeof shAl === 'function') shAl('al-userreq', 'err', msg);
+    };
+
+    if (!phone) return showErr('أدخل رقم هاتفك');
+    if (!from) return showErr('أدخل موقعك الحالي (من أين؟)');
+    if (!to) return showErr('أدخل وجهتك (إلى أين؟)');
+    if (!tenantId) return showErr('خطأ: لم يتم تحديد المكتب — أغلق وأعد المحاولة');
+    if (!/^[0-9+]{7,15}$/.test(phone.replace(/\s/g, ''))) return showErr('رقم الهاتف غير صحيح');
+    if (!window._gpsOk || !window._userGpsLat) return showErr('⚠️ الموقع الجغرافي مطلوب — فعّله أولاً');
+
+    /* زر الإرسال — نستهدف الزر الظاهر في vStep3 */
+    const sendBtn = uvs ? uvs.querySelector('button.verify-btn-wa:last-of-type, button[onclick*="submitUserReq"]') : null;
+    const origTxt = sendBtn ? sendBtn.innerHTML : '';
+    if (sendBtn) { sendBtn.innerHTML = '<span class="spin"></span> جار الإرسال...'; sendBtn.disabled = true; }
+
+    try {
+      const details = `من: ${from} ← إلى: ${to}`;
+      const reqRef = await push(ref(_db, `tenants/${tenantId}/recvRequests`), {
+        phone, details, ts: serverTimestamp(), addedBy: 'مستخدم عام 🌐', fromUser: true,
+        userFrom: from, userTo: to, userReqRef: null,
+        ...(window._gpsOk && window._userGpsLat ? { userLat: window._userGpsLat, userLng: window._userGpsLng, hasGps: true } : { hasGps: false }),
+      });
+      const userReqRefPath = `tenants/${tenantId}/recvRequests/${reqRef.key}`;
+      await update(reqRef, { userReqRef: userReqRefPath });
+      _userReqId = reqRef.key; _userReqTenantId = tenantId;
+      if (uvs) uvs.classList.remove('on');
+      localStorage.setItem('txLastReq', String(Date.now()));
+      const officeName = (offNameEl ? offNameEl.textContent : '') || window._pendingName || '';
+      openTrackScreen(phone, details, officeName);
+      listenUserReqStatus(tenantId, reqRef.key);
+    } catch (err) {
+      showErr('خطأ في الإرسال: ' + (err.message || 'تأكد من الاتصال'));
+      if (sendBtn) { sendBtn.innerHTML = origTxt; sendBtn.disabled = false; }
+    }
+  };
+
+  /* ── Tracking Screen ── */
+  let _trackUserMapObj = null;
+  const openTrackScreen = (phone, details, officeName) => {
+    $('trackPhone').textContent = phone;
+    $('trackDetails').textContent = details;
+    $('trackOfficeLabel').textContent = officeName || '';
+    [0, 1, 2, 3].forEach(i => {
+      const ic = $(`ts-icon-${i}`); if (ic) ic.className = 'track-step-icon';
+      const ln = $(`ts-line-${i}`); if (ln) ln.className = 'track-step-line';
+    });
+    setTrackStep(0); updateTrackBanner('waiting');
+    $('trackArrivedSection').style.display = 'none';
+    $('trackRatingSection').style.display = 'none';
+    $('trackCancelBtn').style.display = 'inline-flex';
+    _lastTrackStatus = '';
+    $('UserTrackScreen').classList.add('on');
+
+    /* خريطة موقع المستخدم */
+    const lat = window._userGpsLat, lng = window._userGpsLng;
+    const placeholder = $('trackMapPlaceholder');
+    if (lat && lng && window.L) {
+      if (placeholder) placeholder.style.display = 'none';
+      setTimeout(() => {
+        try {
+          if (_trackUserMapObj) { _trackUserMapObj.remove(); _trackUserMapObj = null; }
+          _trackUserMapObj = L.map('trackUserMap', { zoomControl: true, attributionControl: false })
+            .setView([lat, lng], 16);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_trackUserMapObj);
+          const icon = L.divIcon({
+            html: '<div style="background:#0EA5E9;width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(14,165,233,.6)"></div>',
+            className: '', iconSize: [18, 18], iconAnchor: [9, 9]
+          });
+          L.marker([lat, lng], { icon }).addTo(_trackUserMapObj)
+            .bindPopup('<b style="font-family:Cairo,sans-serif">موقعك الحالي 📍</b>').openPopup();
+        } catch (e) { }
+      }, 400);
+    } else {
+      if (placeholder) placeholder.style.display = 'flex';
+    }
+  };
+  const setTrackStep = step => {
+    [0, 1, 2, 3].forEach(i => {
+      const ic = $(`ts-icon-${i}`); if (!ic) return;
+      ic.className = 'track-step-icon' + (i < step ? ' done' : i === step ? ' active' : '');
+      const ln = $(`ts-line-${i}`); if (ln) ln.className = 'track-step-line' + (i <= step ? ' done' : '');
+    });
+  };
+  const updateTrackBanner = status => {
+    const banner = $('trackStatusBanner'); if (!banner) return;
+    const cfg = {
+      waiting: { cls: 'tsb-waiting', msg: '⏳ في انتظار قبول الطلب...' },
+      accepted: { cls: 'tsb-accepted', msg: '✅ تم قبول طلبك! التاكسي في الطريق إليك 🚕' },
+      waiting2: { cls: 'tsb-accepted', msg: '🕐 التاكسي بالانتظار قريباً منك' },
+      near: { cls: 'tsb-near', msg: '⚠️ التاكسي اقترب منك! ترقّب الآن' },
+      done: { cls: 'tsb-done', msg: '🎉 وصل التاكسي! شكراً لاستخدامك خدمتنا' },
+      cancelled: { cls: 'tsb-cancelled', msg: '🚫 تم إلغاء الطلب' },
+      no_response: { cls: 'tsb-cancelled', msg: '⏰ لم يستجب السائق — جاري البحث عن بديل' },
+      rejected: { cls: 'tsb-cancelled', msg: '❌ السائق رفض الطلب — جاري البحث عن بديل' },
+    }[status] || { cls: 'tsb-waiting', msg: '⏳ جاري المعالجة...' };
+    banner.className = `track-status-banner ${cfg.cls}`;
+    banner.textContent = cfg.msg;
+  };
+
+  const listenUserReqStatus = (tenantId, reqId) => {
     if (_pubReqListener) { try { off(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`)); } catch (e) { } _pubReqListener = null; }
-    _userReqId = null; _userReqTenantId = null;
-  } catch (err) { toast('err', 'خطأ', err.message || ''); }
-};
+    const r = ref(_db, `tenants/${tenantId}/recvRequests/${reqId}`);
+    _pubReqListener = onValue(r, snap => { if (!snap || !snap.exists()) return; updateTrackUI(snap.val()); });
+  };
 
-window.confirmTaxiArrived = async () => {
-  setTrackStep(3); updateTrackBanner('done');
-  $('trackArrivedSection').style.display = 'none';
-  $('trackRatingSection').style.display = 'block';
-  $('trackCancelBtn').style.display = 'none';
-  playSound('shift');
-  if (!_userReqId || !_userReqTenantId) return;
-  await update(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`), { userConfirmedArrival: true, arrivedAt: Date.now(), driverStatus: 'done' }).catch(() => { });
-  try {
-    const drvReqsSnap = await get(ref(_db, `tenants/${_userReqTenantId}/driverRequests`)).catch(() => null);
-    if (drvReqsSnap && drvReqsSnap.exists()) {
-      for (const [drvId, reqs] of Object.entries(drvReqsSnap.val())) {
-        if (!reqs) continue;
-        for (const [rid, req] of Object.entries(reqs)) {
-          if (req.userReqRef === `tenants/${_userReqTenantId}/recvRequests/${_userReqId}` && (req.status === 'accepted' || req.status === 'waiting' || req.status === 'near') && !req.doneDelivery) {
-            const drvSnap = await get(ref(_db, `tenants/${_userReqTenantId}/drivers/${drvId}`)).catch(() => null);
-            const drvData = drvSnap && drvSnap.exists() ? drvSnap.val() : { totalDeliveries: 0 };
-            const newCount = (drvData.totalDeliveries || 0) + 1;
-            await update(ref(_db, `tenants/${_userReqTenantId}/drivers/${drvId}`), { taxiColor: 'green', status: 'online', totalDeliveries: newCount }).catch(() => { });
-            await update(ref(_db, `tenants/${_userReqTenantId}/driverRequests/${drvId}/${rid}`), { status: 'done', doneAt: Date.now(), doneDelivery: true, doneByUser: true }).catch(() => { });
-            const today = new Date().toISOString().split('T')[0];
-            const lRef = ref(_db, `tenants/${_userReqTenantId}/drivers/${drvId}/dailyReport/${today}`);
-            const lSnap = await get(lRef).catch(() => null);
-            const prev = lSnap && lSnap.exists() ? lSnap.val() : { deliveries: 0 };
-            await set(lRef, { ...prev, deliveries: (prev.deliveries || 0) + 1, lastUpdate: Date.now() }).catch(() => { });
-            await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type: 'done', driverId: drvId, driverName: drvData.name || drvId, msg: `📦 تأكد المستخدم وصول التكسي — ${drvData.name || drvId} — إجمالي: ${newCount}`, ts: serverTimestamp(), read: false }).catch(() => { });
-            break;
+  const updateTrackUI = req => {
+    const ds = req.driverStatus || req.status || 'pending';
+    if (ds === _lastTrackStatus) return;
+    const stepMap = { pending: 0, accepted: 1, waiting: 1, near: 2, done: 3, cancelled: 0, no_response: 0, rejected: 0 };
+    setTrackStep(stepMap[ds] ?? 0);
+    const bannerMap = { pending: 'waiting', accepted: 'accepted', waiting: 'waiting2', near: 'near', done: 'done', cancelled: 'cancelled', no_response: 'no_response', rejected: 'rejected' };
+    updateTrackBanner(bannerMap[ds] || 'waiting');
+    $('trackArrivedSection').style.display = (ds === 'near' || ds === 'accepted') ? 'block' : 'none';
+    $('trackCancelBtn').style.display = (ds === 'done' || ds === 'cancelled') ? 'none' : 'inline-flex';
+    if (_lastTrackStatus !== ds) {
+      if (ds === 'accepted') { playSound('accept'); vibrate([200, 100, 200]); showPushNotif('✅ تم قبول طلبك!', 'التاكسي في الطريق إليك 🚕', 'info'); }
+      else if (ds === 'waiting') { playSound('notif'); vibrate([200]); showPushNotif('🕐 التاكسي بالانتظار قريباً', 'ترقّب وصوله', 'info'); }
+      else if (ds === 'near') { playSound('notif'); vibrate([300, 100, 300]); showPushNotif('⚠️ التاكسي اقترب منك!', 'اضغط «وصل» عند وصوله', 'info'); }
+      else if (ds === 'done') { playSound('shift'); vibrate([200, 100, 200, 100, 200]); }
+      else if (ds === 'cancelled' || ds === 'rejected') { playSound('cancel'); vibrate([400]); }
+    }
+    _lastTrackStatus = ds;
+    if (ds === 'cancelled' || ds === 'rejected') {
+      setTimeout(() => { if ($('UserTrackScreen').classList.contains('on')) { $('UserTrackScreen').classList.remove('on'); } }, 4000);
+    }
+    if (ds === 'done') {
+      $('trackArrivedSection').style.display = 'none';
+      if ($('trackRatingSection').style.display === 'none') {
+        $('trackRatingSection').style.display = 'block';
+        /* إخفاء زر التراجع */
+        $('trackCancelBtn').style.display = 'none';
+      }
+    }
+  };
+
+  window.userCancelReq = async () => {
+    if (!_userReqId || !_userReqTenantId) return;
+    if (!confirm('هل تريد إلغاء الطلب؟')) return;
+    try {
+      await update(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`), { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'user' });
+      await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type: 'cancel', msg: `🚫 مستخدم ألغى الطلب: ${$('trackPhone').textContent}`, ts: serverTimestamp(), read: false });
+      $('UserTrackScreen').classList.remove('on');
+      toast('info', 'تم إلغاء الطلب', '');
+      if (_pubReqListener) { try { off(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`)); } catch (e) { } _pubReqListener = null; }
+      _userReqId = null; _userReqTenantId = null;
+    } catch (err) { toast('err', 'خطأ', err.message || ''); }
+  };
+
+  window.confirmTaxiArrived = async () => {
+    setTrackStep(3); updateTrackBanner('done');
+    $('trackArrivedSection').style.display = 'none';
+    $('trackRatingSection').style.display = 'block';
+    $('trackCancelBtn').style.display = 'none';
+    playSound('shift');
+    if (!_userReqId || !_userReqTenantId) return;
+    await update(ref(_db, `tenants/${_userReqTenantId}/recvRequests/${_userReqId}`), { userConfirmedArrival: true, arrivedAt: Date.now(), driverStatus: 'done' }).catch(() => { });
+    try {
+      const drvReqsSnap = await get(ref(_db, `tenants/${_userReqTenantId}/driverRequests`)).catch(() => null);
+      if (drvReqsSnap && drvReqsSnap.exists()) {
+        for (const [drvId, reqs] of Object.entries(drvReqsSnap.val())) {
+          if (!reqs) continue;
+          for (const [rid, req] of Object.entries(reqs)) {
+            if (req.userReqRef === `tenants/${_userReqTenantId}/recvRequests/${_userReqId}` && (req.status === 'accepted' || req.status === 'waiting' || req.status === 'near') && !req.doneDelivery) {
+              const drvSnap = await get(ref(_db, `tenants/${_userReqTenantId}/drivers/${drvId}`)).catch(() => null);
+              const drvData = drvSnap && drvSnap.exists() ? drvSnap.val() : { totalDeliveries: 0 };
+              const newCount = (drvData.totalDeliveries || 0) + 1;
+              await update(ref(_db, `tenants/${_userReqTenantId}/drivers/${drvId}`), { taxiColor: 'green', status: 'online', totalDeliveries: newCount }).catch(() => { });
+              await update(ref(_db, `tenants/${_userReqTenantId}/driverRequests/${drvId}/${rid}`), { status: 'done', doneAt: Date.now(), doneDelivery: true, doneByUser: true }).catch(() => { });
+              const today = new Date().toISOString().split('T')[0];
+              const lRef = ref(_db, `tenants/${_userReqTenantId}/drivers/${drvId}/dailyReport/${today}`);
+              const lSnap = await get(lRef).catch(() => null);
+              const prev = lSnap && lSnap.exists() ? lSnap.val() : { deliveries: 0 };
+              await set(lRef, { ...prev, deliveries: (prev.deliveries || 0) + 1, lastUpdate: Date.now() }).catch(() => { });
+              await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type: 'done', driverId: drvId, driverName: drvData.name || drvId, msg: `📦 تأكد المستخدم وصول التكسي — ${drvData.name || drvId} — إجمالي: ${newCount}`, ts: serverTimestamp(), read: false }).catch(() => { });
+              break;
+            }
           }
         }
       }
+    } catch (e) { console.warn('auto-done error', e); }
+  };
+
+  window.setRating = n => {
+    _userRating = n;
+    document.querySelectorAll('.rating-star').forEach((s, i) => s.classList.toggle('on', i < n));
+    const labels = ['', 'سيء جداً 😞', 'سيء 😐', 'مقبول 🙂', 'جيد 😊', 'ممتاز 🌟'];
+    const lb = $('ratingLabel'); if (lb) lb.textContent = labels[n] || '';
+  };
+
+  window.submitRating = async () => {
+    if (_userRating === 0) return toast('warn', 'يرجى اختيار تقييم', '');
+    const comment = ($('ratingComment').value || '').trim();
+    if (_userReqTenantId) {
+      await push(ref(_db, `tenants/${_userReqTenantId}/ratings`), { stars: _userRating, comment, reqId: _userReqId, phone: $('trackPhone').textContent, ts: serverTimestamp() }).catch(() => { });
+      await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type: 'rating', msg: `⭐ تقييم جديد: ${'⭐'.repeat(_userRating)} — ${comment || 'بدون تعليق'}`, ts: serverTimestamp(), read: false }).catch(() => { });
     }
-  } catch (e) { console.warn('auto-done error', e); }
-};
+    toast('ok', '✅ شكراً على تقييمك!', '');
+    closeTrackScreen();
+    if (_pubMap) setTimeout(() => loadPublicOffices(), 1000);
+  };
 
-window.setRating = n => {
-  _userRating = n;
-  document.querySelectorAll('.rating-star').forEach((s, i) => s.classList.toggle('on', i < n));
-  const labels = ['', 'سيء جداً 😞', 'سيء 😐', 'مقبول 🙂', 'جيد 😊', 'ممتاز 🌟'];
-  const lb = $('ratingLabel'); if (lb) lb.textContent = labels[n] || '';
-};
-
-window.submitRating = async () => {
-  if (_userRating === 0) return toast('warn', 'يرجى اختيار تقييم', '');
-  const comment = ($('ratingComment').value || '').trim();
-  if (_userReqTenantId) {
-    await push(ref(_db, `tenants/${_userReqTenantId}/ratings`), { stars: _userRating, comment, reqId: _userReqId, phone: $('trackPhone').textContent, ts: serverTimestamp() }).catch(() => { });
-    await push(ref(_db, `tenants/${_userReqTenantId}/notifications`), { type: 'rating', msg: `⭐ تقييم جديد: ${'⭐'.repeat(_userRating)} — ${comment || 'بدون تعليق'}`, ts: serverTimestamp(), read: false }).catch(() => { });
-  }
-  toast('ok', '✅ شكراً على تقييمك!', '');
-  closeTrackScreen();
-  if (_pubMap) setTimeout(() => loadPublicOffices(), 1000);
-};
-
-window.closeTrackScreen = () => {
-  $('UserTrackScreen').classList.remove('on');
-  _lastTrackStatus = ''; _userReqId = null; _userReqTenantId = null; _userRating = 0;
-  if (_pubReqListener) { try { off(_pubReqListener); } catch (e) { } _pubReqListener = null; }
-  const pu = $('PU');
-  if (!pu || pu.style.display !== 'flex') { $('PL').style.display = 'none'; initTenantGate(); }
-};
+  window.closeTrackScreen = () => {
+    $('UserTrackScreen').classList.remove('on');
+    _lastTrackStatus = ''; _userReqId = null; _userReqTenantId = null; _userRating = 0;
+    if (_pubReqListener) { try { off(_pubReqListener); } catch (e) { } _pubReqListener = null; }
+    const pu = $('PU');
+    if (!pu || pu.style.display !== 'flex') { $('PL').style.display = 'none'; initTenantGate(); }
+  };
 
 
-/* ══════════════════════════════════════════════════
-   RECEIVER DASHBOARD
-   ══════════════════════════════════════════════════ */
-let recvAllDrvs = {};
+  /* ══════════════════════════════════════════════════
+     RECEIVER DASHBOARD
+     ══════════════════════════════════════════════════ */
+  let recvAllDrvs = {};
 
-const initRecvDash = () => {
-  $('PL').style.display = 'none'; $('PR').style.display = 'block';
-  const recvCfg = [
-    { id: 'requests', icon: 'fas fa-inbox', label: 'الطلبات', badge: true },
-    { id: 'map', icon: 'fas fa-map-location-dot', label: 'الخريطة' },
-    { id: 'add', icon: 'fas fa-plus-circle', label: 'إضافة طلب' },
-    { id: 'history', icon: 'fas fa-history', label: 'السجل' },
-  ];
-  $('recv-ntabs').innerHTML = recvCfg.map((t, i) =>
-    `<button class="ntab${i === 0 ? ' sup-on' : ''}" id="rnt-${t.id}" onclick="recvTab('${t.id}')">
+  const initRecvDash = () => {
+    $('PL').style.display = 'none'; $('PR').style.display = 'block';
+    const recvCfg = [
+      { id: 'requests', icon: 'fas fa-inbox', label: 'الطلبات', badge: true },
+      { id: 'map', icon: 'fas fa-map-location-dot', label: 'الخريطة' },
+      { id: 'add', icon: 'fas fa-plus-circle', label: 'إضافة طلب' },
+      { id: 'history', icon: 'fas fa-history', label: 'السجل' },
+    ];
+    $('recv-ntabs').innerHTML = recvCfg.map((t, i) =>
+      `<button class="ntab${i === 0 ? ' sup-on' : ''}" id="rnt-${t.id}" onclick="recvTab('${t.id}')">
       <i class="${t.icon}"></i> ${t.label}
       ${t.badge ? `<span class="ntab-badge" id="recv-req-badge" style="display:none">0</span>` : ''}
     </button>`
-  ).join('');
-  const mobNav = $('mobileNav'), mobTabs = $('mobTabs');
-  if (mobNav && mobTabs) {
-    mobNav.style.display = 'block';
-    mobTabs.innerHTML = recvCfg.map((t, i) =>
-      `<button class="mob-tab${i === 0 ? ' sup-on' : ''}" id="rmnt-${t.id}" onclick="recvTab('${t.id}')">
+    ).join('');
+    const mobNav = $('mobileNav'), mobTabs = $('mobTabs');
+    if (mobNav && mobTabs) {
+      mobNav.style.display = 'block';
+      mobTabs.innerHTML = recvCfg.map((t, i) =>
+        `<button class="mob-tab${i === 0 ? ' sup-on' : ''}" id="rmnt-${t.id}" onclick="recvTab('${t.id}')">
         ${t.badge ? `<span class="mob-tab-badge" id="mob-recv-badge" style="display:none">0</span>` : ''}
         <i class="${t.icon}"></i><span class="mob-label">${t.label}</span>
       </button>`
-    ).join('');
-  }
-  loadRecvDrivers(); listenRecvNewReqs(); recvTab('requests');
-};
+      ).join('');
+    }
+    loadRecvDrivers(); listenRecvNewReqs(); recvTab('requests');
+  };
 
-const loadRecvDrivers = () => {
-  recvAllDrvs = {};
-  const r = tRef('drivers');
-  onValue(r, snap => { recvAllDrvs = {}; if (snap.exists()) Object.entries(snap.val()).forEach(([id, d]) => { const { avatar, ...dn } = d; recvAllDrvs[id] = dn; }); });
-  LSNRS.push({ r });
-};
+  const loadRecvDrivers = () => {
+    recvAllDrvs = {};
+    const r = tRef('drivers');
+    onValue(r, snap => { recvAllDrvs = {}; if (snap.exists()) Object.entries(snap.val()).forEach(([id, d]) => { const { avatar, ...dn } = d; recvAllDrvs[id] = dn; }); });
+    LSNRS.push({ r });
+  };
 
-const listenRecvNewReqs = () => {
-  let lastCount = null;
-  const r = tRef('recvRequests');
-  onValue(r, snap => {
-    const count = snap.exists() ? Object.keys(snap.val()).length : 0;
-    if (lastCount !== null && count > lastCount) { playSound('notif'); vibrate([200, 100, 200]); toast('info', '📥 طلب جديد وارد!', ''); }
-    lastCount = count;
-    ['recv-req-badge', 'mob-recv-badge'].forEach(bid => { const b = $(bid); if (b) { b.textContent = count > 0 ? count : ''; b.style.display = count > 0 ? 'inline' : 'none'; } });
-  }); LSNRS.push({ r });
-};
+  const listenRecvNewReqs = () => {
+    let lastCount = null;
+    const r = tRef('recvRequests');
+    onValue(r, snap => {
+      const count = snap.exists() ? Object.keys(snap.val()).length : 0;
+      if (lastCount !== null && count > lastCount) { playSound('notif'); vibrate([200, 100, 200]); toast('info', '📥 طلب جديد وارد!', ''); }
+      lastCount = count;
+      ['recv-req-badge', 'mob-recv-badge'].forEach(bid => { const b = $(bid); if (b) { b.textContent = count > 0 ? count : ''; b.style.display = count > 0 ? 'inline' : 'none'; } });
+    }); LSNRS.push({ r });
+  };
 
-window.recvTab = t => {
-  document.querySelectorAll('#recv-ntabs .ntab').forEach(b => b.classList.remove('on', 'sup-on'));
-  const el = $('rnt-' + t); if (el) el.classList.add('sup-on');
-  document.querySelectorAll('#mobTabs .mob-tab').forEach(b => b.classList.remove('on', 'sup-on'));
-  const mel = $('rmnt-' + t); if (mel) mel.classList.add('sup-on');
-  clrListeners(false);
-  if (window._recvMap) { try { window._recvMap.remove(); } catch (e) { } window._recvMap = null; }
-  const body = $('recv-dbody');
-  if (t === 'requests') renderRecvRequests(body);
-  else if (t === 'map') renderRecvMap(body);
-  else if (t === 'add') renderRecvAdd(body);
-  else renderRecvHistory(body);
-};
+  window.recvTab = t => {
+    document.querySelectorAll('#recv-ntabs .ntab').forEach(b => b.classList.remove('on', 'sup-on'));
+    const el = $('rnt-' + t); if (el) el.classList.add('sup-on');
+    document.querySelectorAll('#mobTabs .mob-tab').forEach(b => b.classList.remove('on', 'sup-on'));
+    const mel = $('rmnt-' + t); if (mel) mel.classList.add('sup-on');
+    clrListeners(false);
+    if (window._recvMap) { try { window._recvMap.remove(); } catch (e) { } window._recvMap = null; }
+    const body = $('recv-dbody');
+    if (t === 'requests') renderRecvRequests(body);
+    else if (t === 'map') renderRecvMap(body);
+    else if (t === 'add') renderRecvAdd(body);
+    else renderRecvHistory(body);
+  };
 
-const renderRecvRequests = body => {
-  body.innerHTML = `<div style="padding:16px;overflow-y:auto;height:calc(100vh - 60px - 70px)">
+  const renderRecvRequests = body => {
+    body.innerHTML = `<div style="padding:16px;overflow-y:auto;height:calc(100vh - 60px - 70px)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div style="font-family:'Tajawal',sans-serif;font-size:18px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:8px"><i class="fas fa-inbox" style="color:var(--primary)"></i> الطلبات الواردة</div>
       <button onclick="recvTab('add')" style="padding:8px 14px;background:var(--primary);border:none;border-radius:9px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif"><i class="fas fa-plus"></i> إضافة</button>
     </div>
     <div id="RECV_LIST"><div style="text-align:center;padding:32px;color:var(--text4)"><div class="spin dark"></div></div></div>
   </div>`;
-  const r = tRef('recvRequests');
-  onValue(r, snap => {
-    const list = $('RECV_LIST'); if (!list) return;
-    if (!snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text4)"><i class="fas fa-inbox" style="font-size:40px;opacity:.2;display:block;margin-bottom:12px"></i><p style="font-size:13px">لا توجد طلبات حالياً</p></div>`; return; }
-    const items = Object.entries(snap.val()).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0));
-    list.innerHTML = items.map(([id, d]) => {
-      const userBadge = d.fromUser ? `<span style="background:#ECFDF5;color:#059669;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #A7F3D0;margin-right:4px">🌐 مستخدم</span>` : '';
-      return `<div class="recv-req-card">
+    const r = tRef('recvRequests');
+    onValue(r, snap => {
+      const list = $('RECV_LIST'); if (!list) return;
+      if (!snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text4)"><i class="fas fa-inbox" style="font-size:40px;opacity:.2;display:block;margin-bottom:12px"></i><p style="font-size:13px">لا توجد طلبات حالياً</p></div>`; return; }
+      const items = Object.entries(snap.val()).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0));
+      list.innerHTML = items.map(([id, d]) => {
+        const userBadge = d.fromUser ? `<span style="background:#ECFDF5;color:#059669;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #A7F3D0;margin-right:4px">🌐 مستخدم</span>` : '';
+        return `<div class="recv-req-card">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
           <div style="font-size:15px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px"><i class="fas fa-phone" style="color:var(--primary);font-size:12px"></i>${esc(d.phone || '-')}${userBadge}</div>
           <span style="font-size:10px;color:var(--text4)">${fmt(d.ts || Date.now())}</span>
@@ -3406,34 +3484,34 @@ const renderRecvRequests = body => {
           <button class="rca rca-red"     onclick="recvDelReq('${id}')"><i class="fas fa-trash"></i></button>
         </div>
       </div>`;
-    }).join('');
-  }); LSNRS.push({ r });
-};
+      }).join('');
+    }); LSNRS.push({ r });
+  };
 
-window.recvSendReqToTaxi = (reqId, phone, details) => {
-  selTaxiId = null; selReqData = { id: reqId, phone: phone.replace(/&#39;/g, "'"), details: details.replace(/&#39;/g, "'"), recvReqId: reqId };
-  const list = $('sel-taxi-list');
-  const avail = Object.entries(recvAllDrvs).sort(([, a], [, b]) => { const ao = getTCS(a).monCls === 'st-online' ? 0 : 1, bo = getTCS(b).monCls === 'st-online' ? 0 : 1; return ao - bo; });
-  if (!avail.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد سائقون</div>'; $('SelTaxiModal').classList.add('on'); return; }
-  list.innerHTML = avail.map(([id, d]) => {
-    const cs = getTCS(d);
-    return `<div class="sel-taxi-item" id="stitem-${id}" onclick="selectTaxi('${id}')">
+  window.recvSendReqToTaxi = (reqId, phone, details) => {
+    selTaxiId = null; selReqData = { id: reqId, phone: phone.replace(/&#39;/g, "'"), details: details.replace(/&#39;/g, "'"), recvReqId: reqId };
+    const list = $('sel-taxi-list');
+    const avail = Object.entries(recvAllDrvs).sort(([, a], [, b]) => { const ao = getTCS(a).monCls === 'st-online' ? 0 : 1, bo = getTCS(b).monCls === 'st-online' ? 0 : 1; return ao - bo; });
+    if (!avail.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد سائقون</div>'; $('SelTaxiModal').classList.add('on'); return; }
+    list.innerHTML = avail.map(([id, d]) => {
+      const cs = getTCS(d);
+      return `<div class="sel-taxi-item" id="stitem-${id}" onclick="selectTaxi('${id}')">
       <div style="width:40px;height:40px;border-radius:11px;border:2px solid ${cs.border};background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🚕</div>
       <div style="flex:1"><div style="font-weight:800;font-size:13px;color:var(--text)">${esc(d.name)}</div><div style="font-size:11px;color:${cs.dot}">${cs.label}</div>${d.carNumber ? `<div style="font-size:10px;color:var(--text4)">🚗 ${esc(d.carNumber)}</div>` : ''}</div>
       <i class="fas fa-check-circle" id="stchk-${id}" style="display:none;color:var(--primary);font-size:18px"></i>
     </div>`;
-  }).join('');
-  $('SelTaxiModal').classList.add('on'); $('confirmSelBtn').disabled = true; $('confirmSelBtn').style.opacity = '.5';
-};
-window.recvDelReq = async id => { if (!confirm('حذف هذا الطلب؟')) return; await remove(tRef(`recvRequests/${id}`)); toast('ok', 'تم الحذف', ''); };
-window.recvEditReq = (id, phone, details) => {
-  const np = prompt('رقم الهاتف الجديد:', phone.replace(/&#39;/g, "'")); if (!np) return;
-  const nd = prompt('التفاصيل الجديدة:', details.replace(/&#39;/g, "'")); if (!nd) return;
-  update(tRef(`recvRequests/${id}`), { phone: np, details: nd, editedAt: Date.now() }).then(() => toast('ok', 'تم التعديل', ''));
-};
+    }).join('');
+    $('SelTaxiModal').classList.add('on'); $('confirmSelBtn').disabled = true; $('confirmSelBtn').style.opacity = '.5';
+  };
+  window.recvDelReq = async id => { if (!confirm('حذف هذا الطلب؟')) return; await remove(tRef(`recvRequests/${id}`)); toast('ok', 'تم الحذف', ''); };
+  window.recvEditReq = (id, phone, details) => {
+    const np = prompt('رقم الهاتف الجديد:', phone.replace(/&#39;/g, "'")); if (!np) return;
+    const nd = prompt('التفاصيل الجديدة:', details.replace(/&#39;/g, "'")); if (!nd) return;
+    update(tRef(`recvRequests/${id}`), { phone: np, details: nd, editedAt: Date.now() }).then(() => toast('ok', 'تم التعديل', ''));
+  };
 
-const renderRecvMap = body => {
-  body.innerHTML = `<div style="height:calc(100vh - 60px - 70px);display:flex;flex-direction:column;position:relative">
+  const renderRecvMap = body => {
+    body.innerHTML = `<div style="height:calc(100vh - 60px - 70px);display:flex;flex-direction:column;position:relative">
     <div class="ststrip" style="flex-shrink:0;position:relative;z-index:2">
       <div class="st"><div class="stic" style="background:var(--green-l)"><i class="fas fa-circle" style="color:var(--green)"></i></div><div><div class="stv" id="rmG">0</div><div class="stl">متاح 🟢</div></div></div>
       <div class="st"><div class="stic" style="background:var(--red-l)"><i class="fas fa-car" style="color:var(--red)"></i></div><div><div class="stv" id="rmR">0</div><div class="stl">مشغول 🔴</div></div></div>
@@ -3441,49 +3519,49 @@ const renderRecvMap = body => {
     </div>
     <div id="recvMap" style="flex:1;min-height:0"></div>
   </div>`;
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    const el = $('recvMap'); if (!el) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = $('recvMap'); if (!el) return;
+      try {
+        window._recvMap = L.map('recvMap', { zoomControl: true }).setView([32.31, 35.03], 12);
+        window._recvMarkers = {};
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(window._recvMap);
+        const refresh = () => {
+          if (!window._recvMap) return;
+          const ent = Object.entries(recvAllDrvs);
+          const upd = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+          upd('rmT', ent.length);
+          upd('rmG', ent.filter(([, d]) => getTCS(d).monCls === 'st-online').length);
+          upd('rmR', ent.filter(([, d]) => getTCS(d).monCls === 'st-busy').length);
+          ent.forEach(([id, d]) => {
+            if (!d.lat || !d.lng) return;
+            const cs = getTCS(d);
+            const ic = L.divIcon({ html: `<div class="drv-marker-wrap"><div class="drv-marker" style="border-color:${cs.border}">🚕</div><div class="drv-marker-name">${d.name}</div></div>`, className: '', iconSize: [50, 50], iconAnchor: [25, 50] });
+            if (window._recvMarkers[id]) { window._recvMarkers[id].setLatLng([d.lat, d.lng]); window._recvMarkers[id].setIcon(ic); }
+            else { window._recvMarkers[id] = L.marker([d.lat, d.lng], { icon: ic }).addTo(window._recvMap).bindPopup(`<div style="font-family:Cairo,sans-serif;text-align:center"><b>${d.name}</b><br><span style="color:${cs.dot}">${cs.label}</span><br><button onclick="recvSendToDriver('${id}','${(d.name || '').replace(/'/g, '')}')"><i class='fas fa-paper-plane'></i> إرسال طلب</button></div>`); }
+          });
+        };
+        refresh();
+        const r = tRef('drivers');
+        onValue(r, snap => { if (!window._recvMap) return; recvAllDrvs = {}; if (snap.exists()) Object.entries(snap.val()).forEach(([id, d]) => { const { avatar, ...dn } = d; recvAllDrvs[id] = dn; }); refresh(); });
+        LSNRS.push({ r });
+      } catch (e) { }
+    }));
+  };
+  window.recvSendToDriver = async (drvId, drvName) => {
+    const phone = prompt('📞 رقم هاتف الزبون:', ''); if (!phone?.trim()) return;
+    const details = prompt('📍 التفاصيل والموقع:', ''); if (!details?.trim()) return;
     try {
-      window._recvMap = L.map('recvMap', { zoomControl: true }).setView([32.31, 35.03], 12);
-      window._recvMarkers = {};
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(window._recvMap);
-      const refresh = () => {
-        if (!window._recvMap) return;
-        const ent = Object.entries(recvAllDrvs);
-        const upd = (id, v) => { const e = $(id); if (e) e.textContent = v; };
-        upd('rmT', ent.length);
-        upd('rmG', ent.filter(([, d]) => getTCS(d).monCls === 'st-online').length);
-        upd('rmR', ent.filter(([, d]) => getTCS(d).monCls === 'st-busy').length);
-        ent.forEach(([id, d]) => {
-          if (!d.lat || !d.lng) return;
-          const cs = getTCS(d);
-          const ic = L.divIcon({ html: `<div class="drv-marker-wrap"><div class="drv-marker" style="border-color:${cs.border}">🚕</div><div class="drv-marker-name">${d.name}</div></div>`, className: '', iconSize: [50, 50], iconAnchor: [25, 50] });
-          if (window._recvMarkers[id]) { window._recvMarkers[id].setLatLng([d.lat, d.lng]); window._recvMarkers[id].setIcon(ic); }
-          else { window._recvMarkers[id] = L.marker([d.lat, d.lng], { icon: ic }).addTo(window._recvMap).bindPopup(`<div style="font-family:Cairo,sans-serif;text-align:center"><b>${d.name}</b><br><span style="color:${cs.dot}">${cs.label}</span><br><button onclick="recvSendToDriver('${id}','${(d.name || '').replace(/'/g, '')}')"><i class='fas fa-paper-plane'></i> إرسال طلب</button></div>`); }
-        });
-      };
-      refresh();
-      const r = tRef('drivers');
-      onValue(r, snap => { if (!window._recvMap) return; recvAllDrvs = {}; if (snap.exists()) Object.entries(snap.val()).forEach(([id, d]) => { const { avatar, ...dn } = d; recvAllDrvs[id] = dn; }); refresh(); });
-      LSNRS.push({ r });
-    } catch (e) { }
-  }));
-};
-window.recvSendToDriver = async (drvId, drvName) => {
-  const phone = prompt('📞 رقم هاتف الزبون:', ''); if (!phone?.trim()) return;
-  const details = prompt('📍 التفاصيل والموقع:', ''); if (!details?.trim()) return;
-  try {
-    const ts = Date.now();
-    await push(tRef('recvRequests'), { phone: phone.trim(), details: details.trim(), ts, addedBy: CU ? CU.name : 'المستقبل', assignedTo: drvId });
-    await push(tRef(`driverRequests/${drvId}`), { phone: phone.trim(), details: details.trim(), status: 'pending', ts, sentBy: CU ? CU.name : 'المستقبل', sentAt: ts });
-    await push(tRef(`driverPushNotifs/${drvId}`), { title: '📦 طلب جديد', body: `📞 ${phone.trim()}\n📍 ${details.trim()}`, type: 'new_request', ts, read: false });
-    toast('ok', `✅ تم الإرسال لـ ${drvName}`, ''); playSound('notif');
-    if (window._recvMap) window._recvMap.closePopup();
-  } catch (err) { toast('err', 'خطأ', err.message || ''); }
-};
+      const ts = Date.now();
+      await push(tRef('recvRequests'), { phone: phone.trim(), details: details.trim(), ts, addedBy: CU ? CU.name : 'المستقبل', assignedTo: drvId });
+      await push(tRef(`driverRequests/${drvId}`), { phone: phone.trim(), details: details.trim(), status: 'pending', ts, sentBy: CU ? CU.name : 'المستقبل', sentAt: ts });
+      await push(tRef(`driverPushNotifs/${drvId}`), { title: '📦 طلب جديد', body: `📞 ${phone.trim()}\n📍 ${details.trim()}`, type: 'new_request', ts, read: false });
+      toast('ok', `✅ تم الإرسال لـ ${drvName}`, ''); playSound('notif');
+      if (window._recvMap) window._recvMap.closePopup();
+    } catch (err) { toast('err', 'خطأ', err.message || ''); }
+  };
 
-const renderRecvAdd = body => {
-  body.innerHTML = `<div style="padding:16px;overflow-y:auto;height:calc(100vh - 60px - 70px);max-width:500px;margin:0 auto">
+  const renderRecvAdd = body => {
+    body.innerHTML = `<div style="padding:16px;overflow-y:auto;height:calc(100vh - 60px - 70px);max-width:500px;margin:0 auto">
     <div style="font-family:'Tajawal',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px"><i class="fas fa-plus-circle" style="color:var(--primary)"></i> إضافة طلب جديد</div>
     <div class="cbox">
       <div class="al" id="al-recv-add"></div>
@@ -3492,104 +3570,96 @@ const renderRecvAdd = body => {
       <button class="ba" onclick="addRecvReq()"><i class="fas fa-paper-plane"></i> حفظ الطلب</button>
     </div>
   </div>`;
-};
-window.addRecvReq = async () => {
-  const phone = ($('recv-phone').value || '').trim();
-  const details = ($('recv-details').value || '').trim();
-  if (!phone || !details) return shAl('al-recv-add', 'err', 'يرجى ملء جميع الحقول');
-  await push(tRef('recvRequests'), { phone, details, ts: serverTimestamp(), addedBy: CU ? CU.name : 'المستقبل' });
-  $('recv-phone').value = ''; $('recv-details').value = '';
-  shAl('al-recv-add', 'ok', '✅ تم إضافة الطلب'); playSound('notif');
-  setTimeout(() => recvTab('requests'), 1200);
-};
+  };
+  window.addRecvReq = async () => {
+    const phone = ($('recv-phone').value || '').trim();
+    const details = ($('recv-details').value || '').trim();
+    if (!phone || !details) return shAl('al-recv-add', 'err', 'يرجى ملء جميع الحقول');
+    await push(tRef('recvRequests'), { phone, details, ts: serverTimestamp(), addedBy: CU ? CU.name : 'المستقبل' });
+    $('recv-phone').value = ''; $('recv-details').value = '';
+    shAl('al-recv-add', 'ok', '✅ تم إضافة الطلب'); playSound('notif');
+    setTimeout(() => recvTab('requests'), 1200);
+  };
 
-const renderRecvHistory = body => {
-  body.innerHTML = `<div style="padding:16px;overflow-y:auto;height:calc(100vh - 60px - 70px)">
+  const renderRecvHistory = body => {
+    body.innerHTML = `<div style="padding:16px;overflow-y:auto;height:calc(100vh - 60px - 70px)">
     <div style="font-family:'Tajawal',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
       <span style="display:flex;align-items:center;gap:8px"><i class="fas fa-history" style="color:var(--amber)"></i> سجل التنبيهات</span>
       <button onclick="clearAllNotifs()" style="padding:7px 14px;background:var(--red-l);border:1px solid var(--red-m);border-radius:9px;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif"><i class="fas fa-trash"></i> حذف الكل</button>
     </div>
     <div id="RECV_HIST"><div style="text-align:center;padding:32px;color:var(--text4)"><div class="spin dark"></div></div></div>
   </div>`;
-  const icMap = { accept: 'ni-green', reject: 'ni-red', timeout: 'ni-red', done: 'ni-green', waiting: 'ni-amber', near: 'ni-amber', sos: 'ni-red', info: 'ni-blue', cancel: 'ni-red', edit: 'ni-amber', rating: 'ni-green', user_request: 'ni-green' };
-  const icoMap = { accept: 'check', reject: 'times', timeout: 'clock', done: 'flag-checkered', waiting: 'hourglass-half', near: 'map-pin', sos: 'triangle-exclamation', info: 'info', cancel: 'ban', edit: 'pen', rating: 'star', user_request: 'globe' };
-  const r = tRef('notifications');
-  onValue(r, snap => {
-    const list = $('RECV_HIST'); if (!list) return;
-    if (!snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text4)">لا يوجد سجل</div>`; return; }
-    const items = Object.entries(snap.val()).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0)).slice(0, 50);
-    list.innerHTML = items.map(([nid, n]) => `<div class="notif-item">
+    const icMap = { accept: 'ni-green', reject: 'ni-red', timeout: 'ni-red', done: 'ni-green', waiting: 'ni-amber', near: 'ni-amber', sos: 'ni-red', info: 'ni-blue', cancel: 'ni-red', edit: 'ni-amber', rating: 'ni-green', user_request: 'ni-green' };
+    const icoMap = { accept: 'check', reject: 'times', timeout: 'clock', done: 'flag-checkered', waiting: 'hourglass-half', near: 'map-pin', sos: 'triangle-exclamation', info: 'info', cancel: 'ban', edit: 'pen', rating: 'star', user_request: 'globe' };
+    const r = tRef('notifications');
+    onValue(r, snap => {
+      const list = $('RECV_HIST'); if (!list) return;
+      if (!snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text4)">لا يوجد سجل</div>`; return; }
+      const items = Object.entries(snap.val()).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0)).slice(0, 50);
+      list.innerHTML = items.map(([nid, n]) => `<div class="notif-item">
       <div class="notif-ic ${icMap[n.type] || 'ni-blue'}"><i class="fas fa-${icoMap[n.type] || 'bell'}"></i></div>
       <div class="notif-body"><div class="notif-title">${esc(n.msg || '')}</div><div class="notif-time">${fmt(n.ts || Date.now())}</div></div>
       <button class="notif-del-btn" onclick="delNotif('${nid}')"><i class="fas fa-times"></i></button>
     </div>`).join('');
-  }); LSNRS.push({ r });
-};
+    }); LSNRS.push({ r });
+  };
 
-/* ══════════════════════════════════════════════════
-   LOGOUT
-   ══════════════════════════════════════════════════ */
-window.logout = async () => {
-  const wasDriver = CR === 'driver';
+  /* ══════════════════════════════════════════════════
+     LOGOUT
+     ══════════════════════════════════════════════════ */
+  window.logout = async () => {
+    const wasDriver = CR === 'driver';
 
-  stopGPS();
-  if (reqCountdownTimer) { clearInterval(reqCountdownTimer); reqCountdownTimer = null; }
-  if (monitorInterval) { clearInterval(monitorInterval); monitorInterval = null; }
-  stopDriverListener();
-  $('ReqNotif').classList.remove('on');
-  $('SosBroadcastNotif').classList.remove('on');
-  $('MonitorScreen').classList.remove('on');
+    stopGPS();
+    if (reqCountdownTimer) { clearInterval(reqCountdownTimer); reqCountdownTimer = null; }
+    if (monitorInterval) { clearInterval(monitorInterval); monitorInterval = null; }
+    stopDriverListener();
+    $('ReqNotif').classList.remove('on');
+    $('SosBroadcastNotif').classList.remove('on');
+    $('MonitorScreen').classList.remove('on');
 
-  if (CR === 'driver' && CU)
-    await update(tRef(`drivers/${CU.id}`), { status: 'offline', lastSeen: Date.now() }).catch(() => { });
+    if (CR === 'driver' && CU)
+      await update(tRef(`drivers/${CU.id}`), { status: 'offline', lastSeen: Date.now() }).catch(() => { });
 
-  await signOut(_auth).catch(() => { });
-  clrListeners(false);
+    await signOut(_auth).catch(() => { });
+    clrListeners(false);
 
-  CU = null; CR = null; shiftStartTime = null; allDrvs = {}; IS_RECV = false;
-  TENANT_ID = ''; TENANT_INFO = null;
-
-  clearSession();
-  releaseWakeLock();
-  $('PD').style.display = 'none';
-  $('PR').style.display = 'none';
-  $('PL').style.display = 'none';
-  const puEl = $('PU'); if (puEl) puEl.style.display = 'none';
-
-  /* أخفِ staffPanel لو كان مفتوحاً */
-  if (typeof closeStaffPanel === 'function') closeStaffPanel();
-  const sp = $('staffPanel'); if (sp) sp.style.display = 'none';
-  const si = $('staffPanelInner'); if (si) si.style.transform = 'translateX(-100%)';
-
-  $('ntabs').innerHTML = '';
-  const navav = $('navav');
-  if (navav) { navav.textContent = '🚕'; navav.classList.remove('sup-av'); }
-
-  const monBtn = $('monitorBtn');
-  if (monBtn) monBtn.remove();
-
-  const mn = $('mobileNav');
-  if (mn) mn.style.display = 'none';
-
-  const mb = $('mobTabs');
-  if (mb) mb.innerHTML = '';
-
-  const staffBtn = $('staffEntryBtn');
-  if (staffBtn) staffBtn.style.display = 'flex';
-
-  // عند خروج السائق، أرسله إلى خريطة طلب التكسي العامة بدلاً من صفحة تسجيل الدخول
-  if (wasDriver) {
-    // للسائق: اعرض خريطة طلب التكسي
-    setTimeout(() => {
-      if (typeof window.openPubPage === 'function') {
-        window.openPubPage();
-      }
-    }, 300);
-  } else {
-    // للمشرفين والموظفين الآخرين: اعرض بوابة التسجيل
-    $('PTenantGate').style.display = 'block';
+    CU = null; CR = null; shiftStartTime = null; allDrvs = {}; IS_RECV = false;
     TENANT_ID = ''; TENANT_INFO = null;
-  }
+
+    clearSession();
+    releaseWakeLock();
+    $('PD').style.display = 'none';
+    $('PR').style.display = 'none';
+    $('PL').style.display = 'none';
+    const puEl = $('PU'); if (puEl) puEl.style.display = 'none';
+
+    /* أخفِ staffPanel لو كان مفتوحاً */
+    if (typeof closeStaffPanel === 'function') closeStaffPanel();
+    const sp = $('staffPanel'); if (sp) sp.style.display = 'none';
+    const si = $('staffPanelInner'); if (si) si.style.transform = 'translateX(-100%)';
+
+    $('ntabs').innerHTML = '';
+    const navav = $('navav');
+    if (navav) { navav.textContent = '🚕'; navav.classList.remove('sup-av'); }
+
+    const monBtn = $('monitorBtn');
+    if (monBtn) monBtn.remove();
+
+    const mn = $('mobileNav');
+    if (mn) mn.style.display = 'none';
+
+    const mb = $('mobTabs');
+    if (mb) mb.innerHTML = '';
+
+    const staffBtn = $('staffEntryBtn');
+    if (staffBtn) staffBtn.style.display = 'flex';
+
+ // عند خروج السائق أو المشرف، اعرض خريطة طلب التكسي مباشرة
+  TENANT_ID = ''; TENANT_INFO = null;
+  setTimeout(() => {
+    initTenantGate();
+  }, 300);
 };
 
 window.logoutRecv = async () => {
@@ -3600,12 +3670,10 @@ window.logoutRecv = async () => {
   if (window._recvMap) { try { window._recvMap.remove(); } catch (e) { } window._recvMap = null; }
   clearSession();
   $('PR').style.display = 'none'; $('PL').style.display = 'none';
-  const puElR = $('PU'); if (puElR) puElR.style.display = 'none';
-  $('PTenantGate').style.display = 'block';
   $('recv-ntabs').innerHTML = '';
-  TENANT_ID = ''; TENANT_INFO = null;
   const spR = $('staffPanel'); if (spR) spR.style.display = 'none';
   const siR = $('staffPanelInner'); if (siR) siR.style.transform = 'translateX(-100%)';
   const mn = $('mobileNav'); if (mn) mn.style.display = 'none';
   const mb = $('mobTabs'); if (mb) mb.innerHTML = '';
+  initTenantGate();
 };
