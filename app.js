@@ -512,11 +512,18 @@ const initTenantGate = () => {
 let _deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _deferredInstallPrompt = e; });
 
-window.installPWA_android = async () => {
-  if (_deferredInstallPrompt) {
-    _deferredInstallPrompt.prompt();
-    const { outcome } = await _deferredInstallPrompt.userChoice;
-    if (outcome === 'accepted') { toast('ok','✅ تم التثبيت!','التطبيق جاهز على شاشتك'); _deferredInstallPrompt = null; }
+/* دالة التثبيت المباشر — مرتبطة بالـ HTML و app.js */
+window._installAndroid = window.installPWA_android = async () => {
+  const prompt = window._deferredInstall || _deferredInstallPrompt;
+  if (prompt) {
+    try {
+      prompt.prompt();
+      const { outcome } = await prompt.userChoice;
+      if (outcome === 'accepted') {
+        toast('ok','✅ تم التثبيت!','التطبيق جاهز على شاشتك الرئيسية');
+        window._deferredInstall = null; _deferredInstallPrompt = null;
+      }
+    } catch(e) { console.warn('PWA prompt error', e); }
     return;
   }
   /* إظهار تعليمات يدوية */
@@ -524,22 +531,38 @@ window.installPWA_android = async () => {
   m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;justify-content:center;padding:16px';
   m.innerHTML = `<div style="background:#1E293B;border-radius:20px 20px 16px 16px;padding:24px;width:100%;max-width:400px;font-family:Cairo,sans-serif;direction:rtl">
     <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:10px">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="#059669"><path d="M17.523 15.341a5 5 0 01-3.523 1.46 5 5 0 01-3.523-1.46L4 9.341V18a2 2 0 002 2h12a2 2 0 002-2V9.341l-2.477 6zM12 3a5 5 0 015 5H7a5 5 0 015-5zm-7 5l7 8 7-8H5z"/></svg>
-      تثبيت على أندرويد
+      🤖 تثبيت التطبيق — أندرويد
     </div>
     <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:16px;margin-bottom:14px">
-      <div style="color:rgba(255,255,255,.8);font-size:13px;line-height:2">
-        <div style="margin-bottom:8px">1️⃣ اضغط على قائمة المتصفح <b style="color:#0EA5E9">⋮</b> (ثلاث نقاط)</div>
-        <div style="margin-bottom:8px">2️⃣ اختر <b style="color:#0EA5E9">"إضافة إلى الشاشة الرئيسية"</b></div>
-        <div>3️⃣ اضغط <b style="color:#059669">إضافة</b> وتم ✅</div>
+      <div style="color:rgba(255,255,255,.8);font-size:13px;line-height:2.2">
+        <div>1️⃣ اضغط على قائمة المتصفح <b style="color:#0EA5E9">⋮</b></div>
+        <div>2️⃣ اختر <b style="color:#0EA5E9">"إضافة إلى الشاشة الرئيسية"</b></div>
+        <div>3️⃣ اضغط <b style="color:#059669">إضافة</b> ✅</div>
       </div>
     </div>
-    <button onclick="this.closest('div[style]').remove()" style="width:100%;padding:13px;background:#0EA5E9;border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">فهمت 👍</button>
+    <button id="_pwaAndroidInstallBtn" style="width:100%;padding:14px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">
+      ⬇️ تنزيل التطبيق الآن
+    </button>
+    <button onclick="this.closest('div[style]').remove()" style="width:100%;padding:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;font-family:Cairo,sans-serif">إغلاق</button>
   </div>`;
   document.body.appendChild(m);
+  /* ربط زر التنزيل */
+  const installBtn = m.querySelector('#_pwaAndroidInstallBtn');
+  if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+      const p = window._deferredInstall || _deferredInstallPrompt;
+      if (p) {
+        try { p.prompt(); const {outcome} = await p.userChoice; if(outcome==='accepted'){toast('ok','✅ تم التثبيت!',''); window._deferredInstall=null; _deferredInstallPrompt=null; m.remove();} }
+        catch(e) {}
+      } else {
+        installBtn.textContent = 'اتبع الخطوات أعلاه 👆';
+        installBtn.style.background = 'rgba(255,255,255,.1)';
+      }
+    });
+  }
 };
 
-window.installPWA_ios = () => {
+window._installIOS = window.installPWA_ios = () => {
   const m = document.createElement('div');
   m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;justify-content:center;padding:16px';
   m.innerHTML = `<div style="background:#1E293B;border-radius:20px 20px 16px 16px;padding:24px;width:100%;max-width:400px;font-family:Cairo,sans-serif;direction:rtl">
@@ -555,7 +578,7 @@ window.installPWA_ios = () => {
         <div>4️⃣ اضغط <b style="color:#059669">Add</b> وتم ✅</div>
       </div>
     </div>
-    <button onclick="this.closest('div[style]').remove()" style="width:100%;padding:13px;background:#0EA5E9;border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif">فهمت 👍</button>
+    <button onclick="this.closest('div[style]').remove()" style="width:100%;padding:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;font-family:Cairo,sans-serif">إغلاق</button>
   </div>`;
   document.body.appendChild(m);
 };
@@ -691,7 +714,7 @@ const restoreSession = () => new Promise(resolve => {
       const savedTenant = localStorage.getItem(SESSION_KEYS.tenant) || localStorage.getItem('txOfficeCode') || '';
       const savedRole   = localStorage.getItem(SESSION_KEYS.role) || '';
       const savedDrvKey = localStorage.getItem(SESSION_KEYS.driverKey) || '';
-      if (savedRole === 'driver' && savedDrvKey && savedTenant && TENANT_NAMES[savedTenant]) {
+      if (savedRole === 'driver' && savedDrvKey && savedTenant && (TENANT_NAMES[savedTenant] || savedTenant)) {
         TENANT_ID = savedTenant; TENANT_INFO = { name: TENANT_NAMES[savedTenant] };
         const snap = await get(ref(_db, `tenants/${savedTenant}/drivers/${savedDrvKey}`)).catch(() => null);
         if (!snap || !snap.exists()) return done(false);
@@ -708,7 +731,8 @@ const restoreSession = () => new Promise(resolve => {
       }
       if (savedRole === 'supervisor' || savedRole === 'receiver') {
         const tenantId = EMAIL_TO_TENANT[(user.email||'').toLowerCase()] || savedTenant;
-        if (!tenantId || !TENANT_NAMES[tenantId]) return done(false);
+        if (!tenantId) return done(false);
+        if (!TENANT_NAMES[tenantId]) TENANT_NAMES[tenantId] = tenantId;
         TENANT_ID = tenantId; TENANT_INFO = { name: TENANT_NAMES[tenantId] };
         document.querySelectorAll('.lgn1').forEach(el => el.textContent = TENANT_INFO.name);
         document.title = TENANT_INFO.name + ' — منصة التاكسي';
@@ -1228,6 +1252,20 @@ const listenForUserRequests = () => {
 /* ══════════════════════════════════════════════════
    INIT DASHBOARD
    ══════════════════════════════════════════════════ */
+
+/* ══ WAKE LOCK ══ */
+let _wakeLock = null;
+const requestWakeLock = async () => {
+  if (!('wakeLock' in navigator)) return;
+  try { _wakeLock = await navigator.wakeLock.request('screen'); _wakeLock.addEventListener('release',()=>{_wakeLock=null;}); } catch(e) {}
+};
+const releaseWakeLock = async () => {
+  if (_wakeLock) { try { await _wakeLock.release(); } catch(e) {} _wakeLock = null; }
+};
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState==='visible' && CR==='driver' && CU) await requestWakeLock();
+});
+
 const initDash = () => {
   $('PL').style.display = 'none'; $('PD').style.display = 'block';
   const nav = $('navav'); nav.textContent = CR === 'driver' ? '🚕' : '👨‍💼';
@@ -1236,7 +1274,7 @@ const initDash = () => {
 
   const tabs = $('ntabs'), mobNav = $('mobileNav'), mobTabs = $('mobTabs');
 
-  if (CR === 'driver') {
+  if (CR === 'driver') { requestWakeLock();
     const cfg = [
       {id:'reqs',    icon:'fas fa-inbox',    label:'الطلبات'},
       {id:'reports', icon:'fas fa-chart-bar', label:'تقاريري'},
@@ -2528,7 +2566,7 @@ const addOfficeMarkerToMap = async (tenantId, office) => {
   ensureVerifyFunctions();
 })();
 
-function ensureVerifyFunctions() {
+function ensureVerifyFunctions() {}
   let _vMathAns = 0;
 
   window.showVStep = step => {
@@ -2552,18 +2590,87 @@ function ensureVerifyFunctions() {
 
   window.vGoStep2 = () => {
     const ph = (document.getElementById('v-phone')?.value||'').trim();
-    if (!ph||!/^[0-9+]{7,15}$/.test(ph.replace(/\s/g,''))) {
+    if (!ph||!/^[0-9+]{7,15}$/.test(ph.replace(/[^0-9+]/g,''))) {
       const e=document.getElementById('vErr'); if(e){e.textContent='❌ أدخل رقم هاتف صحيح';e.style.display='block';} return;
     }
     window._userVerifiedPhone = ph;
-    const a=Math.floor(Math.random()*15)+5, b=Math.floor(Math.random()*9)+1;
-    const ops=[{s:'+',r:a+b},{s:'×',r:a*b},{s:'−',r:a-b>0?a-b:b-a}];
-    const op=ops[Math.floor(Math.random()*ops.length)];
-    _vMathAns=op.r;
-    const q=document.getElementById('vMathQ'); if(q) q.textContent=`${a} ${op.s} ${b} = ?`;
     window.showVStep(2);
-    setTimeout(()=>document.getElementById('v-math-ans')?.focus(),100);
+    setTimeout(() => initDragSlider(), 100);
   };
+
+  function initDragSlider() {
+    const handle = document.getElementById('dragHandle');
+    const fill   = document.getElementById('dragFill');
+    const txt    = document.getElementById('dragText');
+    const wrap   = document.getElementById('dragSliderWrap');
+    const errEl  = document.getElementById('dragErr');
+    if (!handle || !wrap) return;
+    let dragging=false, startX=0, curX=0;
+    const maxMove = () => wrap.clientWidth - handle.offsetWidth - 8;
+
+    function onStart(e) {
+      dragging=true; startX=(e.touches?e.touches[0].clientX:e.clientX);
+      handle.style.transition='none'; fill.style.transition='none';
+      if(txt) txt.style.opacity='0'; e.preventDefault();
+    }
+    function onMove(e) {
+      if(!dragging) return;
+      const x=(e.touches?e.touches[0].clientX:e.clientX);
+      const delta = startX - x;
+      curX=Math.max(0,Math.min(delta,maxMove()));
+      handle.style.right=(4+curX)+'px';
+      const pct=curX/maxMove();
+      fill.style.width=(60+curX)+'px';
+      fill.style.background='linear-gradient(90deg,rgba(14,165,233,'+(pct*.6)+'),rgba(14,165,233,.4))';
+      if(pct>=0.95) onSuccess(); e.preventDefault();
+    }
+    function onEnd() {
+      if(!dragging) return; dragging=false;
+      const pct=curX/maxMove();
+      if(pct<0.95){
+        handle.style.transition='right .3s ease'; fill.style.transition='width .3s ease';
+        handle.style.right='4px'; fill.style.width='60px';
+        fill.style.background='linear-gradient(90deg,rgba(14,165,233,0),rgba(14,165,233,.3))';
+        if(txt){txt.style.opacity='1';}  curX=0;
+        if(errEl){errEl.textContent='اسحب حتى النهاية'; setTimeout(()=>{if(errEl)errEl.textContent='';},1500);}
+      }
+    }
+    function removeListeners(){
+      handle.removeEventListener('mousedown',onStart); handle.removeEventListener('touchstart',onStart);
+      document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onEnd);
+      document.removeEventListener('touchmove',onMove); document.removeEventListener('touchend',onEnd);
+    }
+    function onSuccess(){
+      dragging=false; removeListeners();
+      handle.style.transition='right .2s ease';
+      handle.style.right=(wrap.clientWidth-handle.offsetWidth-4)+'px';
+      handle.style.background='linear-gradient(135deg,#10B981,#059669)';
+      fill.style.background='rgba(16,185,129,.4)';
+      handle.innerHTML='<i class="fas fa-check" style="color:#fff;font-size:18px"></i>';
+      if(txt){txt.textContent='✅ تم التأكيد'; txt.style.opacity='1'; txt.style.color='#10B981';}
+      setTimeout(()=>{
+        localStorage.setItem('txUserPhone','1|'+window._userVerifiedPhone);
+        const phEl=document.getElementById('ur-phone'); if(phEl) phEl.value=window._userVerifiedPhone;
+        const tenEl=document.getElementById('ur-office-tenant'); if(tenEl) tenEl.value=_pendingTenant||'';
+        const onm=document.getElementById('vOfficeName'); if(onm) onm.textContent='🏢 '+(_pendingName||'');
+        const onm2=document.getElementById('userReqOfficeName'); if(onm2) onm2.textContent=_pendingName||'';
+        window.showVStep(3); window.vRequestGPS();
+      },600);
+    }
+    /* إعادة تعيين */
+    handle.style.right='4px'; fill.style.width='60px';
+    handle.style.background='linear-gradient(135deg,#0EA5E9,#0284C7)';
+    handle.innerHTML='<i class="fas fa-arrow-left" style="color:#fff;font-size:18px"></i>';
+    if(txt){txt.textContent='← اسحب للتأكيد'; txt.style.opacity='1'; txt.style.color='rgba(255,255,255,.4)';}
+    curX=0;
+    handle.addEventListener('mousedown',onStart);
+    handle.addEventListener('touchstart',onStart,{passive:false});
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onEnd);
+    document.addEventListener('touchmove',onMove,{passive:false});
+    document.addEventListener('touchend',onEnd);
+  }
+
 
   window.vCheckMath = () => {
     const ans=parseInt(document.getElementById('v-math-ans')?.value||'',10);
@@ -2587,57 +2694,38 @@ function ensureVerifyFunctions() {
   };
 
   window.vRequestGPS = () => {
-    const dot=document.getElementById('vGpsDot'), txt=document.getElementById('vGpsTxt'), btn=document.getElementById('vGpsBtn');
-    if(dot) dot.style.background='#F59E0B';
-    if(txt) txt.textContent='جاري تحديد موقعك...';
-    if(btn) btn.style.display='none';
+    const waiting = document.getElementById('vGpsWaiting');
+    const okBox   = document.getElementById('vGpsOkBox');
+    const denied  = document.getElementById('vGpsDenied');
+    const txt     = document.getElementById('vGpsTxt');
+    const sendBtn = document.getElementById('vSendBtn');
+    if(waiting){waiting.style.display='flex'; waiting.style.flexDirection='column';}
+    if(okBox) okBox.style.display='none';
+    if(denied) denied.style.display='none';
+    if(sendBtn){sendBtn.disabled=true; sendBtn.style.opacity='.5'; sendBtn.style.cursor='not-allowed';}
     if(!navigator.geolocation){
-      window._gpsOk=false;
-      if(dot) dot.style.background='#64748B';
-      if(txt) txt.textContent='GPS غير مدعوم — يمكنك المتابعة بدونه';
+      if(waiting) waiting.style.display='none';
+      if(denied) denied.style.display='flex';
       return;
     }
     navigator.geolocation.getCurrentPosition(
       pos=>{
-        window._gpsOk=true; window._userGpsLat=pos.coords.latitude; window._userGpsLng=pos.coords.longitude;
-        if(dot) dot.style.background='#10B981';
-        if(txt) txt.textContent='✅ تم تحديد موقعك';
+        _gpsOk=true; _userGpsLat=pos.coords.latitude; _userGpsLng=pos.coords.longitude;
+        window._gpsOk=true; window._userGpsLat=_userGpsLat; window._userGpsLng=_userGpsLng;
+        if(waiting) waiting.style.display='none';
+        if(okBox) okBox.style.display='flex';
+        if(txt) txt.textContent='دقة: '+Math.round(pos.coords.accuracy)+' متر';
+        if(sendBtn){sendBtn.disabled=false; sendBtn.style.opacity='1'; sendBtn.style.cursor='pointer';}
       },
       ()=>{
-        window._gpsOk=false;
-        if(dot) dot.style.background='#EF4444';
-        if(txt) txt.textContent='تعذّر تحديد الموقع — يمكنك المتابعة بدونه';
-        if(btn) btn.style.display='block';
+        _gpsOk=false; window._gpsOk=false;
+        if(waiting) waiting.style.display='none';
+        if(denied) denied.style.display='flex';
+        if(sendBtn){sendBtn.disabled=true; sendBtn.style.opacity='.5';}
       },
-      {enableHighAccuracy:false,timeout:10000,maximumAge:60000}
+      {enableHighAccuracy:true,timeout:15000,maximumAge:0}
     );
   };
-}
-
-/* ── User Request Modal ── */
-window.openUserReqModal = (tenantId, name, desc) => {
-  window._pendingTenant = tenantId;
-  window._pendingName   = name;
-  window._pendingDesc   = desc;
-  var last = parseInt(localStorage.getItem('txLastReq')||'0', 10);
-  if (last && Date.now() - last < 5*60*1000) {
-    window.showRateLimitAlert(Math.ceil((5*60*1000-(Date.now()-last))/1000));
-    return;
-  }
-  var saved = localStorage.getItem('txUserPhone') || '';
-  if (saved.startsWith('1|')) window._userVerifiedPhone = saved.slice(2);
-  if (!window._userVerifiedPhone) {
-    window._gpsOk = false; window._userGpsLat = null; window._userGpsLng = null;
-    document.getElementById('UserVerifyScreen').classList.add('on');
-    if (typeof window.resetVerifyScreen === 'function') window.resetVerifyScreen();
-    else if (window.showVStep) window.showVStep(1);
-    if (typeof window.showVStep === 'function') window.showVStep(1);
-  } else {
-    window._gpsOk = false; window._userGpsLat = null; window._userGpsLng = null;
-    document.getElementById('UserVerifyScreen').classList.add('on');
-    window.showVStep && window.showVStep(3);
-  }
-};
 
 window.submitUserReq = async () => {
   const lastReq = parseInt(localStorage.getItem('txLastReq')||'0',10);
@@ -2667,11 +2755,12 @@ window.submitUserReq = async () => {
     else if (typeof shAl === 'function') shAl('al-userreq','err', msg);
   };
 
-  if (!phone)    return showErr('أدخل رقم هاتفك');
-  if (!from)     return showErr('أدخل موقعك الحالي (من أين؟)');
-  if (!to)       return showErr('أدخل وجهتك (إلى أين؟)');
-  if (!tenantId) return showErr('خطأ: لم يتم تحديد المكتب — أغلق وأعد المحاولة');
+  if (!phone)              return showErr('أدخل رقم هاتفك');
+  if (!from)               return showErr('أدخل موقعك الحالي (من أين؟)');
+  if (!to)                 return showErr('أدخل وجهتك (إلى أين؟)');
+  if (!tenantId)           return showErr('خطأ: لم يتم تحديد المكتب — أغلق وأعد المحاولة');
   if (!/^[0-9+]{7,15}$/.test(phone.replace(/\s/g,''))) return showErr('رقم الهاتف غير صحيح');
+  if (!window._gpsOk || !window._userGpsLat) return showErr('⚠️ الموقع الجغرافي مطلوب — فعّله أولاً');
 
   /* زر الإرسال — نستهدف الزر الظاهر في vStep3 */
   const sendBtn = uvs ? uvs.querySelector('button.verify-btn-wa:last-of-type, button[onclick*="submitUserReq"]') : null;
@@ -2700,10 +2789,11 @@ window.submitUserReq = async () => {
 };
 
 /* ── Tracking Screen ── */
+let _trackUserMapObj = null;
 const openTrackScreen = (phone, details, officeName) => {
   $('trackPhone').textContent   = phone;
   $('trackDetails').textContent = details;
-  $('trackOfficeLabel').textContent = officeName;
+  $('trackOfficeLabel').textContent = officeName || '';
   [0,1,2,3].forEach(i => {
     const ic = $(`ts-icon-${i}`); if (ic) ic.className = 'track-step-icon';
     const ln = $(`ts-line-${i}`); if (ln) ln.className = 'track-step-line';
@@ -2714,6 +2804,29 @@ const openTrackScreen = (phone, details, officeName) => {
   $('trackCancelBtn').style.display      = 'inline-flex';
   _lastTrackStatus = '';
   $('UserTrackScreen').classList.add('on');
+
+  /* خريطة موقع المستخدم */
+  const lat = window._userGpsLat, lng = window._userGpsLng;
+  const placeholder = $('trackMapPlaceholder');
+  if (lat && lng && window.L) {
+    if (placeholder) placeholder.style.display = 'none';
+    setTimeout(() => {
+      try {
+        if (_trackUserMapObj) { _trackUserMapObj.remove(); _trackUserMapObj = null; }
+        _trackUserMapObj = L.map('trackUserMap', { zoomControl:true, attributionControl:false })
+          .setView([lat, lng], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(_trackUserMapObj);
+        const icon = L.divIcon({
+          html: '<div style="background:#0EA5E9;width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(14,165,233,.6)"></div>',
+          className:'', iconSize:[18,18], iconAnchor:[9,9]
+        });
+        L.marker([lat, lng], { icon }).addTo(_trackUserMapObj)
+          .bindPopup('<b style="font-family:Cairo,sans-serif">موقعك الحالي 📍</b>').openPopup();
+      } catch(e) {}
+    }, 400);
+  } else {
+    if (placeholder) placeholder.style.display = 'flex';
+  }
 };
 const setTrackStep = step => {
   [0,1,2,3].forEach(i => {
@@ -2764,7 +2877,14 @@ const updateTrackUI = req => {
   if (ds==='cancelled'||ds==='rejected') {
     setTimeout(() => { if ($('UserTrackScreen').classList.contains('on')) { $('UserTrackScreen').classList.remove('on'); } }, 4000);
   }
-  if (ds==='done' && $('trackRatingSection').style.display==='none') $('trackArrivedSection').style.display = 'block';
+  if (ds==='done') {
+    $('trackArrivedSection').style.display = 'none';
+    if ($('trackRatingSection').style.display==='none') {
+      $('trackRatingSection').style.display = 'block';
+      /* إخفاء زر التراجع */
+      $('trackCancelBtn').style.display = 'none';
+    }
+  }
 };
 
 window.userCancelReq = async () => {
@@ -3076,6 +3196,7 @@ window.logout = async () => {
   TENANT_ID = ''; TENANT_INFO = null;
 
   clearSession();
+  releaseWakeLock();
   $('PD').style.display = 'none';
   $('PR').style.display = 'none';
   $('PL').style.display = 'none';
