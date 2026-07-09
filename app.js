@@ -750,6 +750,7 @@ const restoreSession = () => new Promise(resolve => {
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
+  await registerSW();               // نسجّل Service Worker من أول ما الصفحة تفتح لأي زائر
   const restored = await restoreSession();
   if (!restored) initTenantGate();
 });
