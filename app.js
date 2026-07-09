@@ -526,40 +526,29 @@ window._installAndroid = window.installPWA_android = async () => {
     } catch (e) { console.warn('PWA prompt error', e); }
     return;
   }
-  /* إظهار تعليمات يدوية */
+  /* تعليمات يدوية فقط — بدون أي زر "تنزيل" وهمي */
   const m = document.createElement('div');
   m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;justify-content:center;padding:16px';
   m.innerHTML = `<div style="background:#1E293B;border-radius:20px 20px 16px 16px;padding:24px;width:100%;max-width:400px;font-family:Cairo,sans-serif;direction:rtl">
     <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:10px">
       🤖 تثبيت التطبيق — أندرويد
     </div>
-    <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:16px;margin-bottom:14px">
-      <div style="color:rgba(255,255,255,.8);font-size:13px;line-height:2.2">
-        <div>1️⃣ اضغط على قائمة المتصفح <b style="color:#0EA5E9">⋮</b></div>
+    <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="color:rgba(255,255,255,.8);font-size:13px;line-height:2.4">
+        <div>1️⃣ اضغط على قائمة المتصفح <b style="color:#0EA5E9">⋮</b> بالأعلى</div>
         <div>2️⃣ اختر <b style="color:#0EA5E9">"إضافة إلى الشاشة الرئيسية"</b></div>
         <div>3️⃣ اضغط <b style="color:#059669">إضافة</b> ✅</div>
+        <div>4️⃣ رح تلاقي أيقونة التطبيق على شاشتك الرئيسية 📱</div>
       </div>
     </div>
-    <button id="_pwaAndroidInstallBtn" style="width:100%;padding:14px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:Cairo,sans-serif;margin-bottom:8px">
-      ⬇️ تنزيل التطبيق الآن
+    <button id="_pwaAndroidOkBtn" style="width:100%;padding:14px;background:linear-gradient(135deg,#0EA5E9,#0284C7);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:Cairo,sans-serif">
+      ✅ فهمت
     </button>
-    <button onclick="this.closest('div[style]').remove()" style="width:100%;padding:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;font-family:Cairo,sans-serif">إغلاق</button>
   </div>`;
   document.body.appendChild(m);
-  /* ربط زر التنزيل */
-  const installBtn = m.querySelector('#_pwaAndroidInstallBtn');
-  if (installBtn) {
-    installBtn.addEventListener('click', async () => {
-      const p = window._deferredInstall || _deferredInstallPrompt;
-      if (p) {
-        try { p.prompt(); const { outcome } = await p.userChoice; if (outcome === 'accepted') { toast('ok', '✅ تم التثبيت!', ''); window._deferredInstall = null; _deferredInstallPrompt = null; m.remove(); } }
-        catch (e) { }
-      } else {
-        installBtn.textContent = 'اتبع الخطوات أعلاه 👆';
-        installBtn.style.background = 'rgba(255,255,255,.1)';
-      }
-    });
-  }
+  const okBtn = m.querySelector('#_pwaAndroidOkBtn');
+  if (okBtn) okBtn.addEventListener('click', () => m.remove());
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
 };
 
 window._installIOS = window.installPWA_ios = () => {
@@ -570,17 +559,22 @@ window._installIOS = window.installPWA_ios = () => {
       <svg width="24" height="24" viewBox="0 0 24 24" fill="#0EA5E9"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
       تثبيت على آيفون
     </div>
-    <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:16px;margin-bottom:14px">
-      <div style="color:rgba(255,255,255,.8);font-size:13px;line-height:2">
+    <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="color:rgba(255,255,255,.8);font-size:13px;line-height:2.2">
         <div style="margin-bottom:8px">1️⃣ افتح الموقع في <b style="color:#0EA5E9">Safari</b> (ليس Chrome)</div>
         <div style="margin-bottom:8px">2️⃣ اضغط زر المشاركة <b style="color:#0EA5E9">⬆️</b> في الأسفل</div>
         <div style="margin-bottom:8px">3️⃣ اختر <b style="color:#0EA5E9">"Add to Home Screen"</b></div>
         <div>4️⃣ اضغط <b style="color:#059669">Add</b> وتم ✅</div>
       </div>
     </div>
-    <button onclick="this.closest('div[style]').remove()" style="width:100%;padding:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;font-family:Cairo,sans-serif">إغلاق</button>
+    <button id="_pwaIosOkBtn" style="width:100%;padding:14px;background:linear-gradient(135deg,#0EA5E9,#0284C7);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:Cairo,sans-serif">
+      ✅ فهمت
+    </button>
   </div>`;
   document.body.appendChild(m);
+  const okBtn = m.querySelector('#_pwaIosOkBtn');
+  if (okBtn) okBtn.addEventListener('click', () => m.remove());
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
 };
 
 window.openStaffPanel = () => {
