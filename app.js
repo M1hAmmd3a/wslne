@@ -2929,7 +2929,7 @@ window._closeReqSystem = () => {
     }
     const el = document.createElement('div');
     el.id = 'UserVerifyScreen';
-    el.className = 'mdl';
+    el.className = 'user-verify-screen';
     el.innerHTML = `
   <div class="mdl-box" style="max-width:400px;padding:0;overflow:hidden;border-radius:20px">
     <div style="background:linear-gradient(135deg,#0F172A,#1E293B);padding:20px 24px;display:flex;align-items:center;justify-content:space-between">
