@@ -6,7 +6,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { getDatabase, ref, set, get, push, onValue, update, remove, off, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously }
   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 /* ══════════════════════════════════════════════════
    TENANT MAP  — uid → tenantId
@@ -2659,7 +2659,7 @@ window._submitRequest = async () => {
   const destEl = $('taxiReqDestination');
   const notesEl = $('taxiReqNotes');
 
-  const phone = (phoneEl?.value || '').trim();
+  let phone = (phoneEl?.value || '').trim();
   const destination = (destEl?.value || '').trim();
   const notes = (notesEl?.value || '').trim();
 
@@ -2668,7 +2668,10 @@ window._submitRequest = async () => {
     return;
   }
 
-  if (!/^[0-9]{9,15}$/.test(phone.replace(/\D/g, ''))) {
+  /* تنظيف الرقم من أي مسافات/رموز غير مسموحة عشان يطابق قاعدة الأمان بالضبط */
+  phone = phone.replace(/[^0-9+]/g, '');
+
+  if (!/^[0-9+]{7,15}$/.test(phone)) {
     toast('warn', '❌ خطأ', 'رقم الهاتف غير صحيح');
     return;
   }
@@ -2678,6 +2681,10 @@ window._submitRequest = async () => {
   _reqSystem.userNotes = notes;
 
   try {
+    if (!_auth.currentUser) {
+      await signInAnonymously(_auth);
+    }
+
     const reqData = {
       phone: phone,
       details: destination,
@@ -2907,22 +2914,28 @@ window._closeReqSystem = () => {
       if (btn) btn.disabled = false;
     };
 
-    window._submitRating = async () => {
+window._submitRating = async () => {
       const comment = ($('ratingComment')?.value || '').trim();
       const btn = $('submitRatingBtn');
       if (btn) btn.disabled = true;
 
       try {
+        if (!_auth.currentUser) {
+          await signInAnonymously(_auth);
+        }
+
         await push(ref(_db, `tenants/${_reqSystem.tenantId}/ratings`), {
           stars: selectedStars,
           comment: comment,
-          timestamp: serverTimestamp()
-        }).catch(() => { });
+          phone: _reqSystem.userPhone || '0000000',
+          ts: serverTimestamp()
+        });
 
         toast('ok', '✅ شكراً!', 'تقييمك مهم لنا');
         container.remove();
       } catch (e) {
         console.error('Rating error:', e);
+        toast('err', '❌ خطأ', 'تعذّر إرسال التقييم');
         if (btn) btn.disabled = false;
       }
     };
