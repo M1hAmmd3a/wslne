@@ -2711,9 +2711,9 @@ window._submitRequest = async () => {
     }).catch(() => { });
 
     setTimeout(() => window._showTrackingScreen(), 300);
-  } catch (e) {
+} catch (e) {
     console.error('Submit error:', e);
-    toast('err', '❌ خطأ', 'حدث خطأ في إرسال الطلب');
+    toast('err', '❌ خطأ حقيقي', `${e.code || e.name || ''} :: ${e.message || 'غير معروف'}`);
   }
 };
 
