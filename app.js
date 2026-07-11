@@ -1647,10 +1647,26 @@ const loadSupReqList = () => {
     const items = Object.entries(snap.val()).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0)).slice(0, 50);
     list.innerHTML = items.map(([id, d]) => {
       const userBadge = d.fromUser ? `<span style="background:#ECFDF5;color:#059669;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #A7F3D0;margin-right:4px">🌐 مستخدم</span>` : '';
+
+      /* ── حالة الطلب: وصل / اتلغى ── */
+      let statusBanner = '';
+      if (d.status === 'cancelled' && d.cancelledBy === 'user') {
+        statusBanner = `<div style="background:var(--red-l);border:1px solid var(--red-m);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:7px"><i class="fas fa-ban"></i> المستخدم ألغى الطلب 🚫</div>`;
+      } else if (d.status === 'cancelled') {
+        statusBanner = `<div style="background:var(--red-l);border:1px solid var(--red-m);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:7px"><i class="fas fa-ban"></i> تم إلغاء الطلب 🚫</div>`;
+      } else if (d.driverStatus === 'done') {
+        statusBanner = `<div style="background:var(--green-l);border:1px solid var(--green-m);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:7px"><i class="fas fa-check-circle"></i> تم التوصيل بنجاح ✅</div>`;
+      } else if (d.driverStatus === 'near') {
+        statusBanner = `<div style="background:var(--amber-l);border:1px solid var(--amber-m);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--amber);display:flex;align-items:center;gap:7px"><i class="fas fa-map-pin"></i> السائق قريب من الزبون ⚠️</div>`;
+      } else if (d.driverStatus === 'accepted' || d.driverStatus === 'waiting') {
+        statusBanner = `<div style="background:var(--primary-l);border:1px solid var(--primary-m);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:7px"><i class="fas fa-car"></i> السائق ${d.driverName ? esc(d.driverName) + ' ' : ''}في الطريق 🚕</div>`;
+      }
+
       return `<div class="reqcard" id="sreq-${id}" style="margin-bottom:9px">
         <div class="reqtop"><div class="reqphone"><i class="fas fa-phone"></i>${esc(d.phone || '-')}${userBadge}</div><div class="reqtimes"><span class="reqtime"><i class="fas fa-clock"></i>${fmt(d.ts || Date.now())}</span></div></div>
         <div class="reqdetails"><i class="fas fa-map-marker-alt"></i><span>${esc(d.details || '-')}</span></div>
         ${d.addedBy ? `<div style="font-size:10px;color:var(--text4);margin-bottom:6px"><i class="fas fa-user" style="margin-left:3px"></i>${esc(d.addedBy)}</div>` : ''}
+        ${statusBanner}
         <div class="reqacts">
           <button class="rca rca-primary" onclick="openTaxiSel('${id}','${eAt(d.phone || '')}','${eAt(d.details || '')}','${id}')"><i class="fas fa-car-side"></i> إرسال لسائق</button>
           ${(d.lat && d.lng) || (d.hasGps && d.userLat && d.userLng) ? `
@@ -2964,6 +2980,14 @@ window._submitRating = async () => {
           phone: _reqSystem.userPhone || '0000000',
           ts: serverTimestamp()
         });
+
+        /* إشعار للمشرف بقائمة التنبيهات */
+        await push(ref(_db, `tenants/${_reqSystem.tenantId}/notifications`), {
+          type: 'rating',
+          msg: `⭐ تقييم جديد: ${'⭐'.repeat(selectedStars)} — ${comment || 'بدون تعليق'}`,
+          ts: serverTimestamp(),
+          read: false
+        }).catch(() => {});
 
         toast('ok', '✅ شكراً!', 'تقييمك مهم لنا');
         container.remove();
