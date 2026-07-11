@@ -2788,8 +2788,42 @@ const _reqSystemUpdateBanner = ds => {
 window._reqSystemCancel = async () => {
   if (!confirm('هل تريد إلغاء الطلب؟')) return;
   try {
-    await update(ref(_db, `tenants/${_reqSystem.tenantId}/recvRequests/${_reqSystem.reqRef.key}`), { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'user' });
-  } catch (e) { }
+    const tenantId = _reqSystem.tenantId;
+    const reqId = _reqSystem.reqRef.key;
+    const userReqPath = `tenants/${tenantId}/recvRequests/${reqId}`;
+
+    /* 1) تحديث حالة الطلب نفسه */
+    await update(ref(_db, userReqPath), { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'user' });
+
+    /* 2) إشعار المشرف */
+    await push(ref(_db, `tenants/${tenantId}/notifications`), {
+      type: 'cancel',
+      msg: `🚫 مستخدم ألغى الطلب: ${_reqSystem.userPhone || ''}`,
+      ts: serverTimestamp(),
+      read: false
+    }).catch(() => {});
+
+    /* 3) إشعار السائق (إذا كان الطلب أُرسل له فعلاً) + إرجاعه متاح */
+    const drvReqsSnap = await get(ref(_db, `tenants/${tenantId}/driverRequests`)).catch(() => null);
+    if (drvReqsSnap && drvReqsSnap.exists()) {
+      for (const [drvId, reqs] of Object.entries(drvReqsSnap.val())) {
+        if (!reqs) continue;
+        for (const [rid, req] of Object.entries(reqs)) {
+          if (req.userReqRef === userReqPath && req.status !== 'done' && req.status !== 'cancelled' && req.status !== 'rejected') {
+            await update(ref(_db, `tenants/${tenantId}/driverRequests/${drvId}/${rid}`), { status: 'cancelled', cancelledAt: Date.now() }).catch(() => {});
+            await update(ref(_db, `tenants/${tenantId}/drivers/${drvId}`), { taxiColor: 'green', status: 'online', lastSeen: Date.now() }).catch(() => {});
+            await push(ref(_db, `tenants/${tenantId}/driverPushNotifs/${drvId}`), {
+              title: '🚫 تم إلغاء الطلب',
+              body: `الزبون ألغى الطلب: ${_reqSystem.userPhone || ''}`,
+              type: 'cancel',
+              ts: Date.now(),
+              read: false
+            }).catch(() => {});
+          }
+        }
+      }
+    }
+  } catch (e) { console.error('cancel error', e); }
   window._closeReqSystem();
 };
 
