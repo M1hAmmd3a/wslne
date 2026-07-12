@@ -1324,7 +1324,58 @@ window.showRateLimitAlert = function(remSec) {
     setTimeout(bindAll, 500);
   });
 })();
+
+<div id="scrollNavBtns" style="position:fixed;left:14px;bottom:80px;z-index:7500;display:none;flex-direction:column;gap:10px">
+  <button id="scrollUpBtn" style="width:46px;height:46px;border-radius:50%;background:rgba(14,165,233,.95);border:none;color:#fff;font-size:20px;box-shadow:0 4px 14px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center">
+    <i class="fas fa-chevron-up"></i>
+  </button>
+  <button id="scrollDownBtn" style="width:46px;height:46px;border-radius:50%;background:rgba(14,165,233,.95);border:none;color:#fff;font-size:20px;box-shadow:0 4px 14px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center">
+    <i class="fas fa-chevron-down"></i>
+  </button>
+</div>
+
+
+(function(){
+  var upBtn = document.getElementById('scrollUpBtn');
+  var downBtn = document.getElementById('scrollDownBtn');
+  var wrap = document.getElementById('scrollNavBtns');
+  var activeEl = null;
+
+  function findScrollable(el){
+    while (el && el !== document.body) {
+      var style = getComputedStyle(el);
+      var canScrollY = (style.overflowY === 'auto' || style.overflowY === 'scroll');
+      if (canScrollY && el.scrollHeight > el.clientHeight + 5) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function updateTarget(){
+    var el = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
+    var found = findScrollable(el);
+    if (found) {
+      activeEl = found;
+      wrap.style.display = 'flex';
+    } else {
+      wrap.style.display = 'none';
+      activeEl = null;
+    }
+  }
+
+  upBtn.addEventListener('click', function(){
+    if (activeEl) activeEl.scrollBy({ top: -250, behavior: 'smooth' });
+  });
+  downBtn.addEventListener('click', function(){
+    if (activeEl) activeEl.scrollBy({ top: 250, behavior: 'smooth' });
+  });
+
+  setInterval(updateTarget, 600);
+  document.addEventListener('click', function(){ setTimeout(updateTarget, 300); });
+})();
 </script>
+
+
 
 </body>
 </html>
