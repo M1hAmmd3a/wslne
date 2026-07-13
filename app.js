@@ -1727,7 +1727,8 @@ const loadSupReqList = () => {
   onValue(r, snap => {
     const list = $('supReqList'); if (!list) return;
     if (!snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text4)"><i class="fas fa-inbox" style="font-size:32px;opacity:.2;display:block;margin-bottom:8px"></i>لا يوجد طلبات</div>`; return; }
-   list.innerHTML = items.map(([id, d]) => {
+    const items = Object.entries(snap.val()).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0)).slice(0, 50);
+    list.innerHTML = items.map(([id, d]) => {
       const userBadge = d.fromUser ? `<span style="background:#ECFDF5;color:#059669;border:1px solid #A7F3D0;border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700;margin-right:4px">🌐 مستخدم</span>` : '';
 
       /* ── نظام توزيع الطلبات الذكي: اقتراح فقط (المشرف يقرر) ── */
@@ -1744,8 +1745,6 @@ const loadSupReqList = () => {
 
       /* ── حالة الطلب: وصل / اتلغى ── */
       let statusBanner = '';
-      /* ── حالة الطلب: وصل / اتلغى ── */
-      let statusBanner = '';
       if (d.status === 'cancelled' && d.cancelledBy === 'user') {
         statusBanner = `<div style="background:var(--red-l);border:1px solid var(--red-m);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:7px"><i class="fas fa-ban"></i> المستخدم ألغى الطلب 🚫</div>`;
       } else if (d.status === 'cancelled') {
@@ -1758,7 +1757,7 @@ const loadSupReqList = () => {
         statusBanner = `<div style="background:var(--primary-l);border:1px solid var(--primary-m);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:7px"><i class="fas fa-car"></i> السائق ${d.driverName ? esc(d.driverName) + ' ' : ''}في الطريق 🚕</div>`;
       }
 
-  return `<div class="reqcard" id="sreq-${id}" style="margin-bottom:9px">
+      return `<div class="reqcard" id="sreq-${id}" style="margin-bottom:9px">
         <div class="reqtop"><div class="reqphone"><i class="fas fa-phone"></i>${esc(d.phone || '-')}${userBadge}</div><div class="reqtimes"><span class="reqtime"><i class="fas fa-clock"></i>${fmt(d.ts || Date.now())}</span></div></div>
         <div class="reqdetails"><i class="fas fa-map-marker-alt"></i><span>${esc(d.details || '-')}</span></div>
         ${nearestBadge}
