@@ -1366,9 +1366,10 @@ const initDash = () => {
     }
     renderDriverReqs();
   } else {
-    const cfg = [
+const cfg = [
       { id: 'reqs', icon: 'fas fa-inbox', label: 'الطلبات' },
       { id: 'map', icon: 'fas fa-map-location-dot', label: 'الخريطة' },
+      { id: 'heatmap', icon: 'fas fa-fire', label: 'الخريطة الحرارية' },
       { id: 'notifs', icon: 'fas fa-bell', label: 'التنبيهات', badge: true },
       { id: 'approvals', icon: 'fas fa-user-check', label: 'الموافقات', badge2: true },
       { id: 'reports', icon: 'fas fa-chart-bar', label: 'التقارير' },
@@ -1422,6 +1423,7 @@ window.nTab = t => {
   } else {
     if (t === 'reqs') renderSupReqs();
     else if (t === 'map') renderMapSup();
+    else if (t === 'heatmap') renderHeatmap();
     else if (t === 'notifs') renderNotifs();
     else if (t === 'approvals') renderApprovals();
     else if (t === 'reports') renderSupReports();
@@ -1725,10 +1727,23 @@ const loadSupReqList = () => {
   onValue(r, snap => {
     const list = $('supReqList'); if (!list) return;
     if (!snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text4)"><i class="fas fa-inbox" style="font-size:32px;opacity:.2;display:block;margin-bottom:8px"></i>لا يوجد طلبات</div>`; return; }
-    const items = Object.entries(snap.val()).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0)).slice(0, 50);
-    list.innerHTML = items.map(([id, d]) => {
-      const userBadge = d.fromUser ? `<span style="background:#ECFDF5;color:#059669;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #A7F3D0;margin-right:4px">🌐 مستخدم</span>` : '';
+   list.innerHTML = items.map(([id, d]) => {
+      const userBadge = d.fromUser ? `<span style="background:#ECFDF5;color:#059669;border:1px solid #A7F3D0;border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700;margin-right:4px">🌐 مستخدم</span>` : '';
 
+      /* ── نظام توزيع الطلبات الذكي: اقتراح فقط (المشرف يقرر) ── */
+      const reqLat = d.lat || d.userLat || null, reqLng = d.lng || d.userLng || null;
+      let nearestBadge = '';
+      if (reqLat && reqLng) {
+        const sortedNear = getSortedDriversByDistance(reqLat, reqLng, allDrvs).filter(x => x.cs.monCls === 'st-online' && x.dist != null);
+        if (sortedNear.length) {
+          nearestBadge = `<div style="background:var(--cyan-l);border:1px solid var(--cyan-m);border-radius:var(--r);padding:7px 11px;margin-bottom:8px;font-size:11px;font-weight:700;color:#0E7490;display:flex;align-items:center;gap:6px">
+            <i class="fas fa-route"></i> 🎯 أقرب سائق مقترح: ${esc(sortedNear[0].d.name)} — ${sortedNear[0].dist.toFixed(1)} كم
+          </div>`;
+        }
+      }
+
+      /* ── حالة الطلب: وصل / اتلغى ── */
+      let statusBanner = '';
       /* ── حالة الطلب: وصل / اتلغى ── */
       let statusBanner = '';
       if (d.status === 'cancelled' && d.cancelledBy === 'user') {
@@ -1743,13 +1758,14 @@ const loadSupReqList = () => {
         statusBanner = `<div style="background:var(--primary-l);border:1px solid var(--primary-m);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:7px"><i class="fas fa-car"></i> السائق ${d.driverName ? esc(d.driverName) + ' ' : ''}في الطريق 🚕</div>`;
       }
 
-      return `<div class="reqcard" id="sreq-${id}" style="margin-bottom:9px">
+  return `<div class="reqcard" id="sreq-${id}" style="margin-bottom:9px">
         <div class="reqtop"><div class="reqphone"><i class="fas fa-phone"></i>${esc(d.phone || '-')}${userBadge}</div><div class="reqtimes"><span class="reqtime"><i class="fas fa-clock"></i>${fmt(d.ts || Date.now())}</span></div></div>
         <div class="reqdetails"><i class="fas fa-map-marker-alt"></i><span>${esc(d.details || '-')}</span></div>
+        ${nearestBadge}
         ${d.addedBy ? `<div style="font-size:10px;color:var(--text4);margin-bottom:6px"><i class="fas fa-user" style="margin-left:3px"></i>${esc(d.addedBy)}</div>` : ''}
         ${statusBanner}
         <div class="reqacts">
-          <button class="rca rca-primary" onclick="openTaxiSel('${id}','${eAt(d.phone || '')}','${eAt(d.details || '')}','${id}')"><i class="fas fa-car-side"></i> إرسال لسائق</button>
+          <button class="rca rca-primary" onclick="openTaxiSel('${id}','${eAt(d.phone || '')}','${eAt(d.details || '')}','${id}',${reqLat || 'null'},${reqLng || 'null'})"><i class="fas fa-car-side"></i> إرسال لسائق</button>
           ${(d.lat && d.lng) || (d.hasGps && d.userLat && d.userLng) ? `
   <button class="rca rca-green" onclick="showUserGpsOnMap('${id}',${d.lat || d.userLat},${d.lng || d.userLng},'${esc(d.phone || '')}')">
     <i class="fas fa-map-location-dot"></i> موقع الزبون
@@ -1814,8 +1830,8 @@ window.showUserGpsOnMap = (reqId, lat, lng, phone) => {
 };
 
 const loadSupNotifList = () => {
-  const icMap = { accept: 'ni-green', reject: 'ni-red', timeout: 'ni-red', done: 'ni-green', waiting: 'ni-amber', near: 'ni-amber', sos: 'ni-red', info: 'ni-blue', cancel: 'ni-red', edit: 'ni-amber', rating: 'ni-green', user_request: 'ni-green', new_driver: 'ni-amber' };
-  const icoMap = { accept: 'check', reject: 'times', timeout: 'clock', done: 'flag-checkered', waiting: 'hourglass-half', near: 'map-pin', sos: 'triangle-exclamation', info: 'info', cancel: 'ban', edit: 'pen', rating: 'star', user_request: 'globe', new_driver: 'user-plus' };
+const icMap = { accept: 'ni-green', reject: 'ni-red', timeout: 'ni-red', done: 'ni-green', waiting: 'ni-amber', near: 'ni-amber', sos: 'ni-red', cancel: 'ni-red', edit: 'ni-amber', info: 'ni-blue', rating: 'ni-green', user_request: 'ni-green', new_driver: 'ni-amber', alert_gps: 'ni-red', alert_shift: 'ni-amber', alert_pending: 'ni-red' };
+  const icoMap = { accept: 'check', reject: 'times', timeout: 'clock', done: 'flag-checkered', waiting: 'hourglass-half', near: 'map-pin', sos: 'triangle-exclamation', cancel: 'ban', edit: 'pen', info: 'info', rating: 'star', user_request: 'globe', new_driver: 'user-plus', alert_gps: 'location-crosshairs', alert_shift: 'hourglass-end', alert_pending: 'triangle-exclamation' };
   const r = tRef('notifications');
   onValue(r, snap => {
     const list = $('supNotifList'); if (!list) return;
@@ -1909,24 +1925,28 @@ window.sendSosBroadcast = async () => {
 /* ══════════════════════════════════════════════════
    SELECT TAXI
    ══════════════════════════════════════════════════ */
-window.openTaxiSel = (reqId, phone, details, recvReqId = '') => {
+window.openTaxiSel = (reqId, phone, details, recvReqId = '', reqLat = null, reqLng = null) => {
   selTaxiId = null; selReqData = { id: reqId, phone: phone.replace(/&#39;/g, "'"), details: details.replace(/&#39;/g, "'"), recvReqId: recvReqId || reqId };
   const list = $('sel-taxi-list');
-  const avail = Object.entries(allDrvs).sort(([, a], [, b]) => {
-    const ao = getTCS(a).monCls === 'st-online' ? 0 : getTCS(a).monCls === 'st-break' ? 1 : 2;
-    const bo = getTCS(b).monCls === 'st-online' ? 0 : getTCS(b).monCls === 'st-break' ? 1 : 2;
+  const hasGps = !!(reqLat && reqLng);
+  const sorted = hasGps ? getSortedDriversByDistance(reqLat, reqLng, allDrvs) : Object.entries(allDrvs).map(([id, d]) => ({ id, d, dist: null, cs: getTCS(d) })).sort((a, b) => {
+    const ao = a.cs.monCls === 'st-online' ? 0 : a.cs.monCls === 'st-break' ? 1 : 2;
+    const bo = b.cs.monCls === 'st-online' ? 0 : b.cs.monCls === 'st-break' ? 1 : 2;
     return ao - bo;
   });
-  if (!avail.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد سائقون</div>'; $('SelTaxiModal').classList.add('on'); return; }
-  list.innerHTML = avail.map(([id, d]) => {
-    const cs = getTCS(d);
-    return `<div class="sel-taxi-item" id="stitem-${id}" onclick="selectTaxi('${id}')">
+  if (!sorted.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">لا يوجد سائقون</div>'; $('SelTaxiModal').classList.add('on'); return; }
+  const recommendedId = (sorted.find(x => x.cs.monCls === 'st-online') || {}).id || null;
+  const alSel = $('al-seltaxi');
+  if (alSel) alSel.innerHTML = (hasGps && recommendedId)
+    ? `<div style="background:var(--cyan-l);border:1px solid var(--cyan-m);border-radius:var(--r);padding:9px 12px;margin-bottom:10px;font-size:12px;font-weight:700;color:#0E7490"><i class="fas fa-route"></i> اقتراح النظام: أقرب سائق متاح محدّد أدناه ⭐ — يمكنك تغيير الاختيار قبل الإرسال</div>`
+    : (!hasGps ? `<div style="background:var(--amber-l);border:1px solid var(--amber-m);border-radius:var(--r);padding:9px 12px;margin-bottom:10px;font-size:11px;color:var(--amber)"><i class="fas fa-info-circle"></i> لا يوجد موقع GPS لهذا الطلب — اختر السائق يدوياً</div>` : '');
+  list.innerHTML = sorted.map(({ id, d, dist, cs }) => `<div class="sel-taxi-item" id="stitem-${id}" onclick="selectTaxi('${id}')" style="${id === recommendedId ? 'border:1.5px solid #0EA5E9;background:var(--primary-l)' : ''}">
       <div style="width:40px;height:40px;border-radius:11px;border:2px solid ${cs.border};background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🚕</div>
-      <div style="flex:1"><div style="font-weight:800;font-size:13px;color:var(--text)">${esc(d.name)}</div><div style="font-size:11px;color:${cs.dot}">${cs.label}</div>${d.carNumber ? `<div style="font-size:10px;color:var(--text4)">🚗 ${esc(d.carNumber)}</div>` : ''}<span class="deliv-badge" style="font-size:10px;padding:2px 7px;margin-top:3px;display:inline-flex"><i class="fas fa-box"></i> ${d.totalDeliveries || 0}</span></div>
+      <div style="flex:1"><div style="font-weight:800;font-size:13px;color:var(--text)">${esc(d.name)} ${id === recommendedId ? '<span style="color:#0EA5E9;font-size:10px">⭐ الأقرب</span>' : ''}</div><div style="font-size:11px;color:${cs.dot}">${cs.label}</div>${dist != null ? `<div style="font-size:10px;color:var(--primary);font-weight:700">📍 ${dist.toFixed(1)} كم</div>` : ''}${d.carNumber ? `<div style="font-size:10px;color:var(--text4)">🚗 ${esc(d.carNumber)}</div>` : ''}<span class="deliv-badge" style="font-size:10px;padding:2px 7px;margin-top:3px;display:inline-flex"><i class="fas fa-box"></i> ${d.totalDeliveries || 0}</span></div>
       <i class="fas fa-check-circle" id="stchk-${id}" style="display:none;color:var(--primary);font-size:18px"></i>
-    </div>`;
-  }).join('');
+    </div>`).join('');
   $('SelTaxiModal').classList.add('on'); $('confirmSelBtn').disabled = true; $('confirmSelBtn').style.opacity = '.5';
+  if (recommendedId) selectTaxi(recommendedId);
 };
 window.selectTaxi = id => {
   if (selTaxiId) { const p = $(`stitem-${selTaxiId}`); if (p) p.classList.remove('selected'); const c = $(`stchk-${selTaxiId}`); if (c) c.style.display = 'none'; }
@@ -2016,6 +2036,60 @@ const updateMapMarker = (id, d) => {
   </div>`;
   if (mapMarkers[id]) { mapMarkers[id].setLatLng([d.lat, d.lng]); mapMarkers[id].setIcon(icon); mapMarkers[id].getPopup()?.setContent(pop); }
   else { mapMarkers[id] = L.marker([d.lat, d.lng], { icon }).addTo(leafletMap).bindPopup(pop); }
+};
+
+/* ══════════════════════════════════════════════════
+   HEATMAP TAB
+   ══════════════════════════════════════════════════ */
+const loadHeatPlugin = () => new Promise(resolve => {
+  if (window.L && window.L.heatLayer) return resolve();
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js';
+  s.onload = () => resolve();
+  s.onerror = () => resolve();
+  document.head.appendChild(s);
+});
+
+const renderHeatmap = async () => {
+  $('dbody').innerHTML = `
+  <div style="height:calc(100vh - 60px - 70px);display:flex;flex-direction:column">
+    <div class="ststrip" style="flex-shrink:0">
+      <div class="st"><div class="stic" style="background:var(--red-l)"><i class="fas fa-fire" style="color:var(--red)"></i></div><div><div class="stv" id="hmTotal">0</div><div class="stl">إجمالي الطلبات المسجّلة</div></div></div>
+      <div class="st"><div class="stic" style="background:var(--amber-l)"><i class="fas fa-clock" style="color:var(--amber)"></i></div><div><div class="stv" id="hmPeak">--</div><div class="stl">ساعة الذروة</div></div></div>
+    </div>
+    <div id="heatMapEl" style="flex:1;min-height:0"></div>
+    <div style="padding:8px 14px;background:var(--bg-card);border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:700"><i class="fas fa-chart-column"></i> الطلبات حسب ساعة اليوم</div>
+      <div id="hmHours" style="display:flex;gap:4px;align-items:flex-end;height:70px;overflow-x:auto"></div>
+    </div>
+  </div>`;
+  await loadHeatPlugin();
+  const snap = await get(tRef('requestsLog')).catch(() => null);
+  const pts = []; const hourCounts = new Array(24).fill(0);
+  if (snap && snap.exists()) {
+    Object.values(snap.val()).forEach(p => {
+      if (p.lat && p.lng) pts.push([p.lat, p.lng, 1]);
+      if (p.ts) hourCounts[new Date(p.ts).getHours()]++;
+    });
+  }
+  const hmTotalEl = $('hmTotal'); if (hmTotalEl) hmTotalEl.textContent = pts.length;
+  const maxH = Math.max(...hourCounts, 1);
+  const peakHour = hourCounts.indexOf(maxH);
+  const hmPeakEl = $('hmPeak'); if (hmPeakEl) hmPeakEl.textContent = pts.length ? `${peakHour}:00 - ${peakHour + 1}:00` : '--';
+  const hoursEl = $('hmHours');
+  if (hoursEl) hoursEl.innerHTML = hourCounts.map((c, h) => `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:22px">
+      <div style="width:16px;height:${Math.max(4, (c / maxH) * 55)}px;background:${c === maxH && c > 0 ? 'var(--red)' : 'var(--primary)'};border-radius:3px 3px 0 0"></div>
+      <div style="font-size:8px;color:var(--text4)">${h}</div>
+    </div>`).join('');
+  setTimeout(() => {
+    const el = $('heatMapEl'); if (!el) return;
+    try {
+      const hm = L.map('heatMapEl', { zoomControl: true }).setView([32.31, 35.03], 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(hm);
+      if (window.L.heatLayer && pts.length) L.heatLayer(pts, { radius: 28, blur: 22, maxZoom: 15 }).addTo(hm);
+      else if (!pts.length) L.popup().setLatLng([32.31, 35.03]).setContent('<div style="font-family:Cairo,sans-serif;text-align:center">لا توجد بيانات كافية بعد</div>').openOn(hm);
+    } catch (e) { console.warn('heatmap error', e); }
+  }, 150);
 };
 
 /* ══════════════════════════════════════════════════
@@ -2794,10 +2868,12 @@ window._submitRequest = async () => {
       createdAt: Date.now()
     };
 
-    const reqRef = await push(ref(_db, `tenants/${_reqSystem.tenantId}/recvRequests`), reqData);
+const reqRef = await push(ref(_db, `tenants/${_reqSystem.tenantId}/recvRequests`), reqData);
     _reqSystem.reqRef = reqRef;
     await update(reqRef, { userReqRef: `tenants/${_reqSystem.tenantId}/recvRequests/${reqRef.key}` });
-
+    if (_reqSystem.userLat && _reqSystem.userLng) {
+      push(ref(_db, `tenants/${_reqSystem.tenantId}/requestsLog`), { lat: _reqSystem.userLat, lng: _reqSystem.userLng, ts: serverTimestamp() }).catch(() => {});
+    }
     await push(ref(_db, `tenants/${_reqSystem.tenantId}/notifications`), {
       type: 'new_request',
       msg: `🌐 طلب جديد من مستخدم: ${phone}`,
@@ -3375,8 +3451,11 @@ window._submitRating = async () => {
         userFrom: from, userTo: to, userReqRef: null,
         ...(window._gpsOk && window._userGpsLat ? { userLat: window._userGpsLat, userLng: window._userGpsLng, hasGps: true } : { hasGps: false }),
       });
-      const userReqRefPath = `tenants/${tenantId}/recvRequests/${reqRef.key}`;
+const userReqRefPath = `tenants/${tenantId}/recvRequests/${reqRef.key}`;
       await update(reqRef, { userReqRef: userReqRefPath });
+      if (window._gpsOk && window._userGpsLat && window._userGpsLng) {
+        push(ref(_db, `tenants/${tenantId}/requestsLog`), { lat: window._userGpsLat, lng: window._userGpsLng, ts: serverTimestamp() }).catch(() => {});
+      }
       _userReqId = reqRef.key; _userReqTenantId = tenantId;
       if (uvs) uvs.classList.remove('on');
       localStorage.setItem('txLastReq', String(Date.now()));
