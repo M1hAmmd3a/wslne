@@ -1014,6 +1014,86 @@ const getTCS = d => {
 const getStatusBadge = d => { const cs = getTCS(d); return `<span class="sbadge ${cs.cls}"><span class="pdot" style="background:${cs.dot}"></span>${cs.label}</span>`; };
 
 /* ══════════════════════════════════════════════════
+   SMART HELPERS — المسافة + التوزيع الذكي + التنبيهات
+   ══════════════════════════════════════════════════ */
+const haversineKm = (lat1, lng1, lat2, lng2) => {
+  if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null;
+  const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+/* يرتب السائقين حسب: متاح أولاً ← الأقرب مسافة ← الأكثر توصيلات */
+const getSortedDriversByDistance = (reqLat, reqLng, driversObj) => {
+  const list = Object.entries(driversObj || {}).map(([id, d]) => {
+    const dist = (reqLat != null && reqLng != null && d.lat != null && d.lng != null) ? haversineKm(reqLat, reqLng, d.lat, d.lng) : null;
+    return { id, d, dist, cs: getTCS(d) };
+  });
+  list.sort((a, b) => {
+    const rank = x => x.cs.monCls === 'st-online' ? 0 : x.cs.monCls === 'st-break' ? 1 : x.cs.monCls === 'st-busy' ? 2 : 3;
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    if (a.dist != null && b.dist != null && a.dist !== b.dist) return a.dist - b.dist;
+    if (a.dist != null && b.dist == null) return -1;
+    if (b.dist != null && a.dist == null) return 1;
+    return (b.d.totalDeliveries || 0) - (a.d.totalDeliveries || 0);
+  });
+  return list;
+};
+
+/* ── نظام التنبيهات الذكية ── */
+const _alertLastFired = {};
+const ALERT_COOLDOWN = 15 * 60 * 1000;
+const _canFireAlert = key => {
+  const now = Date.now();
+  if (_alertLastFired[key] && now - _alertLastFired[key] < ALERT_COOLDOWN) return false;
+  _alertLastFired[key] = now; return true;
+};
+
+const runSmartAlerts = async () => {
+  if (!TENANT_ID || CR !== 'supervisor') return;
+  const now = Date.now();
+
+  /* 1) سائق لم يحدّث موقعه منذ أكثر من 10 دقائق */
+  Object.entries(allDrvs).forEach(([id, d]) => {
+    if (d.status === 'offline' || !d.locUpdated) return;
+    const age = now - d.locUpdated;
+    if (age > 10 * 60 * 1000 && _canFireAlert('gps_' + id)) {
+      push(tRef('notifications'), { type: 'alert_gps', msg: `📡 السائق ${d.name} لم يحدّث موقعه منذ ${Math.floor(age / 60000)} دقيقة`, ts: serverTimestamp(), read: false }).catch(() => {});
+    }
+  });
+
+  /* 2) سائق يعمل أكثر من 8 ساعات متواصلة */
+  Object.entries(allDrvs).forEach(([id, d]) => {
+    if (d.status === 'offline' || !d.shiftStart) return;
+    const dur = now - d.shiftStart;
+    if (dur > 8 * 60 * 60 * 1000 && _canFireAlert('shift_' + id)) {
+      push(tRef('notifications'), { type: 'alert_shift', msg: `⏱️ السائق ${d.name} يعمل منذ أكثر من ${Math.floor(dur / 3600000)} ساعات متواصلة — يُفضّل تذكيره بالراحة`, ts: serverTimestamp(), read: false }).catch(() => {});
+    }
+  });
+
+  /* 3) طلبات كثيرة لم تُرسل لأي سائق */
+  const snap = await get(tRef('recvRequests')).catch(() => null);
+  if (snap && snap.exists()) {
+    const drSnap = await get(tRef('driverRequests')).catch(() => null);
+    const sentPhones = new Set();
+    if (drSnap && drSnap.exists()) Object.values(drSnap.val()).forEach(reqs => Object.values(reqs || {}).forEach(r => { if (r.status !== 'cancelled') sentPhones.add(r.phone); }));
+    const pendingOld = Object.entries(snap.val()).filter(([, d]) => d.status !== 'cancelled' && !sentPhones.has(d.phone) && (now - (d.ts || now)) > 5 * 60 * 1000);
+    if (pendingOld.length >= 3 && _canFireAlert('pending_many')) {
+      push(tRef('notifications'), { type: 'alert_pending', msg: `⚠️ هناك ${pendingOld.length} طلبات لم تُرسل لأي سائق منذ أكثر من 5 دقائق`, ts: serverTimestamp(), read: false }).catch(() => {});
+    } else if (pendingOld.length >= 1 && _canFireAlert('pending_' + pendingOld[0][0])) {
+      push(tRef('notifications'), { type: 'alert_pending', msg: `⚠️ طلب لم يُرسل لأي سائق: ${pendingOld[0][1].phone || ''} منذ ${Math.floor((now - (pendingOld[0][1].ts || now)) / 60000)} دقيقة`, ts: serverTimestamp(), read: false }).catch(() => {});
+    }
+  }
+};
+let _smartAlertsTimer = null;
+const startSmartAlerts = () => {
+  if (_smartAlertsTimer) clearInterval(_smartAlertsTimer);
+  setTimeout(runSmartAlerts, 8000);
+  _smartAlertsTimer = setInterval(runSmartAlerts, 90 * 1000);
+};
+
+/* ══════════════════════════════════════════════════
    DRIVER LISTENERS
    ══════════════════════════════════════════════════ */
 const listenSosBroadcast = () => {
@@ -1203,6 +1283,7 @@ const updStatus = async s => {
    ══════════════════════════════════════════════════ */
 const listenSupNotifs = () => {
   cleanNotifs();
+  startSmartAlerts();
   const rPending = tRef('drivers');
   onValue(rPending, snap => {
     if (!snap.exists()) return;
