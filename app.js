@@ -1014,6 +1014,38 @@ const getTCS = d => {
 const getStatusBadge = d => { const cs = getTCS(d); return `<span class="sbadge ${cs.cls}"><span class="pdot" style="background:${cs.dot}"></span>${cs.label}</span>`; };
 
 /* ══════════════════════════════════════════════════
+   HOT ZONES — نظام حراري لأكثر مكان فيه طلبات
+   ══════════════════════════════════════════════════ */
+const extractLocationName = d => {
+  let name = (d.userFrom || '').trim();
+  if (!name) {
+    const details = (d.details || '').trim();
+    const m = details.match(/من:\s*(.+?)\s*←/);
+    name = m ? m[1].trim() : details;
+  }
+  name = name.replace(/\s+/g, ' ').trim();
+  return name.length > 60 ? name.slice(0, 60) : (name || 'غير محدد');
+};
+const _hzSlug = name => (encodeURIComponent(name).replace(/[.#$\[\]/%]/g, '_').slice(0, 300) || 'unknown');
+const tierFor = count => {
+  if (count > 15) return { emoji: '🔴', color: 'var(--red)', bg: 'var(--red-l)', border: 'var(--red-m)', label: 'مرتفع جداً' };
+  if (count >= 6) return { emoji: '🟡', color: 'var(--amber)', bg: 'var(--amber-l)', border: 'var(--amber-m)', label: 'متوسط' };
+  return { emoji: '🟢', color: 'var(--green)', bg: 'var(--green-l)', border: 'var(--green-m)', label: 'منخفض' };
+};
+const bumpHotZone = async (tenantId, d) => {
+  try {
+    if (!tenantId) return;
+    const name = extractLocationName(d);
+    const key = _hzSlug(name);
+    const dateKey = new Date().toISOString().split('T')[0];
+    const zRef = ref(_db, `tenants/${tenantId}/hotZones/${dateKey}/${key}`);
+    const snap = await get(zRef).catch(() => null);
+    const prev = snap && snap.exists() ? snap.val() : { name, count: 0 };
+    await set(zRef, { name, count: (prev.count || 0) + 1, lastAt: Date.now() });
+  } catch (e) { console.warn('hotzone bump error', e); }
+};
+
+/* ══════════════════════════════════════════════════
    SMART HELPERS — المسافة + التوزيع الذكي + التنبيهات
    ══════════════════════════════════════════════════ */
 const haversineKm = (lat1, lng1, lat2, lng2) => {
@@ -1370,8 +1402,8 @@ const cfg = [
       { id: 'reqs', icon: 'fas fa-inbox', label: 'الطلبات' },
       { id: 'map', icon: 'fas fa-map-location-dot', label: 'الخريطة' },
       { id: 'heatmap', icon: 'fas fa-fire', label: 'الخريطة الحرارية' },
-      { id: 'notifs', icon: 'fas fa-bell', label: 'التنبيهات', badge: true },
-      { id: 'approvals', icon: 'fas fa-user-check', label: 'الموافقات', badge2: true },
+      { id: 'hotzones', icon: 'fas fa-ranking-star', label: 'نظام حراري' },
+      { id: 'notifs', icon: 'fas fa-bell', label: 'التنبيهات', badge: true },      { id: 'approvals', icon: 'fas fa-user-check', label: 'الموافقات', badge2: true },
       { id: 'reports', icon: 'fas fa-chart-bar', label: 'التقارير' },
       { id: 'accounts', icon: 'fas fa-users', label: 'السائقون' },
       { id: 'support', icon: 'fas fa-headset', label: 'دعم فني' },
@@ -1424,6 +1456,7 @@ window.nTab = t => {
     if (t === 'reqs') renderSupReqs();
     else if (t === 'map') renderMapSup();
     else if (t === 'heatmap') renderHeatmap();
+    else if (t === 'hotzones') renderHotZones();
     else if (t === 'notifs') renderNotifs();
     else if (t === 'approvals') renderApprovals();
     else if (t === 'reports') renderSupReports();
@@ -1855,8 +1888,9 @@ window.addReqItem = async () => {
   _addReqBusy = true;
   const btn = $('MaddReq').querySelector('.bp'), origText = btn ? btn.innerHTML : '';
   if (btn) { btn.innerHTML = '<span class="spin"></span> جار...'; btn.disabled = true; }
-  try {
+try {
     await push(tRef('recvRequests'), { phone, details, ts: serverTimestamp(), addedBy: CU?.name || 'المشرف' });
+    bumpHotZone(TENANT_ID, { details });
     $('req-phone').value = ''; $('req-details').value = '';
     toast('ok', '✅ تم إضافة الطلب', ''); playSound('notif'); CM('MaddReq');
   } catch (err) { shAl('al-req', 'err', 'خطأ: ' + (err.message || '')); }
@@ -2089,6 +2123,115 @@ const renderHeatmap = async () => {
       else if (!pts.length) L.popup().setLatLng([32.31, 35.03]).setContent('<div style="font-family:Cairo,sans-serif;text-align:center">لا توجد بيانات كافية بعد</div>').openOn(hm);
     } catch (e) { console.warn('heatmap error', e); }
   }, 150);
+};
+
+/* ══════════════════════════════════════════════════
+   HOT ZONES TAB
+   ══════════════════════════════════════════════════ */
+let _hzDrawerOpen = false;
+
+const renderHotZones = () => {
+  const today = new Date().toISOString().split('T')[0];
+  $('dbody').innerHTML = `
+  <div style="height:calc(100vh - 60px - 70px);display:flex;position:relative;overflow:hidden">
+    <div id="hzDrawer" style="position:absolute;top:0;bottom:0;right:0;width:320px;max-width:88%;background:var(--bg-card);border-left:1px solid var(--border);transform:translateX(100%);transition:transform .3s ease;z-index:20;display:flex;flex-direction:column;box-shadow:-8px 0 24px rgba(0,0,0,.15)">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div style="font-weight:900;font-size:14px;color:var(--text);display:flex;align-items:center;gap:7px"><i class="fas fa-clock-rotate-left" style="color:var(--primary)"></i> التقارير السابقة</div>
+        <button onclick="toggleHzDrawer()" style="background:var(--bg2);border:none;border-radius:8px;width:30px;height:30px;color:var(--text2);cursor:pointer"><i class="fas fa-times"></i></button>
+      </div>
+      <div id="hzDrawerList" style="flex:1;overflow-y:auto;padding:12px"><div style="text-align:center;padding:20px;color:var(--text4)"><div class="spin dark"></div></div></div>
+    </div>
+    <button id="hzDrawerToggle" onclick="toggleHzDrawer()" style="position:absolute;top:50%;left:0;transform:translateY(-50%);z-index:15;background:var(--primary);border:none;border-radius:0 10px 10px 0;width:26px;height:56px;color:#fff;cursor:pointer;box-shadow:2px 0 10px rgba(0,0,0,.2)"><i class="fas fa-chevron-left"></i></button>
+    <div style="flex:1;overflow-y:auto;padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div style="font-family:'Tajawal',sans-serif;font-size:18px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:8px"><i class="fas fa-fire" style="color:var(--red)"></i> نظام حراري لأكثر مكان فيه طلبات — اليوم</div>
+        <button onclick="deleteHzDay('${today}')" style="padding:7px 12px;background:var(--red-l);border:1px solid var(--red-m);border-radius:9px;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif"><i class="fas fa-trash"></i> حذف بيانات اليوم</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <span style="font-size:11px;padding:5px 10px;border-radius:20px;background:var(--green-l);color:var(--green);border:1px solid var(--green-m);font-weight:700">🟢 1-5 طلبات</span>
+        <span style="font-size:11px;padding:5px 10px;border-radius:20px;background:var(--amber-l);color:var(--amber);border:1px solid var(--amber-m);font-weight:700">🟡 6-15 طلب</span>
+        <span style="font-size:11px;padding:5px 10px;border-radius:20px;background:var(--red-l);color:var(--red);border:1px solid var(--red-m);font-weight:700">🔴 أكثر من 15 طلب</span>
+      </div>
+      <div id="hzTodayList"><div style="text-align:center;padding:32px;color:var(--text4)"><div class="spin dark"></div></div></div>
+    </div>
+  </div>`;
+  loadHzToday(today);
+  loadHzDrawerList(today);
+};
+
+const _hzRenderList = (containerId, entries) => {
+  const list = $(containerId); if (!list) return;
+  if (!entries.length) { list.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text4)"><i class="fas fa-map-location-dot" style="font-size:36px;opacity:.2;display:block;margin-bottom:10px"></i>لا توجد بيانات</div>`; return; }
+  list.innerHTML = entries.map(([key, z], i) => {
+    const t = tierFor(z.count || 0);
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:${t.bg};border:1.5px solid ${t.border};border-radius:12px;margin-bottom:9px;${(z.count || 0) > 15 ? 'animation:reqPulse 2s infinite' : ''}">
+      <div style="width:34px;height:34px;border-radius:50%;background:var(--bg-card);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:${t.color};flex-shrink:0">${i + 1}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:14px;color:var(--text)">${t.emoji} ${esc(z.name || 'غير محدد')}</div>
+        <div style="font-size:11px;color:${t.color};font-weight:700">${t.label}</div>
+      </div>
+      <div style="text-align:center;flex-shrink:0">
+        <div style="font-size:22px;font-weight:900;color:${t.color}">${z.count || 0}</div>
+        <div style="font-size:9px;color:var(--text4)">طلب</div>
+      </div>
+    </div>`;
+  }).join('');
+};
+
+const loadHzToday = today => {
+  const r = ref(_db, `tenants/${TENANT_ID}/hotZones/${today}`);
+  onValue(r, snap => {
+    const entries = snap.exists() ? Object.entries(snap.val()).sort((a, b) => (b[1].count || 0) - (a[1].count || 0)) : [];
+    _hzRenderList('hzTodayList', entries);
+  });
+  addL(r);
+};
+
+window.toggleHzDrawer = () => {
+  _hzDrawerOpen = !_hzDrawerOpen;
+  const d = $('hzDrawer'); if (d) d.style.transform = _hzDrawerOpen ? 'translateX(0)' : 'translateX(100%)';
+  const btn = $('hzDrawerToggle'); if (btn) btn.innerHTML = _hzDrawerOpen ? '<i class="fas fa-chevron-right"></i>' : '<i class="fas fa-chevron-left"></i>';
+};
+
+const loadHzDrawerList = async today => {
+  const list = $('hzDrawerList'); if (!list) return;
+  const snap = await get(ref(_db, `tenants/${TENANT_ID}/hotZones`)).catch(() => null);
+  if (!snap || !snap.exists()) { list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text4);font-size:12px">لا يوجد تقارير سابقة</div>`; return; }
+  const allData = snap.val();
+  const days = Object.keys(allData).sort((a, b) => b.localeCompare(a));
+  list.innerHTML = days.map(day => {
+    const dayData = allData[day];
+    const total = Object.values(dayData).reduce((s, z) => s + (z.count || 0), 0);
+    const top = Object.values(dayData).sort((a, b) => (b.count || 0) - (a.count || 0))[0];
+    const isToday = day === today;
+    return `<div style="padding:11px 12px;background:${isToday ? 'var(--primary-l)' : 'var(--bg2)'};border:1px solid ${isToday ? 'var(--primary-m)' : 'var(--border)'};border-radius:10px;margin-bottom:8px;cursor:pointer" onclick="viewHzDay('${day}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="font-weight:800;font-size:12px;color:var(--text)">${day}${isToday ? ' (اليوم)' : ''}</div>
+        <button onclick="event.stopPropagation();deleteHzDay('${day}')" style="background:none;border:none;color:var(--red);cursor:pointer;padding:2px"><i class="fas fa-trash" style="font-size:11px"></i></button>
+      </div>
+      <div style="font-size:11px;color:var(--text3)">📦 ${total} طلب${top ? ` — أعلى مكان: ${esc(top.name)} (${top.count})` : ''}</div>
+    </div>`;
+  }).join('');
+};
+
+window.viewHzDay = async day => {
+  const snap = await get(ref(_db, `tenants/${TENANT_ID}/hotZones/${day}`)).catch(() => null);
+  const entries = snap && snap.exists() ? Object.entries(snap.val()).sort((a, b) => (b[1].count || 0) - (a[1].count || 0)) : [];
+  const list = $('hzTodayList');
+  if (list) list.innerHTML = `<div style="margin-bottom:10px;font-size:12px;color:var(--text3);font-weight:700"><i class="fas fa-calendar-day"></i> تقرير يوم ${day}</div>` + (entries.length ? '' : '');
+  _hzRenderList('hzTodayList', entries);
+  const header = $('hzTodayList');
+  if (header && entries.length) header.insertAdjacentHTML('afterbegin', `<div style="margin-bottom:10px;font-size:12px;color:var(--text3);font-weight:700"><i class="fas fa-calendar-day"></i> تقرير يوم ${day}</div>`);
+  toggleHzDrawer();
+};
+
+window.deleteHzDay = async day => {
+  if (!confirm(`حذف تقرير يوم ${day} نهائياً؟`)) return;
+  await remove(ref(_db, `tenants/${TENANT_ID}/hotZones/${day}`)).catch(() => {});
+  toast('ok', 'تم الحذف', '');
+  const today = new Date().toISOString().split('T')[0];
+  loadHzDrawerList(today);
+  if (day === today) loadHzToday(today);
 };
 
 /* ══════════════════════════════════════════════════
@@ -2870,6 +3013,7 @@ window._submitRequest = async () => {
 const reqRef = await push(ref(_db, `tenants/${_reqSystem.tenantId}/recvRequests`), reqData);
     _reqSystem.reqRef = reqRef;
     await update(reqRef, { userReqRef: `tenants/${_reqSystem.tenantId}/recvRequests/${reqRef.key}` });
+    bumpHotZone(_reqSystem.tenantId, { details: destination });
     if (_reqSystem.userLat && _reqSystem.userLng) {
       push(ref(_db, `tenants/${_reqSystem.tenantId}/requestsLog`), { lat: _reqSystem.userLat, lng: _reqSystem.userLng, ts: serverTimestamp() }).catch(() => {});
     }
@@ -3825,6 +3969,7 @@ const userReqRefPath = `tenants/${tenantId}/recvRequests/${reqRef.key}`;
     const details = ($('recv-details').value || '').trim();
     if (!phone || !details) return shAl('al-recv-add', 'err', 'يرجى ملء جميع الحقول');
     await push(tRef('recvRequests'), { phone, details, ts: serverTimestamp(), addedBy: CU ? CU.name : 'المستقبل' });
+    bumpHotZone(TENANT_ID, { details });
     $('recv-phone').value = ''; $('recv-details').value = '';
     shAl('al-recv-add', 'ok', '✅ تم إضافة الطلب'); playSound('notif');
     setTimeout(() => recvTab('requests'), 1200);
