@@ -1,17 +1,11 @@
-/* ══════════════════════════════════════════════════
-   منصة التاكسي — طولكرم | app.js
-   Firebase Auth + Realtime Database
-   ══════════════════════════════════════════════════ */
+
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { getDatabase, ref, set, get, push, onValue, update, remove, off, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously }
   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-/* ══════════════════════════════════════════════════
-   TENANT MAP  — uid → tenantId
-   ضع هنا الـ UID من Firebase Console
-   ══════════════════════════════════════════════════ */
+
 const EMAIL_TO_TENANT = {
   'tk1@taxi.ps': 'tk1',
   'tk2@taxi.ps': 'tk2',
@@ -115,9 +109,7 @@ let TENANT_INFO = null;
 const T = path => `tenants/${TENANT_ID || 'default'}/${path}`;
 const tRef = path => ref(_db, T(path));
 
-/* ══════════════════════════════════════════════════
-   GPS
-   ══════════════════════════════════════════════════ */
+
 /* ══════════════════════════════════════════════════
    GPS
    ══════════════════════════════════════════════════ */
