@@ -1,12 +1,339 @@
+ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getDatabase, ref, set, get, push, onValue, update, remove, off, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously }
+  from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
+const EMAIL_TO_TENANT = {
+  'tk1@taxi.ps': 'tk1',
+  'tk2@taxi.ps': 'tk2',
+  'tk3@taxi.ps': 'tk3',
+  'tk4@taxi.ps': 'tk4',
+  'tk5@taxi.ps': 'tk5',
+  'tk6@taxi.ps': 'tk6',
+  'tk7@taxi.ps': 'tk7',
+  'tk8@taxi.ps': 'tk8',
+  'tk9@taxi.ps': 'tk9',
+  'tk10@taxi.ps': 'tk10',
+  'tk11@taxi.ps': 'tk11',
+  'tk12@taxi.ps': 'tk12',
+  'tk13@taxi.ps': 'tk13',
+  'tk14@taxi.ps': 'tk14',
+  'tk15@taxi.ps': 'tk15',
+  'tk16@taxi.ps': 'tk16',
+  'tk17@taxi.ps': 'tk17',
+  'tk18@taxi.ps': 'tk18',
+  'tk19@taxi.ps': 'tk19',
+  'tk20@taxi.ps': 'tk20',
+  'tk21@taxi.ps': 'tk21',
+  'tk22@taxi.ps': 'tk22',
+  'tk23@taxi.ps': 'tk23',
+  'tk24@taxi.ps': 'tk24',
+  'tk25@taxi.ps': 'tk25',
+};
+const TENANT_NAMES = {
+  'tk1': 'مكتب طولكرم 1',
+  'tk2': 'مكتب طولكرم 2',
+  'tk3': 'مكتب طولكرم 3',
+  'tk4': 'مكتب طولكرم 4',
+  'tk5': 'مكتب طولكرم 5',
+  'tk6': 'مكتب طولكرم 6',
+  'tk7': 'مكتب طولكرم 7',
+  'tk8': 'مكتب طولكرم 8',
+  'tk9': 'مكتب طولكرم 9',
+  'tk10': 'مكتب طولكرم 10',
+  'tk11': 'مكتب طولكرم 11',
+  'tk12': 'مكتب طولكرم 12',
+  'tk13': 'مكتب طولكرم 13',
+  'tk14': 'مكتب طولكرم 14',
+  'tk15': 'مكتب طولكرم 15',
+  'tk16': 'مكتب طولكرم 16',
+  'tk17': 'مكتب طولكرم 17',
+  'tk18': 'مكتب طولكرم 18',
+  'tk19': 'مكتب طولكرم 19',
+  'tk20': 'مكتب طولكرم 20',
+  'tk21': 'مكتب طولكرم 21',
+  'tk22': 'مكتب طولكرم 22',
+  'tk23': 'مكتب طولكرم 23',
+  'tk24': 'مكتب طولكرم 24',
+  'tk25': 'مكتب طولكرم 25'
+};
 
-import {  'tk16': 'INV-TLK16-K2I7U8B', 'tk17': 'INV-TLK17-N8Q4X3T', 'tk18': 'INV-TLK18-Z5F9H6U',
+/* ── كود الدعوة لكل مكتب (يظهر في صفحة الملف الشخصي للمشرف) ── */
+const TENANT_INVITE = {
+  'tk1': 'INV-TLK1-X9M7Q3R', 'tk2': 'INV-TLK2-P5W8N2K', 'tk3': 'INV-TLK3-H4B6V1Q',
+  'tk4': 'INV-TLK4-W2Z9S5Y', 'tk5': 'INV-TLK5-F7X3K8U', 'tk6': 'INV-TLK6-R1J4A6O',
+  'tk7': 'INV-TLK7-C8T2E9I', 'tk8': 'INV-TLK8-G3N7D4A', 'tk9': 'INV-TLK9-L6S1Z8E',
+  'tk10': 'INV-TLK10-M5Y3J7F', 'tk11': 'INV-TLK11-B9U6K2W', 'tk12': 'INV-TLK12-Q4O8T5D',
+  'tk13': 'INV-TLK13-V7H2S1N', 'tk14': 'INV-TLK14-Y1C5R9G', 'tk15': 'INV-TLK15-D6V3W4M',
+  'tk16': 'INV-TLK16-K2I7U8B', 'tk17': 'INV-TLK17-N8Q4X3T', 'tk18': 'INV-TLK18-Z5F9H6U',
   'tk19': 'INV-TLK19-E3P1M7V', 'tk20': 'INV-TLK20-I7W5G2K', 'tk21': 'INV-TLK21-T4L8N6R',
   'tk22': 'INV-TLK22-S9Z2B4H', 'tk23': 'INV-TLK23-A1M6V8P', 'tk24': 'INV-TLK24-J3E7W5Q',
   'tk25': 'INV-TLK25-O6K4R9Z',
 };
 
-/* ──    const P = {
+/* ── SHA-256 (للسائقين فقط) ── */
+const _h = async s => {
+  const b = new TextEncoder().encode(s);
+  const d = await crypto.subtle.digest('SHA-256', b);
+  return Array.from(new Uint8Array(d)).map(x => x.toString(16).padStart(2, '0')).join('');
+};
+
+/* ══════════════════════════════════════════════════
+   FIREBASE INIT
+   ══════════════════════════════════════════════════ */
+const _DB_URL = "https://hamode-a2ac1-default-rtdb.firebaseio.com/";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBefjpLw7ju5z7Pc7UZFGpOPJcKCHGD9f4",
+  authDomain: "hamode-a2ac1.firebaseapp.com",
+  databaseURL: _DB_URL,
+  projectId: "hamode-a2ac1",
+  storageBucket: "hamode-a2ac1.firebasestorage.app",
+  messagingSenderId: "1005224583727",
+  appId: "1:1005224583727:web:ea0befa1db595ab48adcda"
+};
+
+const _app = initializeApp(firebaseConfig, "main");
+
+const _db = getDatabase(_app);
+const _auth = getAuth(_app);
+
+
+
+let TENANT_ID = '';
+let TENANT_INFO = null;
+
+const T = path => `tenants/${TENANT_ID || 'default'}/${path}`;
+const tRef = path => ref(_db, T(path));
+
+
+/* ══════════════════════════════════════════════════
+   GPS
+   ══════════════════════════════════════════════════ */
+const GPS_INTERVAL = 90000;
+const GPS_MIN_DIST = 20;
+let _gpsWatcher = null;
+let _gpsLastSent = 0;
+let _gpsLastLat = null;
+let _gpsLastLng = null;
+let _gpsSendTimer = null;
+let _gpsFailCount = 0;
+let _gpsRetryTimer = null;
+let _gpsWatchFail = 0;
+const GPS_MAX_FAIL = 3;
+
+const _gpsOnError = (err, source) => {
+  _gpsFailCount++;
+  _gpsWatchFail++;
+
+  const reasons = {
+    1: 'رفضت الإذن بالوصول للموقع',
+    2: 'تعذّر تحديد الموقع',
+    3: 'انتهت مهلة تحديد الموقع',
+  };
+  const msg = reasons[err?.code] || 'خطأ غير معروف في GPS';
+
+  if (_gpsFailCount === 1) {
+    toast('warn', '⚠️ تحذير GPS', msg);
+    const el = $('gpsStatus');
+    if (el) el.innerHTML = `<i class="fas fa-location-dot" style="color:var(--amber);margin-left:3px"></i>GPS: ⚠️ ${msg}`;
+  }
+
+  if (_gpsFailCount >= GPS_MAX_FAIL) {
+    toast('err', '❌ GPS متوقف', 'تعذّر تحديد موقعك — يرى المشرف موقعك القديم');
+    vibrate([300, 100, 300]);
+    const el = $('gpsStatus');
+    if (el) el.innerHTML = `<i class="fas fa-location-dot" style="color:var(--red);margin-left:3px"></i>GPS: ❌ متوقف — ${msg}`;
+    _gpsFailCount = 0;
+  }
+
+  if (_gpsWatchFail >= 2 && source === 'watch') {
+    _gpsWatchFail = 0;
+    if (_gpsWatcher !== null) {
+      try { navigator.geolocation.clearWatch(_gpsWatcher); } catch (e) { }
+      _gpsWatcher = null;
+    }
+    if (_gpsRetryTimer) clearTimeout(_gpsRetryTimer);
+    _gpsRetryTimer = setTimeout(() => {
+      if (!CU || CR !== 'driver') return;
+      toast('info', '🔄 إعادة تشغيل GPS', '');
+      _startWatchPosition(CU.id);
+    }, 5000);
+  }
+};
+
+const _startWatchPosition = drvId => {
+  if (_gpsWatcher !== null) {
+    try { navigator.geolocation.clearWatch(_gpsWatcher); } catch (e) { }
+    _gpsWatcher = null;
+  }
+  /* iOS: enableHighAccuracy false وtimeout طويل */
+  _gpsWatcher = navigator.geolocation.watchPosition(
+    pos => {
+      _gpsWatchFail = 0;
+      _gpsFailCount = 0;
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const now = Date.now();
+      if (_gpsLastLat !== null) {
+        const dist = Math.sqrt((_gpsLastLat - lat) ** 2 + (_gpsLastLng - lng) ** 2) * 111320;
+        if (dist < GPS_MIN_DIST && now - _gpsLastSent < GPS_INTERVAL) return;
+      }
+      if (now - _gpsLastSent < GPS_INTERVAL) return;
+      sendGPS(drvId, lat, lng, false);
+    },
+    err => _gpsOnError(err, 'watch'),
+    { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
+  );
+};
+
+const startGPS = drvId => {
+  stopGPS();
+  if (!navigator.geolocation) {
+    toast('err', '❌ GPS غير مدعوم', 'متصفحك لا يدعم تحديد الموقع');
+    const el = $('gpsStatus');
+    if (el) el.innerHTML = `<i class="fas fa-location-dot" style="color:var(--red);margin-left:3px"></i>GPS: ❌ غير مدعوم`;
+    return;
+  }
+
+  /* iOS يحتاج أول طلب بـ enableHighAccuracy: false وtimeout طويل */
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      _gpsFailCount = 0;
+      sendGPS(drvId, pos.coords.latitude, pos.coords.longitude, true);
+      _startWatchPosition(drvId);
+    },
+    err => {
+      /* إذا فشل الأول حاول مرة ثانية بإعدادات أخف */
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          _gpsFailCount = 0;
+          sendGPS(drvId, pos.coords.latitude, pos.coords.longitude, true);
+          _startWatchPosition(drvId);
+        },
+        err2 => {
+          _gpsOnError(err2, 'initial');
+          /* حتى لو فشل GPS ابدأ الـ watch عشان يحاول لاحقاً */
+          _startWatchPosition(drvId);
+        },
+        { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
+      );
+    },
+    { enableHighAccuracy: false, timeout: 30000, maximumAge: 0 }
+  );
+
+  /* Timer للإرسال كل 90 ثانية */
+  _gpsSendTimer = setInterval(() => {
+    if (Date.now() - _gpsLastSent < GPS_INTERVAL) return;
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        _gpsFailCount = 0;
+        _gpsWatchFail = 0;
+        sendGPS(drvId, pos.coords.latitude, pos.coords.longitude, false);
+      },
+      err => _gpsOnError(err, 'timer'),
+      { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
+    );
+  }, GPS_INTERVAL);
+};
+
+const sendGPS = async (drvId, lat, lng, isFirst) => {
+  _gpsLastLat = lat; _gpsLastLng = lng; _gpsLastSent = Date.now();
+  await update(ref(_db, T(`drivers/${drvId}`)), { lat, lng, locUpdated: Date.now() }).catch(() => { });
+  if (isFirst) toast('ok', '📍 موقعك محدّد', 'يظهر على الخريطة');
+};
+
+const stopGPS = () => {
+  if (_gpsWatcher !== null) {
+    try { navigator.geolocation.clearWatch(_gpsWatcher); } catch (e) { }
+    _gpsWatcher = null;
+  }
+  if (_gpsSendTimer) { clearInterval(_gpsSendTimer); _gpsSendTimer = null; }
+  if (_gpsRetryTimer) { clearTimeout(_gpsRetryTimer); _gpsRetryTimer = null; }
+  _gpsLastSent = 0;
+  _gpsLastLat = null;
+  _gpsLastLng = null;
+  _gpsFailCount = 0;
+  _gpsWatchFail = 0;
+};
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (_gpsSendTimer) { clearInterval(_gpsSendTimer); _gpsSendTimer = null; }
+  } else if (CU && CR === 'driver' && CU.status !== 'offline' && !_gpsSendTimer) {
+    _gpsSendTimer = setInterval(() => {
+      if (Date.now() - _gpsLastSent >= GPS_INTERVAL)
+        navigator.geolocation.getCurrentPosition(
+          pos => sendGPS(CU.id, pos.coords.latitude, pos.coords.longitude, false),
+          err => _gpsOnError(err, 'timer'),
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+        );
+    }, GPS_INTERVAL);
+  }
+});
+window.addEventListener('pagehide', stopGPS);
+window.addEventListener('beforeunload', stopGPS);
+
+
+
+/* ══════════════════════════════════════════════════
+   SHARED DRIVER CACHE
+   ══════════════════════════════════════════════════ */
+let allDrvs = {};
+const _drvCBs = new Set();
+let _drvListener = null;
+
+const onDriversUpdate = cb => { _drvCBs.add(cb); return () => _drvCBs.delete(cb); };
+const _notifyDrvCBs = () => _drvCBs.forEach(cb => { try { cb(allDrvs); } catch (e) { } });
+
+const startDriverListener = () => {
+  if (_drvListener) return;
+  const r = tRef('drivers');
+  _drvListener = onValue(r, snap => {
+    allDrvs = {};
+    if (snap.exists()) Object.entries(snap.val()).forEach(([id, d]) => { const { avatar, ...dn } = d; allDrvs[id] = dn; });
+    updateStatsUI(); _notifyDrvCBs();
+  });
+};
+const stopDriverListener = () => {
+  if (_drvListener) { try { off(tRef('drivers')); } catch (e) { } _drvListener = null; }
+  _drvCBs.clear();
+};
+
+/* ══════════════════════════════════════════════════
+   CLEAN OLD NOTIFICATIONS
+   ══════════════════════════════════════════════════ */
+const MAX_NOTIFS = 200;
+const NOTIF_TTL = 24 * 60 * 60 * 1000;
+
+const cleanNotifs = async () => {
+  const snap = await get(tRef('notifications')).catch(() => null);
+  if (!snap || !snap.exists()) return;
+  const all = Object.entries(snap.val()), cutoff = Date.now() - NOTIF_TTL, updates = {};
+  all.forEach(([k, v]) => { if ((v.ts || 0) < cutoff) updates[k] = null; });
+  const remaining = all.filter(([k, v]) => !updates[k] && (v.ts || 0) >= cutoff);
+  if (remaining.length > MAX_NOTIFS)
+    remaining.sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0))
+      .slice(0, remaining.length - MAX_NOTIFS)
+      .forEach(([k]) => { updates[k] = null; });
+  if (Object.keys(updates).length > 0) await update(tRef('notifications'), updates).catch(() => { });
+};
+setInterval(() => { if (CR === 'supervisor') cleanNotifs(); }, 3600000);
+
+/* ══════════════════════════════════════════════════
+   AUDIO
+   ══════════════════════════════════════════════════ */
+const AC = window.AudioContext || window.webkitAudioContext;
+let aCtx = null;
+const getAC = () => { if (!aCtx && AC) { try { aCtx = new AC(); } catch (e) { return null; } } return aCtx; };
+['click', 'touchstart', 'keydown'].forEach(ev =>
+  document.addEventListener(ev, () => { try { const c = getAC(); if (c && c.state === 'suspended') c.resume(); } catch (e) { } }, { passive: true })
+);
+
+const playSound = t => {
+  try {
+    const ctx = getAC(); if (!ctx || ctx.state !== 'running') return;
+    const P = {
       request: [{ f: 880, d: .12, g: .9, t: 0 }, { f: 1100, d: .12, g: .9, t: .15 }, { f: 880, d: .12, g: .9, t: .30 }, { f: 1100, d: .18, g: .9, t: .45 }],
       accept: [{ f: 523, d: .12, g: .7, t: 0 }, { f: 659, d: .12, g: .7, t: .13 }, { f: 784, d: .2, g: .7, t: .26 }],
       reject: [{ f: 784, d: .12, g: .6, t: 0 }, { f: 523, d: .2, g: .6, t: .15 }],
@@ -18,7 +345,80 @@ import {  'tk16': 'INV-TLK16-K2I7U8B', 'tk17': 'INV-TLK17-N8Q4X3T', 'tk18': 'INV
     };
     (P[t] || P.notif).forEach(({ f, d, g, t: s }) => {
       const o = ctx.createOscillator(), gn = ctx.createGain();
-      o.connect(gn); gn.conn  const container = $('toasts'); if (!container) return;
+      o.connect(gn); gn.connect(ctx.destination);
+      o.type = 'sine'; o.frequency.value = f;
+      gn.gain.setValueAtTime(0, ctx.currentTime + s);
+      gn.gain.linearRampToValueAtTime(g, ctx.currentTime + s + .02);
+      gn.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + s + d);
+      o.start(ctx.currentTime + s); o.stop(ctx.currentTime + s + d + .05);
+    });
+  } catch (e) { }
+};
+const vibrate = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { } };
+
+/* ══════════════════════════════════════════════════
+   PUSH NOTIFICATIONS
+   ══════════════════════════════════════════════════ */
+const NOTIF_ICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" rx="26" fill="#D97706"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="72">🚕</text></svg>')}`;
+let swReg = null;
+
+const registerSW = async () => {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    const src = `self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(clients.claim()));self.addEventListener('message',e=>{if(!e.data||e.data.action!=='NOTIFY')return;e.waitUntil(self.registration.showNotification(e.data.title||'منصة التاكسي',{body:e.data.body||'',icon:e.data.icon,vibrate:e.data.vibrate||[200],requireInteraction:e.data.require||false,tag:e.data.tag||('n_'+Date.now()),dir:'rtl',lang:'ar'}));});`;
+    const blob = new Blob([src], { type: 'text/javascript' });
+    swReg = await navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => null);
+    return swReg;
+  } catch (e) { return null; }
+};
+
+const reqPushPerm = async () => {
+  if (!('Notification' in window)) return false;
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost') return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') return false;
+  try { return (await Notification.requestPermission()) === 'granted'; } catch (e) { return false; }
+};
+
+const _nt = {};
+const showPushNotif = async (title, body, type = 'info') => {
+  const key = type + '_' + title.slice(0, 20), now = Date.now();
+  if (_nt[key] && now - _nt[key] < 3000) return; _nt[key] = now;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const cfg = {
+    new_request: { vibrate: [400, 100, 400, 100, 400], require: true },
+    edit_request: { vibrate: [200, 100, 200], require: true },
+    cancel: { vibrate: [300], require: false },
+    sos: { vibrate: [500, 100, 500, 100, 500], require: true },
+    done: { vibrate: [200], require: false },
+    user_request: { vibrate: [300, 100, 300], require: true },
+    info: { vibrate: [150], require: false },
+  }[type] || { vibrate: [150], require: false };
+  try {
+    const r = swReg || await navigator.serviceWorker.getRegistration().catch(() => null);
+    if (r) { await r.showNotification(title, { body, icon: NOTIF_ICON, vibrate: cfg.vibrate, requireInteraction: cfg.require, tag: type + '_' + Date.now(), dir: 'rtl', lang: 'ar' }); return; }
+    new Notification(title, { body, icon: NOTIF_ICON, tag: type + '_' + Date.now(), dir: 'rtl' });
+  } catch (e) { }
+};
+
+/* ══════════════════════════════════════════════════
+   HELPERS
+   ══════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const H = (id, v) => { const e = $(id); if (e) e.classList[v ? 'add' : 'remove']('h'); };
+const fmt = ts => new Date(ts).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
+const esc = s => { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;'); };
+const eAt = s => (s || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+const fmtElapsed = ms => { const t = Math.floor(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60; return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`; };
+
+window.OM = id => { const e = $(id); if (e) e.classList.add('on'); };
+window.CM = id => { const e = $(id); if (e) e.classList.remove('on'); clrAl(); };
+const clrAl = () => document.querySelectorAll('.al').forEach(a => { a.className = 'al'; a.textContent = ''; });
+const shAl = (id, t, m) => { const e = $(id); if (!e) return; e.className = `al ${t}`; e.innerHTML = `<i class="fas fa-${t === 'err' ? 'circle-exclamation' : 'circle-check'}"></i> ${m}`; };
+
+window.toast = (t, ti, s = '') => {
+  const ic = { ok: '✅', err: '❌', warn: '⚠️', info: 'ℹ️' };
+  const container = $('toasts'); if (!container) return;
   while (container.children.length >= 4) container.removeChild(container.firstChild);
   const el = document.createElement('div'); el.className = 'toast';
   el.innerHTML = `<div class="tst">${ic[t] || 'ℹ️'}</div><div><div class="ttt">${esc(String(ti))}</div>${s ? `<div class="tts">${esc(String(s))}</div>` : ''}</div>`;
@@ -29,7 +429,116 @@ import {  'tk16': 'INV-TLK16-K2I7U8B', 'tk17': 'INV-TLK17-N8Q4X3T', 'tk18': 'INV
 
 /* ══════════════════════════════════════════════════
    STATE
-   ══════════════════  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+   ══════════════════════════════════════════════════ */
+let CU = null, CR = null, IS_RECV = false;
+let reqCountdownTimer = null, selTaxiId = null, selReqData = null;
+let shiftStartTime = null, monitorInterval = null;
+let leafletMap = null, mapMarkers = {};
+const LSNRS = [];
+const addL = (r, keep = false) => LSNRS.push({ r, keep });
+
+window.addEventListener('online', () => toast('ok', '🌐 عاد الاتصال', ''));
+window.addEventListener('offline', () => toast('err', '🔌 انقطع الاتصال', ''));
+
+/* ── Public Map State ── */
+let _pubMap = null, _pubOfficesListener = null;
+let _userReqId = null, _userReqTenantId = null, _userRating = 0, _pubReqListener = null;
+let _officeLocMap = null, _officeLocMarker = null, _officeLocLat = null, _officeLocLng = null;
+let _lastTrackStatus = '';
+
+
+/* ══════════════════════════════════════════════════
+   TENANT GATE — بوابة الدخول
+   ══════════════════════════════════════════════════ */
+const initTenantGate = () => {
+  /* أخفِ كل الصفحات */
+  $('PTenantGate').style.display = 'none';
+  $('PL').style.display = 'none';
+  const pu = $('PU');
+  if (pu) { pu.style.display = 'flex'; pu.style.flexDirection = 'column'; }
+
+  /* أخفِ جملة "اضغط على مكتب التكسي" إن وجدت */
+  document.querySelectorAll('.pub-map-hint, .map-hint, [data-hint="map"]').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('p, div, span').forEach(el => {
+    if (el.children.length === 0 && el.textContent.includes('اضغط على مكتب التكسي على الخريطة')) el.style.display = 'none';
+  });
+
+  /* أضف أزرار تنزيل التطبيق إن لم تكن موجودة */
+  if (!$('pwaInstallBtns')) {
+    const wrap = document.createElement('div');
+    wrap.id = 'pwaInstallBtns';
+    wrap.style.cssText = 'display:flex;gap:10px;justify-content:center;padding:12px 16px;flex-wrap:wrap;flex-shrink:0;background:rgba(15,23,42,.8);border-top:1px solid rgba(255,255,255,.08)';
+    wrap.innerHTML = `
+      <button onclick="window.installPWA_android()" style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;box-shadow:0 4px 12px rgba(5,150,105,.3)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.523 15.341a5 5 0 01-3.523 1.46 5 5 0 01-3.523-1.46L4 9.341V18a2 2 0 002 2h12a2 2 0 002-2V9.341l-2.477 6zM12 3a5 5 0 015 5H7a5 5 0 015-5zm-7 5l7 8 7-8H5z"/></svg>
+        تنزيل لـ أندرويد
+      </button>
+      <button onclick="window.installPWA_ios()" style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:linear-gradient(135deg,#0EA5E9,#0284C7);border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;box-shadow:0 4px 12px rgba(14,165,233,.3)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        تنزيل لـ آيفون
+      </button>`;
+    if (pu) pu.appendChild(wrap);
+  }
+
+  /* شغّل الخريطة */
+  setTimeout(() => {
+    if (typeof window.openPubPage === 'function') window.openPubPage();
+    else {
+      const mapEl = $('publicMap');
+      if (mapEl && !_pubMap) {
+        try {
+          _pubMap = L.map('publicMap', { zoomControl: true }).setView([32.31, 35.03], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(_pubMap);
+          loadPublicOffices();
+        } catch (e) { }
+      }
+    }
+  }, 100);
+  /* أظهر زر الموظفين */
+  const btn = $('staffEntryBtn'); if (btn) btn.style.display = 'flex';
+};
+
+/* ── منطق تنزيل التطبيق ── */
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _deferredInstallPrompt = e; });
+
+/* دالة التثبيت المباشر — مرتبطة بالـ HTML و app.js */
+window._installAndroid = window.installPWA_android = async () => {
+  const prompt = window._deferredInstall || _deferredInstallPrompt;
+  if (prompt) {
+    try {
+      prompt.prompt();
+      const { outcome } = await prompt.userChoice;
+      if (outcome === 'accepted') {
+        toast('ok', '✅ تم التثبيت!', 'التطبيق جاهز على شاشتك الرئيسية');
+        window._deferredInstall = null; _deferredInstallPrompt = null;
+      }
+    } catch (e) { console.warn('PWA prompt error', e); }
+    return;
+  }
+  /* تعليمات يدوية فقط — بدون أي زر "تنزيل" وهمي */
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;justify-content:center;padding:16px';
+  m.innerHTML = `<div style="background:#1E293B;border-radius:20px 20px 16px 16px;padding:24px;width:100%;max-width:400px;font-family:Cairo,sans-serif;direction:rtl">
+    <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+      🤖 تثبيت التطبيق — أندرويد
+    </div>
+    <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="color:rgba(255,255,255,.8);font-size:13px;line-height:2.4">
+        <div>1️⃣ اضغط على قائمة المتصفح <b style="color:#0EA5E9">⋮</b> بالأعلى</div>
+        <div>2️⃣ اختر <b style="color:#0EA5E9">"إضافة إلى الشاشة الرئيسية"</b></div>
+        <div>3️⃣ اضغط <b style="color:#059669">إضافة</b> ✅</div>
+        <div>4️⃣ رح تلاقي أيقونة التطبيق على شاشتك الرئيسية 📱</div>
+      </div>
+    </div>
+    <button id="_pwaAndroidOkBtn" style="width:100%;padding:14px;background:linear-gradient(135deg,#0EA5E9,#0284C7);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:Cairo,sans-serif">
+      ✅ فهمت
+    </button>
+  </div>`;
+  document.body.appendChild(m);
+  const okBtn = m.querySelector('#_pwaAndroidOkBtn');
+  if (okBtn) okBtn.addEventListener('click', () => m.remove());
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
 };
 
 window._installIOS = window.installPWA_ios = () => {
@@ -41,7 +550,83 @@ window._installIOS = window.installPWA_ios = () => {
       تثبيت على آيفون
     </div>
     <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:16px;margin-bottom:16px">
-      <div style="color
+      <div style="color:rgba(255,255,255,.8);font-size:13px;line-height:2.2">
+        <div style="margin-bottom:8px">1️⃣ افتح الموقع في <b style="color:#0EA5E9">Safari</b> (ليس Chrome)</div>
+        <div style="margin-bottom:8px">2️⃣ اضغط زر المشاركة <b style="color:#0EA5E9">⬆️</b> في الأسفل</div>
+        <div style="margin-bottom:8px">3️⃣ اختر <b style="color:#0EA5E9">"Add to Home Screen"</b></div>
+        <div>4️⃣ اضغط <b style="color:#059669">Add</b> وتم ✅</div>
+      </div>
+    </div>
+    <button id="_pwaIosOkBtn" style="width:100%;padding:14px;background:linear-gradient(135deg,#0EA5E9,#0284C7);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:Cairo,sans-serif">
+      ✅ فهمت
+    </button>
+  </div>`;
+  document.body.appendChild(m);
+  const okBtn = m.querySelector('#_pwaIosOkBtn');
+  if (okBtn) okBtn.addEventListener('click', () => m.remove());
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+};
+
+window.openStaffPanel = () => {
+  const panel = $('staffPanel'); if (!panel) return;
+  panel.style.display = 'block';
+  requestAnimationFrame(() => {
+    const inner = $('staffPanelInner');
+    if (inner) inner.style.transform = 'translateX(0)';
+  });
+};
+
+window.closeStaffPanel = () => {
+  const inner = $('staffPanelInner');
+  if (inner) {
+    inner.style.transform = 'translateX(-100%)';
+    setTimeout(() => {
+      const panel = $('staffPanel'); if (panel) panel.style.display = 'none';
+    }, 350);
+  }
+};
+
+/* إغلاق البانال عند الضغط خارجه */
+document.addEventListener('click', e => {
+  const panel = $('staffPanel');
+  if (panel && panel.style.display === 'block' && e.target === panel) closeStaffPanel();
+});
+
+/* مسح الخطأ عند الكتابة فقط */
+window.gateClearErr = () => {
+  const panel = document.getElementById('staffPanelInner');
+  const err = (panel ? panel.querySelector('#gate-err') : null) || $('gate-err');
+  if (err) err.textContent = '';
+  const inp = (panel ? panel.querySelector('#gate-office-code') : null) || $('gate-office-code');
+  if (inp) inp.style.borderColor = 'rgba(255,255,255,.2)';
+  const btns = (panel ? panel.querySelector('#gate-btns') : null) || $('gate-btns');
+  if (btns) btns.style.display = 'none';
+  const verified = (panel ? panel.querySelector('#gate-verified') : null) || $('gate-verified');
+  if (verified) verified.style.display = 'none';
+  TENANT_ID = ''; TENANT_INFO = null;
+};
+
+/* زر "تحقق" */
+window.gateCheckCode = () => {
+  /* نقرأ من staffPanel لأنه يحتوي على الـ IDs الصحيحة المرئية */
+  const panel = document.getElementById('staffPanelInner');
+  const inp = (panel ? panel.querySelector('#gate-office-code') : null) || $('gate-office-code');
+  const code = (inp ? inp.value : '').toLowerCase().trim();
+  const err = (panel ? panel.querySelector('#gate-err') : null) || $('gate-err');
+  const verified = (panel ? panel.querySelector('#gate-verified') : null) || $('gate-verified');
+  const btns = (panel ? panel.querySelector('#gate-btns') : null) || $('gate-btns');
+  const label = (panel ? panel.querySelector('#gate-office-name-label') : null) || $('gate-office-name-label');
+  const btn = (panel ? panel.querySelector('#gate-check-btn') : null) || $('gate-check-btn');
+
+  if (!code) {
+    if (err) err.textContent = '❌ يرجى إدخال رمز المكتب';
+    if (inp) inp.focus();
+    return;
+  }
+
+  /* تأثير تحميل على الزر */
+  if (btn) { btn.innerHTML = '<span class="spin"></span>'; btn.disabled = true; }
+
   setTimeout(() => {
     if (btn) { btn.innerHTML = 'تحقق'; btn.disabled = false; }
 
@@ -50,7 +635,118 @@ window._installIOS = window.installPWA_ios = () => {
       TENANT_ID = code;
       TENANT_INFO = { name: TENANT_NAMES[code] };
       if (label) label.textContent = TENANT_NAMES[code];
-      if (verified) verifie  if (role === 'driver') {
+      if (verified) verified.style.display = 'flex';
+      if (btns) btns.style.display = 'flex';
+      if (err) err.textContent = '';
+      if (inp) inp.style.borderColor = 'rgba(52,211,153,.6)';
+      /* حفظ الرمز للمرة القادمة */
+      localStorage.setItem('txOfficeCode', code);
+    } else {
+      /* رمز خاطئ */
+      TENANT_ID = ''; TENANT_INFO = null;
+      if (verified) verified.style.display = 'none';
+      if (btns) btns.style.display = 'none';
+      if (err) err.textContent = '❌ رمز المكتب غير صحيح';
+      if (inp) {
+        inp.style.borderColor = 'rgba(248,113,113,.6)';
+        inp.style.animation = 'shake .4s';
+        setTimeout(() => { if (inp) inp.style.animation = ''; }, 400);
+      }
+    }
+  }, 400);
+};
+
+/* الضغط على زر الدخول */
+window.gateEnter = role => {
+  if (!TENANT_ID || !TENANT_INFO) {
+    const panel = document.getElementById('staffPanelInner');
+    const err = (panel ? panel.querySelector('#gate-err') : null) || $('gate-err');
+    if (err) err.textContent = '❌ يرجى التحقق من رمز المكتب أولاً';
+    return;
+  }
+  tenantEnter(role);
+};
+
+/* ══════════════════════════════════════════════════
+   SESSION RESTORE
+   ══════════════════════════════════════════════════ */
+const SESSION_KEYS = { tenant: 'txTenantId', role: 'txRole', driverKey: 'txDriverKey' };
+const saveSession = (role, driverKey = '') => {
+  try {
+    localStorage.setItem(SESSION_KEYS.tenant, TENANT_ID);
+    localStorage.setItem(SESSION_KEYS.role, role);
+    if (driverKey) localStorage.setItem(SESSION_KEYS.driverKey, driverKey);
+    else localStorage.removeItem(SESSION_KEYS.driverKey);
+  } catch (e) { }
+};
+const clearSession = () => {
+  try {
+    Object.values(SESSION_KEYS).forEach(k => localStorage.removeItem(k));
+  } catch (e) { }
+};
+
+const restoreSession = () => new Promise(resolve => {
+  let settled = false;
+  const done = v => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); };
+  const timer = setTimeout(() => done(false), 6000);
+  let unsub;
+  unsub = onAuthStateChanged(_auth, async user => {
+    if (settled) return;
+    if (typeof unsub === 'function') { try { unsub(); } catch (e) { } }
+    if (!user) return done(false);
+    try {
+      const savedTenant = localStorage.getItem(SESSION_KEYS.tenant) || localStorage.getItem('txOfficeCode') || '';
+      const savedRole = localStorage.getItem(SESSION_KEYS.role) || '';
+      const savedDrvKey = localStorage.getItem(SESSION_KEYS.driverKey) || '';
+      if (savedRole === 'driver' && savedDrvKey && savedTenant && (TENANT_NAMES[savedTenant] || savedTenant)) {
+        TENANT_ID = savedTenant; TENANT_INFO = { name: TENANT_NAMES[savedTenant] };
+        const snap = await get(ref(_db, `tenants/${savedTenant}/drivers/${savedDrvKey}`)).catch(() => null);
+        if (!snap || !snap.exists()) return done(false);
+        const found = snap.val();
+        if (found.approvalStatus === 'pending' || found.approvalStatus === 'rejected') return done(false);
+        CU = { ...found, id: savedDrvKey }; CR = 'driver'; IS_RECV = false;
+        if (found.shiftStart && !found.shiftEnd) shiftStartTime = found.shiftStart;
+        document.querySelectorAll('.lgn1').forEach(el => el.textContent = TENANT_INFO.name);
+        await update(ref(_db, `tenants/${savedTenant}/drivers/${savedDrvKey}`), { status: 'online', lastSeen: Date.now(), taxiColor: 'green' }).catch(() => { });
+        await registerSW(); await reqPushPerm();
+        startGPS(savedDrvKey); initDash();
+        listenDriverRequests(savedDrvKey); listenSosBroadcast(); listenDriverPushNotifs(savedDrvKey);
+        return done(true);
+      }
+      if (savedRole === 'supervisor' || savedRole === 'receiver') {
+        const tenantId = EMAIL_TO_TENANT[(user.email || '').toLowerCase()] || savedTenant;
+        if (!tenantId) return done(false);
+        if (!TENANT_NAMES[tenantId]) TENANT_NAMES[tenantId] = tenantId;
+        TENANT_ID = tenantId; TENANT_INFO = { name: TENANT_NAMES[tenantId] };
+        document.querySelectorAll('.lgn1').forEach(el => el.textContent = TENANT_INFO.name);
+        document.title = TENANT_INFO.name + ' — منصة التاكسي';
+        const supId = 'admin_' + tenantId;
+        const supSnap = await get(ref(_db, `tenants/${tenantId}/supervisors/${supId}`)).catch(() => null);
+        CU = { id: supId, name: supSnap && supSnap.exists() ? supSnap.val().name : TENANT_NAMES[tenantId], role: 'admin', officeId: tenantId };
+        CR = 'supervisor'; IS_RECV = savedRole === 'receiver';
+        if (IS_RECV) initRecvDash();
+        else { initDash(); listenSupNotifs(); startDriverListener(); }
+        return done(true);
+      }
+      return done(false);
+    } catch (e) { return done(false); }
+  });
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await registerSW();               // نسجّل Service Worker من أول ما الصفحة تفتح لأي زائر
+  const restored = await restoreSession();
+  if (!restored) initTenantGate();
+});
+
+/* من أي زر دخل المستخدم (مشرف / مستقبل / سائق) */
+window.tenantEnter = role => {
+  closeStaffPanel();
+  const pu = $('PU'); if (pu) pu.style.display = 'none';
+  $('PL').style.display = 'block';
+  const staffBtn = $('staffEntryBtn'); if (staffBtn) staffBtn.style.display = 'none';
+
+  if (role === 'driver') {
     setTimeout(() => OM('Mdriver'), 80);
   } else if (role === 'receiver') {
     IS_RECV = true;
@@ -64,7 +760,81 @@ window._installIOS = window.installPWA_ios = () => {
     IS_RECV = false;
     setTimeout(() => {
       const t = $('supModalTitle'); if (t) t.textContent = 'بوابة المشرف';
-      const o = $(        role: 'admin', officeId: tenantId, createdAt: Date.now(),
+      const o = $('supModalOfficeName'); if (o) o.textContent = 'سجّل الدخول بحساب مكتبك';
+      const n = $('recvLoginNote'); if (n) n.style.display = 'none';
+      OM('Msup');
+    }, 80);
+  }
+};
+
+/* فتح الخريطة العامة من Gate */
+window.openPubPageDirect = () => {
+  $('PTenantGate').style.display = 'none';
+  $('PL').style.display = 'block';
+  let tries = 0;
+  const interval = setInterval(() => {
+    tries++;
+    if (typeof window.openPubPage === 'function') { clearInterval(interval); window.openPubPage(); }
+    else if (tries > 30) clearInterval(interval);
+  }, 150);
+};
+
+window.dtab = t => {
+  $('dt1').classList.toggle('on', t === 'li');
+  $('dt2').classList.toggle('on', t === 'rg');
+  H('dli', t !== 'li'); H('drg', t !== 'rg');
+  clrAl();
+};
+
+/* ══════════════════════════════════════════════════
+   AUTH — SUPERVISOR / RECEIVER LOGIN  (Firebase Auth)
+   ══════════════════════════════════════════════════ */
+window.sLogin = async () => {
+  const email = ($('sl-email') ? ($('sl-email').value || '').trim() : '');
+  const pw = ($('sl-pw') ? ($('sl-pw').value || '').trim() : '');
+
+  if (!email || !pw) return shAl('al-sup', 'err', 'يرجى إدخال البريد وكلمة المرور');
+
+  const btn = $('sl-pw').closest('.mdl').querySelector('.ba');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<span class="spin"></span> جار الدخول...';
+  btn.disabled = true;
+
+  try {
+    const cred = await signInWithEmailAndPassword(_auth, email, pw);
+    const tenantId = EMAIL_TO_TENANT[email.toLowerCase()];
+
+    if (!tenantId) {
+      await signOut(_auth);
+      shAl('al-sup', 'err', '❌ هذا الحساب غير مصرح له');
+      btn.innerHTML = orig; btn.disabled = false;
+      return;
+    }
+
+    // ✅ التحقق الجديد: الإيميل يجب أن يطابق رمز المكتب المدخل في Gate
+    if (TENANT_ID && tenantId !== TENANT_ID) {
+      await signOut(_auth);
+      shAl('al-sup', 'err', `❌ هذا الحساب خاص بمكتب آخر (${tenantId}) — أنت في مكتب (${TENANT_ID})`);
+      btn.innerHTML = orig; btn.disabled = false;
+      return;
+    }
+
+    // باقي الكود كما هو...
+
+    /* 2. تعيين الـ Tenant */
+    TENANT_ID = tenantId;
+    TENANT_INFO = { name: TENANT_NAMES[tenantId] || tenantId };
+
+    document.querySelectorAll('.lgn1').forEach(el => el.textContent = TENANT_INFO.name);
+    document.title = TENANT_INFO.name + ' — منصة التاكسي';
+
+    /* 3. إنشاء / جلب سجل المشرف */
+    const supId = 'admin_' + tenantId;
+    const supSnap = await get(tRef(`supervisors/${supId}`)).catch(() => null);
+    if (!supSnap || !supSnap.exists()) {
+      await set(tRef(`supervisors/${supId}`), {
+        name: 'مشرف ' + TENANT_INFO.name,
+        role: 'admin', officeId: tenantId, createdAt: Date.now(),
       });
     }
     CU = { id: supId, name: TENANT_NAMES[tenantId], role: 'admin', officeId: tenantId };
@@ -380,7 +1150,236 @@ const listenDriverPushNotifs = drvId => {
       const sm = { new_request: 'request', edit_request: 'edit', cancel: 'cancel', sos: 'sos', user_request: 'request' };
       playSound(sm[n.type] || 'notif');
       vibrate(n.type === 'new_request' || n.type === 'user_request' ? [300, 100, 300] : n.type === 'sos' ? [500, 100, 500] : [200]);
-      await showPushNotif(n.    ];
+      await showPushNotif(n.title || 'منصة الطلبات', n.body || '', n.type || 'info');
+      update(tRef(`driverPushNotifs/${drvId}/${k}`), { read: true }).catch(() => { });
+    }
+  });
+  LSNRS.push({ r });
+};
+
+const listenDriverRequests = drvId => {
+  const r = tRef(`driverRequests/${drvId}`);
+  onValue(r, snap => {
+    if (!snap.exists()) return;
+    const all = snap.val(), curId = $('currentReqId').value;
+    if (curId && all[curId] && all[curId].status === 'cancelled') {
+      clearInterval(reqCountdownTimer);
+      $('ReqNotif').classList.remove('on'); $('currentReqId').value = '';
+      if (CU && (CU.taxiColor === 'red' || CU.status === 'busy')) {
+        update(tRef(`drivers/${CU.id}`), { taxiColor: 'green', status: 'online', lastSeen: Date.now() }).catch(() => { });
+        CU.taxiColor = 'green'; CU.status = 'online';
+        const b = $('drvStatusBadge'); if (b) b.innerHTML = getStatusBadge(CU);
+      }
+      playSound('cancel'); toast('info', '🚫 تم إلغاء الطلب', 'أنت الآن متاح 🟢'); return;
+    }
+    const pending = Object.entries(all)
+      .filter(([, rd]) => rd.status === 'pending' || rd.status === 'modified')
+      .sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0));
+    if (pending.length === 0) return;
+    const [rid, rd] = pending[0];
+    if (curId === rid && $('ReqNotif').classList.contains('on') && rd.status === 'pending') return;
+    if ($('ReqNotif').classList.contains('on')) { clearInterval(reqCountdownTimer); $('ReqNotif').classList.remove('on'); }
+    showDriverReq(rid, rd);
+  });
+  LSNRS.push({ r });
+};
+
+const showDriverReq = (rid, rd) => {
+  $('currentReqId').value = rid;
+  $('reqPhone').textContent = rd.phone || '-';
+  $('reqLocation').textContent = rd.details || '-';
+  $('reqTime').textContent = fmt(rd.ts || Date.now());
+  $('reqRejectArea').classList.remove('on'); $('reqRejectReason').value = '';
+  const msgBox = $('reqMsgBox');
+  if (rd.message) { msgBox.style.display = 'block'; $('reqMsgText').textContent = rd.message; }
+  else msgBox.style.display = 'none';
+  const modNotice = $('reqModNotice');
+  if (rd.status === 'modified' && rd.prevPhone) {
+    modNotice.style.display = 'block';
+    $('reqModText').textContent = `تعديل • ${rd.prevPhone} ← ${rd.phone}`;
+    playSound('edit'); vibrate([200, 100, 200]);
+    showPushNotif('✏️ تم تعديل طلبك', `📞 ${rd.phone}\n📍 ${rd.details}`, 'edit_request');
+  } else {
+    modNotice.style.display = 'none';
+    const rt = $('reqTitle'); if (rt) rt.textContent = rd.fromUser ? '🌐 طلب من مستخدم' : 'طلب جديد من المشرف';
+    playSound('request'); vibrate([300, 100, 300, 100, 300]);
+    showPushNotif(`📦 ${rd.fromUser ? 'طلب مستخدم' : 'طلب جديد'}`, `📞 ${rd.phone}\n📍 ${rd.details}`, 'new_request');
+  }
+  $('ReqNotif').classList.add('on');
+  let count = 60; $('reqCountNum').textContent = count;
+  clearInterval(reqCountdownTimer);
+  reqCountdownTimer = setInterval(async () => {
+    count--; const el = $('reqCountNum'); if (el) el.textContent = count;
+    if (count <= 0) {
+      clearInterval(reqCountdownTimer);
+      if ($('ReqNotif').classList.contains('on')) {
+        await update(tRef(`driverRequests/${CU.id}/${rid}`), { status: 'no_response' });
+        await push(tRef('notifications'), { type: 'timeout', driverId: CU.id, driverName: CU.name, reqId: rid, msg: `⏰ السائق ${CU.name} لم يرد`, ts: serverTimestamp(), read: false });
+        const rdSnap = await get(tRef(`driverRequests/${CU.id}/${rid}`)).catch(() => null);
+        if (rdSnap && rdSnap.exists()) {
+          const rdv = rdSnap.val();
+          if (rdv.fromUser && rdv.userReqRef) await update(ref(_db, rdv.userReqRef), { driverStatus: 'no_response' }).catch(() => { });
+        }
+        $('ReqNotif').classList.remove('on'); $('currentReqId').value = '';
+        toast('warn', 'انتهى الوقت', '');
+      }
+    }
+  }, 1000);
+};
+
+const _notifyUserReq = async (drvReqRef, status, extra = {}) => {
+  try {
+    const snap = await get(drvReqRef).catch(() => null);
+    if (snap && snap.exists()) {
+      const d = snap.val();
+      if (d.fromUser && d.userReqRef)
+        await update(ref(_db, d.userReqRef), { driverStatus: status, driverName: CU?.name || '', ...extra }).catch(() => { });
+    }
+  } catch (e) { }
+};
+
+window.acceptReq = async () => {
+  const rid = $('currentReqId').value; if (!rid) return;
+  clearInterval(reqCountdownTimer);
+  const snap = await get(tRef(`driverRequests/${CU.id}/${rid}`)).catch(() => null);
+  if (!snap || !snap.exists()) { $('ReqNotif').classList.remove('on'); return; }
+  const st = snap.val().status;
+  if (st === 'cancelled') { $('ReqNotif').classList.remove('on'); toast('warn', 'تم إلغاء هذا الطلب', ''); return; }
+  if (st !== 'pending' && st !== 'modified') { $('ReqNotif').classList.remove('on'); return; }
+  const ts = Date.now();
+  await update(tRef(`driverRequests/${CU.id}/${rid}`), { status: 'accepted', acceptedAt: ts });
+  await update(tRef(`drivers/${CU.id}`), { taxiColor: 'red', status: 'busy' });
+  CU.taxiColor = 'red';
+  await push(tRef('notifications'), { type: 'accept', driverId: CU.id, driverName: CU.name, reqId: rid, msg: `✅ السائق ${CU.name} قبل الطلب`, ts, read: false });
+  await _notifyUserReq(tRef(`driverRequests/${CU.id}/${rid}`), 'accepted', { acceptedAt: ts });
+  $('ReqNotif').classList.remove('on'); vibrate([200]); playSound('accept'); toast('ok', 'تم قبول الطلب 🚕', '');
+};
+window.showRejectInput = () => $('reqRejectArea').classList.toggle('on');
+window.submitReject = async () => {
+  const rid = $('currentReqId').value, reason = ($('reqRejectReason').value || '').trim();
+  if (!reason) return toast('warn', 'اكتب سبب الرفض', '');
+  clearInterval(reqCountdownTimer);
+  await _notifyUserReq(tRef(`driverRequests/${CU.id}/${rid}`), 'rejected');
+  await update(tRef(`driverRequests/${CU.id}/${rid}`), { status: 'rejected', rejectedAt: Date.now(), reason });
+  await push(tRef('notifications'), { type: 'reject', driverId: CU.id, driverName: CU.name, reqId: rid, reason, msg: `❌ السائق ${CU.name} رفض — ${reason}`, ts: serverTimestamp(), read: false });
+  $('ReqNotif').classList.remove('on'); vibrate([100, 50, 100]); playSound('reject'); toast('info', 'تم رفض الطلب', '');
+};
+
+window.inlineAccept = async id => {
+  const snap = await get(tRef(`driverRequests/${CU.id}/${id}`)).catch(() => null);
+  if (!snap || !snap.exists()) return toast('warn', 'الطلب غير موجود', '');
+  const rd = snap.val();
+  if (rd.status === 'cancelled') return toast('warn', 'تم إلغاء هذا الطلب', '');
+  if (rd.status !== 'pending' && rd.status !== 'modified') return;
+  const ts = Date.now();
+  await update(tRef(`driverRequests/${CU.id}/${id}`), { status: 'accepted', acceptedAt: ts });
+  await update(tRef(`drivers/${CU.id}`), { taxiColor: 'red', status: 'busy' });
+  CU.taxiColor = 'red'; CU.status = 'busy';
+  if ($('currentReqId').value === id) { clearInterval(reqCountdownTimer); $('ReqNotif').classList.remove('on'); $('currentReqId').value = ''; }
+  await push(tRef('notifications'), { type: 'accept', driverId: CU.id, driverName: CU.name, reqId: id, msg: `✅ السائق ${CU.name} قبل الطلب`, ts, read: false });
+  if (rd.fromUser && rd.userReqRef) await update(ref(_db, rd.userReqRef), { driverStatus: 'accepted', driverName: CU.name, acceptedAt: ts }).catch(() => { });
+  vibrate([200]); playSound('accept'); toast('ok', 'تم قبول الطلب 🚕', '');
+  const b = $('drvStatusBadge'); if (b) b.innerHTML = getStatusBadge(CU);
+};
+window.inlineReject = async id => {
+  const reason = prompt('سبب الرفض (مطلوب):', ''); if (!reason || !reason.trim()) return toast('warn', 'يرجى كتابة سبب الرفض', '');
+  const snap = await get(tRef(`driverRequests/${CU.id}/${id}`)).catch(() => null);
+  const rd = snap && snap.exists() ? snap.val() : {};
+  await update(tRef(`driverRequests/${CU.id}/${id}`), { status: 'rejected', rejectedAt: Date.now(), reason: reason.trim() });
+  if ($('currentReqId').value === id) { clearInterval(reqCountdownTimer); $('ReqNotif').classList.remove('on'); $('currentReqId').value = ''; }
+  await push(tRef('notifications'), { type: 'reject', driverId: CU.id, driverName: CU.name, reqId: id, reason: reason.trim(), msg: `❌ السائق ${CU.name} رفض — ${reason.trim()}`, ts: serverTimestamp(), read: false });
+  if (rd.fromUser && rd.userReqRef) await update(ref(_db, rd.userReqRef), { driverStatus: 'rejected' }).catch(() => { });
+  vibrate([100, 50, 100]); playSound('reject'); toast('info', 'تم رفض الطلب', '');
+};
+
+const updStatus = async s => {
+  if (!CU) return;
+  const cm = { online: 'green', busy: 'red', break: 'orange', pray: 'orange', waiting: 'orange', near: 'orange', offline: 'green' };
+  await update(tRef(`drivers/${CU.id}`), { status: s, taxiColor: cm[s] || 'green', lastSeen: Date.now() });
+  CU.taxiColor = cm[s] || 'green'; CU.status = s;
+};
+
+
+/* ══════════════════════════════════════════════════
+   SUPERVISOR — NOTIFS LISTENER
+   ══════════════════════════════════════════════════ */
+const listenSupNotifs = () => {
+  cleanNotifs();
+  startSmartAlerts();
+  const rPending = tRef('drivers');
+  onValue(rPending, snap => {
+    if (!snap.exists()) return;
+    const pending = Object.values(snap.val()).filter(d => d.approvalStatus === 'pending').length;
+    ['approval-badge', 'mob-approval-badge'].forEach(bid => {
+      const b = $(bid); if (b) { b.textContent = pending; b.style.display = pending > 0 ? 'inline' : 'none'; }
+    });
+  });
+  LSNRS.push({ r: rPending, keep: true });
+
+  const r = tRef('notifications');
+  onValue(r, snap => {
+    if (!snap.exists()) return;
+    const unread = Object.values(snap.val()).filter(n => !n.read).length;
+    ['notif-badge', 'mob-notif-badge'].forEach(bid => {
+      const b = $(bid); if (b) { b.textContent = unread; b.style.display = unread > 0 ? 'inline' : 'none'; }
+    });
+  });
+  LSNRS.push({ r, keep: true });
+  listenForUserRequests();
+};
+
+const listenForUserRequests = () => {
+  let knownKeys = {}, init = false;
+  const r = tRef('recvRequests');
+  onValue(r, snap => {
+    if (!snap.exists()) { init = true; return; }
+    const all = snap.val(), entries = Object.entries(all);
+    if (!init) { entries.forEach(([k]) => { knownKeys[k] = true; }); init = true; return; }
+    for (const [k, d] of entries) {
+      if (knownKeys[k]) continue; knownKeys[k] = true;
+      if (d.fromUser) {
+        playSound('request'); vibrate([300, 100, 300]);
+        showPushNotif('🌐 طلب مستخدم جديد!', `📞 ${d.phone}\n📍 ${d.details}`, 'user_request');
+        toast('info', '🌐 طلب جديد من مستخدم', `📞 ${d.phone}`);
+      }
+    }
+  });
+  LSNRS.push({ r, keep: true });
+};
+
+/* ══════════════════════════════════════════════════
+   INIT DASHBOARD
+   ══════════════════════════════════════════════════ */
+
+/* ══ WAKE LOCK ══ */
+let _wakeLock = null;
+const requestWakeLock = async () => {
+  if (!('wakeLock' in navigator)) return;
+  try { _wakeLock = await navigator.wakeLock.request('screen'); _wakeLock.addEventListener('release', () => { _wakeLock = null; }); } catch (e) { }
+};
+const releaseWakeLock = async () => {
+  if (_wakeLock) { try { await _wakeLock.release(); } catch (e) { } _wakeLock = null; }
+};
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && CR === 'driver' && CU) await requestWakeLock();
+});
+
+const initDash = () => {
+  $('PL').style.display = 'none'; $('PD').style.display = 'block';
+  const nav = $('navav'); nav.textContent = CR === 'driver' ? '🚕' : '👨‍💼';
+  if (CR === 'supervisor') nav.classList.add('sup-av');
+  const btn = $('staffEntryBtn'); if (btn) btn.style.display = 'none';
+
+  const tabs = $('ntabs'), mobNav = $('mobileNav'), mobTabs = $('mobTabs');
+
+  if (CR === 'driver') {
+    requestWakeLock();
+    const cfg = [
+      { id: 'reqs', icon: 'fas fa-inbox', label: 'الطلبات' },
+      { id: 'reports', icon: 'fas fa-chart-bar', label: 'تقاريري' },
+      { id: 'support', icon: 'fas fa-headset', label: 'دعم فني' },
+      { id: 'profile', icon: 'fas fa-user-cog', label: 'حسابي' },
+    ];
     tabs.innerHTML = cfg.map((t, i) => `<button class="ntab${i === 0 ? ' on' : ''}" id="nt-${t.id}" onclick="nTab('${t.id}')"><i class="${t.icon}"></i> ${t.label}</button>`).join('');
     if (mobNav && mobTabs) {
       mobNav.style.display = 'block';
@@ -390,7 +1389,86 @@ const listenDriverPushNotifs = drvId => {
     renderDriverReqs();
   } else {
 const cfg = [
-      { id: 'reqs', icon: '
+      { id: 'reqs', icon: 'fas fa-inbox', label: 'الطلبات' },
+      { id: 'map', icon: 'fas fa-map-location-dot', label: 'الخريطة' },
+      { id: 'heatmap', icon: 'fas fa-fire', label: 'الخريطة الحرارية' },
+      { id: 'hotzones', icon: 'fas fa-ranking-star', label: 'نظام حراري' },
+      { id: 'notifs', icon: 'fas fa-bell', label: 'التنبيهات', badge: true },      { id: 'approvals', icon: 'fas fa-user-check', label: 'الموافقات', badge2: true },
+      { id: 'reports', icon: 'fas fa-chart-bar', label: 'التقارير' },
+      { id: 'accounts', icon: 'fas fa-users', label: 'السائقون' },
+      { id: 'support', icon: 'fas fa-headset', label: 'دعم فني' },
+      { id: 'profile', icon: 'fas fa-user-cog', label: 'حسابي' },
+    ];
+    tabs.innerHTML = cfg.map((t, i) =>
+      `<button class="ntab${i === 0 ? ' sup-on' : ''}" id="nt-${t.id}" onclick="nTab('${t.id}')">
+        <i class="${t.icon}"></i> ${t.label}
+        ${t.badge ? `<span class="ntab-badge" id="notif-badge"    style="display:none">0</span>` : ''}
+        ${t.badge2 ? `<span class="ntab-badge" id="approval-badge" style="display:none;background:var(--green)">0</span>` : ''}
+      </button>`
+    ).join('');
+
+    const monBtn = document.createElement('button');
+    monBtn.id = 'monitorBtn'; monBtn.className = 'btn-primary';
+    monBtn.style.cssText = 'padding:7px 13px;font-size:11px;flex-shrink:0';
+    monBtn.innerHTML = '<i class="fas fa-tv"></i>'; monBtn.onclick = openMonitor;
+    const navr = $('navr'); if (navr && !$('monitorBtn')) navr.insertBefore(monBtn, navr.firstChild);
+
+    if (mobNav && mobTabs) {
+      mobNav.style.display = 'block';
+      mobTabs.innerHTML = cfg.map((t, i) =>
+        `<button class="mob-tab${i === 0 ? ' sup-on' : ''}" id="mnt-${t.id}" onclick="nTab('${t.id}')">
+          ${t.badge ? `<span class="mob-tab-badge" id="mob-notif-badge"    style="display:none">0</span>` : ''}
+          ${t.badge2 ? `<span class="mob-tab-badge" id="mob-approval-badge" style="display:none;background:var(--green)">0</span>` : ''}
+          <i class="${t.icon}"></i><span class="mob-label">${t.label}</span>
+        </button>`
+      ).join('');
+      mobTabs.innerHTML += `<button class="mob-tab" onclick="openMonitor()"><i class="fas fa-tv"></i><span class="mob-label">مراقبة</span></button>`;
+      mobTabs.innerHTML += `<button class="mob-tab" onclick="logout()" style="color:#F87171"><i class="fas fa-right-from-bracket"></i><span class="mob-label">خروج</span></button>`;
+    }
+    renderSupReqs();
+  }
+};
+
+let _tabBusy = false;
+window.nTab = t => {
+  if (_tabBusy) return; _tabBusy = true;
+  document.querySelectorAll('#ntabs .ntab').forEach(b => b.classList.remove('on', 'sup-on'));
+  const el = $('nt-' + t); if (el) el.classList.add(CR === 'supervisor' ? 'sup-on' : 'on');
+  document.querySelectorAll('#mobTabs .mob-tab').forEach(b => b.classList.remove('on', 'sup-on'));
+  const mel = $('mnt-' + t); if (mel) mel.classList.add(CR === 'supervisor' ? 'sup-on' : 'on');
+  clrListeners(true);
+  if (CR === 'driver') {
+    if (t === 'reqs') renderDriverReqs();
+    else if (t === 'reports') renderDriverReports();
+    else if (t === 'support') renderSupport('driver');
+    else renderDProfile();
+  } else {
+    if (t === 'reqs') renderSupReqs();
+    else if (t === 'map') renderMapSup();
+    else if (t === 'heatmap') renderHeatmap();
+    else if (t === 'hotzones') renderHotZones();
+    else if (t === 'notifs') renderNotifs();
+    else if (t === 'approvals') renderApprovals();
+    else if (t === 'reports') renderSupReports();
+    else if (t === 'accounts') renderAccs();
+    else if (t === 'support') renderSupport('supervisor');
+    else renderSProfile();
+  }
+  setTimeout(() => { _tabBusy = false; }, 400);
+};
+
+const clrListeners = (keepPerm = false) => {
+  LSNRS.forEach(({ r, keep, timer }) => {
+    if (keepPerm && keep) return;
+    if (timer) clearInterval(timer);
+    try { if (r) off(r); } catch (e) { }
+  });
+  if (keepPerm) { const kept = LSNRS.filter(l => l.keep); LSNRS.length = 0; kept.forEach(l => LSNRS.push(l)); }
+  else LSNRS.length = 0;
+  if (leafletMap) { try { leafletMap.remove(); } catch (e) { } leafletMap = null; mapMarkers = {}; }
+  if (window._inlineMap) { try { window._inlineMap.remove(); } catch (e) { } window._inlineMap = null; window._inlineMarkers = {}; }
+};
+
 const updateStatsUI = () => {
   const ent = Object.entries(allDrvs);
   const upd = (id, v) => { const e = $(id); if (e) e.textContent = v; };
